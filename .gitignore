@@ -34,3 +34,8 @@ coverage
 
 # Vitest
 __screenshots__/
+
+# Dependency directories
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
