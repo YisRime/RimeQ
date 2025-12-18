@@ -37,7 +37,7 @@ import {
   dateZhCN
 } from 'naive-ui'
 import { useOptionStore } from './stores/option'
-import MediaViewer from './views/Viewer.vue'
+import MediaViewer from './components/MediaViewer.vue'
 
 const optionStore = useOptionStore()
 

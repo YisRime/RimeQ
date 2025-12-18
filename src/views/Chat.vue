@@ -76,7 +76,7 @@
           <!-- 消息循环渲染 -->
           <MsgBubble
             v-for="(msg, index) in messages"
-            :key="msg.id || index"
+            :key="msg.message_id || index"
             :msg="msg"
             @contextmenu="handleContextMenu"
             @avatar-click="handleAvatarClick"
@@ -188,7 +188,7 @@ import { useMessage, useDialog, NButton, NTooltip } from 'naive-ui'
 import { useContactStore } from '@/stores/contact'
 import { useChatStore } from '@/stores/chat'
 import { useOptionStore } from '@/stores/option'
-import { botApi } from '@/api'
+import { bot } from '@/api'
 import { copyToClipboard } from '@/utils/dom'
 import type { Message } from '@/types'
 import { MsgType } from '@/types'
@@ -196,7 +196,7 @@ import { MsgType } from '@/types'
 // Components
 import MsgBubble from '@/components/MsgBubble.vue'
 import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
-import InputTool from '@/components/InputTool.vue'
+import InputTool from '@/components/InputAssistance.vue'
 
 defineOptions({
   name: 'ChatView'
@@ -362,20 +362,20 @@ const handleMenuSelect = async (key: string) => {
       break
     case 'recall':
       try {
-        await botApi.deleteMsg(Number(msg.id))
-        chatStore.deleteMessage(id.value, msg.id)
+        await bot.deleteMsg(msg.message_id)
+        chatStore.deleteMessage(id.value, msg.message_id)
         message.success('已撤回')
       } catch {
         message.error('撤回失败')
       }
       break
     case 'forward':
-      selectedIds.value = [msg.id]
-      chatStore.startForward([msg.id], 'single')
+      selectedIds.value = [msg.message_id]
+      chatStore.startForward([msg.message_id], 'single')
       break
     case 'select':
       isMultiSelectMode.value = true
-      selectedIds.value.push(msg.id)
+      selectedIds.value.push(msg.message_id)
       break
   }
 }
@@ -414,9 +414,9 @@ const handleAvatarClick = (userId: number) => {
 const handlePoke = (userId: number) => {
   const isGroup = id.value.length > 5
   if (isGroup) {
-    botApi.sendGroupPoke(Number(id.value), userId)
+    bot.sendGroupPoke(Number(id.value), userId)
   } else {
-    botApi.sendFriendPoke(userId)
+    bot.sendFriendPoke(userId)
   }
   chatStore.pushSystemMessage(id.value, `你戳了戳 ${userId}`)
 }

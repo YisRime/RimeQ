@@ -42,18 +42,18 @@
                   {{ item.request_type === 'friend' ? '好友申请' : '群邀请' }}
                 </span>
                 <span
-                  v-if="!item.status"
+                  v-if="!(item as any).status"
                   class="px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 text-xs rounded-full"
                 >
                   待处理
                 </span>
               </div>
-              <span class="text-xs text-gray-400 flex-shrink-0">{{ formatTime(item.time) }}</span>
+              <span class="text-xs text-gray-400 flex-shrink-0">{{ formatTime(item.time * 1000) }}</span>
             </div>
 
             <!-- 申请人信息 -->
             <div class="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              <span class="text-primary font-medium">{{ item.nickname || `用户 ${item.user_id}` }}</span>
+              <span class="text-primary font-medium">{{ item.user_id }}</span>
               <span class="mx-1">
                 {{
                   item.sub_type === 'invite'
@@ -75,14 +75,17 @@
             </div>
 
             <!-- 操作按钮 -->
-            <div v-if="!item.status" class="flex justify-end gap-3 mt-3">
+            <div v-if="!(item as any).status" class="flex justify-end gap-3 mt-3">
               <n-button size="small" :loading="loading" @click="handleRequest(item, false)">拒绝</n-button>
               <n-button size="small" type="primary" :loading="loading" @click="handleRequest(item, true)">
                 同意
               </n-button>
             </div>
             <div v-else class="flex justify-end mt-3 text-sm">
-              <span v-if="item.status === 'approve'" class="text-green-600 dark:text-green-400 flex items-center gap-1">
+              <span
+                v-if="(item as any).status === 'approve'"
+                class="text-green-600 dark:text-green-400 flex items-center gap-1"
+              >
                 <div class="i-ri-check-line" />
                 已同意
               </span>
@@ -102,8 +105,8 @@
 import { ref } from 'vue'
 import { NScrollbar, NEmpty, NAvatar, NButton, useMessage } from 'naive-ui'
 import { useContactStore } from '@/stores/contact'
-import type { SystemNotice } from '@/stores/contact'
-import { botApi } from '@/api'
+import type { SystemNotice } from '@/types'
+import { bot } from '@/api'
 import { formatTime } from '@/utils/format'
 import { useRouter } from 'vue-router'
 
@@ -112,27 +115,23 @@ const message = useMessage()
 const router = useRouter()
 const loading = ref(false)
 
-// 返回按钮逻辑（移动端使用）
 const goBack = () => {
-  const currentPath = router.currentRoute.value.path
-  // 从联系人子页返回联系人列表
-  if (currentPath.startsWith('/contacts/')) {
-    router.push('/contacts')
-  } else {
-    router.push('/chats')
-  }
+  router.push('/chats')
 }
 
 const handleRequest = async (item: SystemNotice, approve: boolean) => {
-  if (loading.value) return
+  if (loading.value || !item.flag) return
   loading.value = true
 
   try {
     if (item.request_type === 'friend') {
-      await botApi.setFriendAddRequest(item.flag, approve)
-    } else {
-      await botApi.setGroupAddRequest(item.flag, item.sub_type || 'add', approve)
+      await bot.setFriendAddRequest(item.flag, approve)
+    } else if (item.request_type === 'group') {
+      // sub_type: add / invite
+      await bot.setGroupAddRequest(item.flag, item.sub_type || 'add', approve)
     }
+
+    // 更新 store 状态 (需要扩展 SystemNotice 类型或使用断言)
     contactStore.updateNoticeStatus(item.flag, approve ? 'approve' : 'reject')
     message.success(approve ? '已同意' : '已拒绝')
   } catch (e) {

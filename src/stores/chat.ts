@@ -2,34 +2,34 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Message, MessageSegment } from '../types'
 import { MsgType } from '../types'
-import { botApi } from '../api'
+import { bot } from '../api'
 import { parseMsgList, determineMsgType } from '../utils/msg-parser'
 import { useAuthStore } from './auth'
 import { useContactStore } from './contact'
 import { useOptionStore } from './option'
+
+// 本地 UI 扩展的消息类型
+export type ChatMessage = Message & {
+  isSending?: boolean
+  isError?: boolean
+  isDeleted?: boolean
+}
 
 export const useChatStore = defineStore('chat', () => {
   const authStore = useAuthStore()
   const contactStore = useContactStore()
   const optionStore = useOptionStore()
 
-  // 消息映射表: key=peerId, value=Message[]
-  const messageMap = ref<Record<string, Message[]>>({})
-
-  // 禁言状态表: key=peerId, value=禁言结束时间戳(ms)
+  // 存储的是扩展后的 ChatMessage
+  const messageMap = ref<Record<string, ChatMessage[]>>({})
   const banMap = ref<Record<string, number>>({})
-
-  // 当前正在引用的消息 (回复功能)
   const replyMessage = ref<Message | null>(null)
-
-  // 历史记录加载状态
   const isLoadingHistory = ref(false)
   const noMoreHistory = ref<Record<string, boolean>>({})
 
-  // 转发状态
   const forwardingState = ref<{
     isActive: boolean
-    messageIds: string[]
+    messageIds: number[]
     type: 'single' | 'batch'
   }>({
     isActive: false,
@@ -37,47 +37,35 @@ export const useChatStore = defineStore('chat', () => {
     type: 'single'
   })
 
-  /**
-   * 消息工厂：标准化消息对象创建
-   */
+  // 统一消息创建工厂
   function createMessageModel(params: {
-    id: string
-    seq?: number
+    message_id: number
+    real_id?: number
     time: number
-    type: MsgType
-    sender: {
-      userId: number
-      nickname: string
-      avatar: string
-      card?: string
-      role?: 'owner' | 'admin' | 'member'
-    }
-    content: Message['content']
-    raw_content?: MessageSegment[]
-    isMe: boolean
+    message_type: 'private' | 'group'
+    sender: Message['sender']
+    message: MessageSegment[]
+    raw_message?: string
     isSending?: boolean
     isError?: boolean
     isDeleted?: boolean
-  }): Message {
+  }): ChatMessage {
     return {
-      id: params.id,
-      seq: params.seq ?? 0,
+      message_id: params.message_id,
+      real_id: params.real_id,
       time: params.time,
-      type: params.type,
+      message_type: params.message_type,
       sender: params.sender,
-      content: params.content,
-      raw_content: params.raw_content,
-      isMe: params.isMe,
+      message: params.message,
+      raw_message: params.raw_message,
+      // UI 状态
       isSending: params.isSending,
       isError: params.isError,
-      isDeleted: params.isDeleted
+      isDeleted: params.isDeleted,
+      // 注意：这里没有 is_me 字段了，由组件根据 sender.user_id 判断
     }
   }
 
-  /**
-   * 获取指定会话的消息列表（仅返回现有数据，不触发请求）
-   * @param peerId 会话标识
-   */
   function getMessages(peerId: string) {
     if (!messageMap.value[peerId]) {
       messageMap.value[peerId] = []
@@ -85,37 +73,53 @@ export const useChatStore = defineStore('chat', () => {
     return messageMap.value[peerId]
   }
 
-  /**
-   * 加载聊天历史记录 - 显式 Action
-   * @param peerId 会话标识
-   */
   async function loadHistory(peerId: string) {
     if (!messageMap.value[peerId]) messageMap.value[peerId] = []
     await fetchHistory(peerId)
   }
 
-  /**
-   * 获取聊天历史记录 - 对应 OneBot API: get_chat_history
-   * @param peerId 会话标识
-   */
   async function fetchHistory(peerId: string) {
     if (isLoadingHistory.value || noMoreHistory.value[peerId]) return
     isLoadingHistory.value = true
+
     const currentMsgs = messageMap.value[peerId] || []
-    const firstRealMsg = currentMsgs.find(m => !m.id.startsWith('temp-') && !m.id.startsWith('sys-') && !m.id.startsWith('poke-'))
-    const startMsgId = firstRealMsg ? Number(firstRealMsg.id) : 0
+    const firstRealMsg = currentMsgs.find(m => m.message_id > 0 && m.message_id < 2000000000)
+    const startSeq = firstRealMsg ? (firstRealMsg.real_id || firstRealMsg.message_id) : 0
+
     try {
       const isGroup = peerId.length > 5
-      const params: Record<string, number> & { message_id?: number } = { count: 20 }
-      if (isGroup) params.group_id = Number(peerId)
-      else params.user_id = Number(peerId)
-      if (startMsgId !== 0) params.message_id = startMsgId
-      const messages = await botApi.getChatHistory(params, authStore.loginInfo?.userId)
-      if (messages.length === 0) noMoreHistory.value[peerId] = true
-      else {
-        const newMsgs = messages.filter((m: Message) => !currentMsgs.some(ex => ex.id === m.id))
-        if (newMsgs.length > 0) messageMap.value[peerId] = [...newMsgs, ...currentMsgs]
-        else noMoreHistory.value[peerId] = true
+      let messages: any[] = []
+
+      if (isGroup) {
+        const res = await bot.getGroupMsgHistory(Number(peerId), startSeq === 0 ? undefined : startSeq)
+        messages = res.messages || []
+      } else {
+        const res = await bot.getFriendMsgHistory(Number(peerId), startSeq === 0 ? undefined : startSeq)
+        messages = res.messages || []
+      }
+
+      if (messages.length === 0) {
+        noMoreHistory.value[peerId] = true
+      } else {
+        const parsedMsgs = messages.map((m: any) => {
+          const content = typeof m.message === 'string' ? parseMsgList(m.message).raw : m.message
+          return createMessageModel({
+            message_id: m.message_id,
+            real_id: m.real_id,
+            time: m.time,
+            message_type: isGroup ? 'group' : 'private',
+            sender: m.sender,
+            message: content,
+            raw_message: m.raw_message
+          })
+        })
+
+        const newMsgs = parsedMsgs.filter(m => !currentMsgs.some(ex => ex.message_id === m.message_id))
+        if (newMsgs.length > 0) {
+          messageMap.value[peerId] = [...newMsgs, ...currentMsgs]
+        } else {
+          noMoreHistory.value[peerId] = true
+        }
       }
     } catch (e) {
       console.error('Get chat history failed', e)
@@ -124,45 +128,39 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  /**
-   * 添加消息到指定会话 - 内部方法
-   * @param peerId 会话标识
-   */
-  function addMessage(peerId: string, msg: Message) {
+  function addMessage(peerId: string, msg: ChatMessage) {
     if (!messageMap.value[peerId]) {
       messageMap.value[peerId] = []
     }
-    if (messageMap.value[peerId].some(m => m.id === msg.id)) return
+    if (messageMap.value[peerId].some(m => m.message_id === msg.message_id)) return
     messageMap.value[peerId].push(msg)
   }
 
-  /**
-   * 添加系统消息
-   * @param peerId 会话标识
-   */
   function addSysMsg(peerId: string, text: string) {
-    const msg = createMessageModel({ id: `sys-${Date.now()}-${Math.random()}`, time: Date.now(), type: MsgType.System, sender: { userId: 0, nickname: 'System', avatar: '' }, content: text, isMe: false })
+    const msg = createMessageModel({
+      message_id: -Math.floor(Math.random() * 1000000),
+      time: Date.now() / 1000,
+      message_type: peerId.length > 5 ? 'group' : 'private',
+      sender: { user_id: 0, nickname: 'System' }, // Sender 必须包含 user_id 和 nickname
+      message: [{ type: MsgType.System, data: { text } }], // 这里使用了 System 类型，注意 MsgType 枚举中需包含 System 或复用 Text
+    })
+    // 手动修正 type，如果 MsgType 枚举没有 System，UI 需要适配
+    if (msg.message[0]) msg.message[0].type = 'system'
     addMessage(peerId, msg)
   }
 
-  /**
-   * 删除消息 - 对应 OneBot API: delete_msg
-   * @param peerId 会话标识
-   * @param msgId 消息ID
-   */
-  function deleteMessage(peerId: string, msgId: string) {
+  function deleteMessage(peerId: string, msgId: number) {
     const list = messageMap.value[peerId]
     if (!list) return
-    const idx = list.findIndex(m => m.id === msgId)
+    const idx = list.findIndex(m => m.message_id === msgId)
 
     if (idx !== -1) {
       const msg = list[idx]!
       if ((optionStore.config as { opt_anti_recall?: boolean }).opt_anti_recall) {
         msg.isDeleted = true
       } else {
-        msg.type = MsgType.System
-        msg.content = '该消息已被撤回'
-        msg.raw_content = undefined
+        // 替换为撤回提示
+        msg.message = [{ type: 'system', data: { text: '该消息已被撤回' } }]
       }
     }
   }
@@ -185,30 +183,20 @@ export const useChatStore = defineStore('chat', () => {
     return true
   }
 
-  /**
-   * 设置当前回复引用的消息
-   */
   function setReplyMessage(msg: Message | null) {
     replyMessage.value = msg
   }
 
-  /**
-   * 发送消息 - 对应 OneBot API: send_msg / send_group_msg / send_private_msg
-   * @param peerId 会话标识
-   */
-  async function sendMsg(peerId: string, content: string | { type: string; data: Record<string, unknown> }[]) {
+  async function sendMsg(peerId: string, content: string | MessageSegment[]) {
     const isGroup = peerId.length > 5
+    const chain: MessageSegment[] = []
 
-    // 构建消息链
-    const chain: { type: string; data: Record<string, unknown> }[] = []
-
-    // 1. 处理引用回复
+    // 1. 处理回复
     if (replyMessage.value) {
       chain.push({
         type: 'reply',
-        data: { id: replyMessage.value.id }
+        data: { id: String(replyMessage.value.message_id) }
       })
-      // 发送后清除引用状态
       replyMessage.value = null
     }
 
@@ -219,37 +207,33 @@ export const useChatStore = defineStore('chat', () => {
       chain.push(...content)
     }
 
-    // 3. 乐观更新 (UI显示)
-    const tempId = `temp-${Date.now()}`
+    // 3. 乐观更新
+    const tempId = -Math.floor(Date.now() % 10000000)
+    // 关键点：发送者必须是自己，这样 MsgBubble 才能识别为 isMe
     const currentLoginInfo = authStore.loginInfo!
     const newMsg = createMessageModel({
-      id: tempId,
-      time: Date.now(),
-      type: typeof content === 'string' ? MsgType.Text : determineMsgType(content),
+      message_id: tempId,
+      time: Date.now() / 1000,
+      message_type: isGroup ? 'group' : 'private',
       sender: {
-        userId: currentLoginInfo.userId,
-        nickname: currentLoginInfo.nickname,
-        avatar: currentLoginInfo.avatar
+        user_id: currentLoginInfo.user_id,
+        nickname: currentLoginInfo.nickname
       },
-      content: typeof content === 'string'
-        ? { text: content, images: [], files: [], faces: [], replyId: null, atUserId: null, raw: [] }
-        : parseMsgList(content),
-      raw_content: typeof content === 'string' ? undefined : content,
-      isMe: true,
+      message: chain,
       isSending: true
     })
 
     addMessage(peerId, newMsg)
 
-    // 更新会话列表预览
-    const preview = newMsg.type === MsgType.Image ? '[图片]' : (typeof content === 'string' ? content : '[消息]')
+    // 更新列表预览
+    const preview = determineMsgType(chain) === MsgType.Image ? '[图片]' : (typeof content === 'string' ? content : '[消息]')
     contactStore.update(peerId, { msg: preview, time: Date.now() })
 
     // 4. 网络请求
     try {
-      const res = isGroup ? await botApi.sendGroupMsg(Number(peerId), chain) : await botApi.sendPrivateMsg(Number(peerId), chain)
+      const res = await bot.sendMsg(Number(peerId), chain, isGroup)
       newMsg.isSending = false
-      if (res && res.message_id) newMsg.id = String(res.message_id)
+      if (res && res.message_id) newMsg.message_id = res.message_id
     } catch (e) {
       console.error('Send failed', e)
       newMsg.isSending = false
@@ -257,156 +241,42 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  /**
-   * 处理戳一戳通知
-   */
-  function handlePokeNotice(params: {
-    peerId: string
-    senderId: number
-    targetId: number
-  }) {
+  function startForward(messageIds: number[], type: 'single' | 'batch') {
+    forwardingState.value = { isActive: true, messageIds, type }
+  }
+
+  function cancelForward() {
+    forwardingState.value = { isActive: false, messageIds: [], type: 'single' }
+  }
+
+  function handlePokeNotice(params: { peerId: string, senderId: number, targetId: number }) {
     const { peerId, senderId, targetId } = params
-    const myUserId = authStore.loginInfo?.userId
+    const myUserId = authStore.loginInfo?.user_id
     const isMe = targetId === myUserId
     const text = isMe ? `${senderId} 戳了戳你` : `你戳了戳 ${targetId}`
-
-    const msgObj = createMessageModel({
-      id: `poke-${Date.now()}`,
-      time: Date.now(),
-      type: MsgType.System,
-      sender: { userId: 0, nickname: 'System', avatar: '' },
-      content: text,
-      isMe: false
-    })
-    addMessage(peerId, msgObj)
+    addSysMsg(peerId, text)
   }
 
-  /**
-   * 处理群文件上传通知
-   */
-  function handleGroupUpload(params: {
-    groupId: string
-    userId: number
-    file: {
-      name: string
-      size: number
-      url?: string
-      busid?: number
-    }
-  }) {
-    const { groupId, userId, file } = params
-    const myUserId = authStore.loginInfo?.userId
-
-    const msgObj = createMessageModel({
-      id: `file-${Date.now()}`,
-      time: Date.now(),
-      type: MsgType.File,
-      sender: {
-        userId: userId,
-        nickname: 'Unknown',
-        avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${userId}`
-      },
-      content: {
-        text: `[文件] ${file.name}`,
-        images: [],
-        files: [{
-          name: file.name,
-          size: file.size,
-          url: file.url,
-          id: file.busid?.toString()
-        }],
-        replyId: null,
-        atUserId: null,
-        faces: [],
-        raw: []
-      },
-      isMe: userId === myUserId
-    })
-    addMessage(groupId, msgObj)
-  }
-
-  /**
-   * 处理群禁言通知
-   */
-  function handleGroupBan(params: {
-    groupId: string
-    userId: number
-    operatorId: number
-    duration: number
-    isBan: boolean
-  }) {
+  function handleGroupBan(params: { groupId: string, userId: number, duration: number, isBan: boolean }) {
     const { groupId, userId, duration, isBan } = params
-    const myUserId = authStore.loginInfo?.userId
+    const myUserId = authStore.loginInfo?.user_id
+    if (userId === myUserId) setBanState(groupId, isBan, duration)
+    const text = isBan ? `成员 ${userId} 被禁言 ${duration} 秒` : `成员 ${userId} 被解除禁言`
+    addSysMsg(groupId, text)
+  }
 
-    if (userId === myUserId) {
-      setBanState(groupId, isBan, duration)
-      const text = isBan ? `你被管理员禁言 ${duration} 秒` : '你已被解除禁言'
-      addSysMsg(groupId, text)
-    } else {
-      const text = isBan ? `成员 ${userId} 被禁言 ${duration} 秒` : `成员 ${userId} 被解除禁言`
-      addSysMsg(groupId, text)
+  function handleGroupIncrease(params: { groupId: string, userId: number }) {
+    contactStore.getGroupMemberList(Number(params.groupId), true)
+    addSysMsg(params.groupId, `欢迎 ${params.userId} 加入群聊`)
+  }
+
+  function handleGroupDecrease(params: { groupId: string, userId: number }) {
+    const myUserId = authStore.loginInfo?.user_id
+    if (params.userId === myUserId) addSysMsg(params.groupId, '你已退出该群')
+    else {
+      contactStore.getGroupMemberList(Number(params.groupId), true)
+      addSysMsg(params.groupId, `${params.userId} 已离开群聊`)
     }
-  }
-
-  /**
-   * 处理群成员增加通知
-   */
-  function handleGroupIncrease(params: {
-    groupId: string
-    userId: number
-  }) {
-    const { groupId, userId } = params
-    contactStore.getGroupMemberList(Number(groupId), true)
-    addSysMsg(groupId, `欢迎 ${userId} 加入群聊`)
-  }
-
-  /**
-   * 处理群成员减少通知
-   */
-  function handleGroupDecrease(params: {
-    groupId: string
-    userId: number
-  }) {
-    const { groupId, userId } = params
-    const myUserId = authStore.loginInfo?.userId
-
-    if (userId === myUserId) {
-      addSysMsg(groupId, '你已退出该群')
-    } else {
-      contactStore.getGroupMemberList(Number(groupId), true)
-      addSysMsg(groupId, `${userId} 已离开群聊`)
-    }
-  }
-
-  /**
-   * 开始转发模式
-   */
-  function startForward(messageIds: string[], type: 'single' | 'batch') {
-    forwardingState.value = {
-      isActive: true,
-      messageIds,
-      type
-    }
-  }
-
-  /**
-   * 取消转发模式
-   */
-  function cancelForward() {
-    forwardingState.value = {
-      isActive: false,
-      messageIds: [],
-      type: 'single'
-    }
-  }
-
-  /**
-   * 完成转发 (发送给目标)
-   */
-  function completeForward() {
-    // 转发逻辑应该在 ForwardBar 中处理
-    // 这里只是清理状态
-    cancelForward()
   }
 
   return {
@@ -417,7 +287,6 @@ export const useChatStore = defineStore('chat', () => {
     forwardingState,
     getMessages,
     loadHistory,
-    fetchHistory,
     addMessage,
     addSysMsg,
     deleteMessage,
@@ -426,17 +295,13 @@ export const useChatStore = defineStore('chat', () => {
     setReplyMessage,
     sendMsg,
     handlePokeNotice,
-    handleGroupUpload,
     handleGroupBan,
     handleGroupIncrease,
     handleGroupDecrease,
     startForward,
     cancelForward,
-    completeForward,
     loadChatHistory: loadHistory,
-    getChatHistory: fetchHistory,
     pushSystemMessage: addSysMsg,
     sendMessage: sendMsg
   }
 })
-

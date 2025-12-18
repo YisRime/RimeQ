@@ -42,7 +42,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { NScrollbar, NAvatar, NEmpty } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
-import { botApi } from '@/api'
+import { bot } from '@/api'
 import { formatTime } from '@/utils/format'
 
 const props = defineProps<{ groupId?: string }>()
@@ -64,7 +64,7 @@ const loading = ref(false)
 const loadEssence = async () => {
   loading.value = true
   try {
-    const res = await botApi.getEssenceMsgList(Number(groupId.value))
+    const res = await bot.getEssenceMsgList(Number(groupId.value))
     list.value = res
   } catch (e) {
     console.error('加载精华消息失败', e)

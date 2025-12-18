@@ -20,13 +20,13 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'chats/:id?',
-        component: () => import('@/views/Session.vue'),
+        component: () => import('@/views/Chat.vue'),
         children: [
           {
             path: 'detail',
             name: 'ChatDetail',
             components: {
-              sidebar: () => import('@/views/pages/InfoPanel.vue')
+              sidebar: () => import('@/views/pages/PanelChatInfo.vue')
             },
             props: { sidebar: true }
           },
@@ -34,7 +34,7 @@ const routes: RouteRecordRaw[] = [
             path: 'files',
             name: 'GroupFiles',
             components: {
-              sidebar: () => import('@/views/pages/FilePanel.vue')
+              sidebar: () => import('@/views/pages/PanelGroupFile.vue')
             },
             props: { sidebar: true }
           },
@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
             path: 'notice',
             name: 'GroupNotice',
             components: {
-              sidebar: () => import('@/views/pages/NoticePanel.vue')
+              sidebar: () => import('@/views/pages/PanelAnnounce.vue')
             },
             props: { sidebar: true }
           },
@@ -50,7 +50,7 @@ const routes: RouteRecordRaw[] = [
             path: 'essence',
             name: 'GroupEssence',
             components: {
-              sidebar: () => import('@/views/pages/EssencePanel.vue')
+              sidebar: () => import('@/views/pages/PanelEssence.vue')
             },
             props: { sidebar: true }
           }
@@ -59,7 +59,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'options',
         name: 'Options',
-        component: () => import('@/views/Option.vue')
+        component: () => import('@/views/Setting.vue')
       },
       {
         path: 'contacts/new-friends',

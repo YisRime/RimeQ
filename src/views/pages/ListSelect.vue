@@ -69,7 +69,8 @@
                   :class="{ 'bg-primary/10': selectedId === String(friend.user_id) }"
                   @click="handleSelect(String(friend.user_id))"
                 >
-                  <n-avatar round :src="friend.avatar" size="medium" />
+                  <!-- 好友头像需要拼接 -->
+                  <n-avatar round :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`" size="medium" />
                   <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium truncate">{{ friend.remark || friend.nickname }}</div>
                   </div>
@@ -94,7 +95,7 @@
                   :class="{ 'bg-primary/10': selectedId === String(group.group_id) }"
                   @click="handleSelect(String(group.group_id))"
                 >
-                  <n-avatar round :src="group.avatar" size="medium" />
+                  <n-avatar round :src="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`" size="medium" />
                   <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium truncate">{{ group.group_name }}</div>
                   </div>
@@ -124,9 +125,8 @@ import { useRouter } from 'vue-router'
 import { NInput, NTabs, NTabPane, NScrollbar, NAvatar, NButton, NCollapse, NCollapseItem, useMessage } from 'naive-ui'
 import { useContactStore } from '@/stores/contact'
 import { useChatStore } from '@/stores/chat'
-import { botApi } from '@/api'
-import type { Message } from '@/types'
-import { MsgType } from '@/types'
+import { bot } from '@/api'
+import type { ForwardNode } from '@/types'
 
 defineOptions({ name: 'ForwardBar' })
 
@@ -158,19 +158,6 @@ const filteredGroups = computed(() =>
 
 const filteredContacts = computed(() => [...filteredFriends.value, ...filteredGroups.value])
 
-// 当前会话 ID (从路由获取)
-const currentSessionId = computed(() => {
-  const route = router.currentRoute.value
-  return (route.params.id as string) || ''
-})
-
-// 获取待转发的消息
-const forwardMessages = computed(() => {
-  if (!currentSessionId.value) return []
-  const allMsgs = chatStore.getMessages(currentSessionId.value)
-  return allMsgs.filter((m) => chatStore.forwardingState.messageIds.includes(m.id))
-})
-
 // 选择目标
 const handleSelect = (id: string) => {
   selectedId.value = id
@@ -185,45 +172,45 @@ const handleCancel = () => {
 const handleConfirm = async () => {
   if (!selectedId.value) return
 
-  const targetId = selectedId.value
-  const isGroup = targetId.length > 5
-  const msgs = forwardMessages.value
+  const targetId = Number(selectedId.value)
+  const isGroup = selectedId.value.length > 5 // 简单判断
+
+  // 从 Store 获取原始消息对象
+  const currentSessionId = router.currentRoute.value.params.id as string
+  const msgs = chatStore
+    .getMessages(currentSessionId)
+    .filter((m) => chatStore.forwardingState.messageIds.includes(m.message_id))
+
+  if (msgs.length === 0) {
+    message.warning('未选择任何消息')
+    return
+  }
 
   message.loading('正在转发...')
 
   try {
-    if (chatStore.forwardingState.type === 'single' && msgs.length === 1) {
-      const msg = msgs[0]!
-      if (msg.type === MsgType.Text && typeof msg.content !== 'string') {
-        await chatStore.sendMessage(targetId, msg.content.text)
-      } else {
-        await sendMergeForward(targetId, isGroup, msgs)
+    // 构造 OneBot 标准的 Forward Node
+    const nodes: ForwardNode[] = msgs.map((m) => ({
+      type: 'node',
+      data: {
+        nickname: m.sender.nickname,
+        user_id: m.sender.user_id,
+        // 优先使用原始消息链，如果不存在则使用 content (可能需要转换)
+        content: m.message
       }
+    }))
+
+    if (isGroup) {
+      await bot.sendGroupForwardMsg(targetId, nodes)
     } else {
-      await sendMergeForward(targetId, isGroup, msgs)
+      await bot.sendPrivateForwardMsg(targetId, nodes)
     }
+
     message.success('转发成功')
     chatStore.cancelForward()
   } catch (e) {
     message.error('转发失败')
     console.error(e)
-  }
-}
-
-const sendMergeForward = async (targetId: string, isGroup: boolean, msgs: Message[]) => {
-  const nodes = msgs.map((m) => ({
-    type: 'node',
-    data: {
-      name: m.sender.nickname,
-      uin: String(m.sender.userId),
-      content: m.raw_content || (typeof m.content !== 'string' ? m.content.text : m.content) || '[消息]'
-    }
-  }))
-
-  if (isGroup) {
-    await botApi.sendGroupForwardMsg(Number(targetId), nodes)
-  } else {
-    await botApi.sendPrivateForwardMsg(Number(targetId), nodes)
   }
 }
 </script>

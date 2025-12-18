@@ -132,7 +132,7 @@ import { ref, computed, onMounted } from 'vue'
 import { NAvatar, NSwitch, NButton, NInput, NModal, NScrollbar, NTag, useMessage, useDialog } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { useContactStore } from '@/stores/contact'
-import { botApi } from '@/api'
+import { bot } from '@/api'
 import { useClipboard } from '@vueuse/core'
 
 defineOptions({
@@ -176,7 +176,7 @@ const fullMemberSearchKey = ref('')
 const loadGroupMembers = async () => {
   if (info.value?.type !== 'group') return
   try {
-    const members = await botApi.getGroupMemberList(Number(sessionId.value))
+    const members = await bot.getGroupMemberList(Number(sessionId.value))
     memberList.value = (members as GroupMember[]).map((m) => ({
       user_id: m.user_id,
       nickname: m.nickname || String(m.user_id),
@@ -271,9 +271,9 @@ const onExit = () => {
     onPositiveClick: async () => {
       try {
         if (isGroup) {
-          await botApi.setGroupLeave(Number(sessionId.value), false)
+          await bot.setGroupLeave(Number(sessionId.value), false)
         } else {
-          await botApi.deleteFriend(Number(sessionId.value))
+          await bot.deleteFriend(Number(sessionId.value))
         }
         message.success('操作成功')
         contactStore.removeContact(sessionId.value)

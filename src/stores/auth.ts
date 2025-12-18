@@ -1,21 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useStorage } from '@vueuse/core'
-import { botApi } from '../api'
+import { bot } from '../api'
 import { useContactStore } from './contact'
+import type { LoginInfo } from '../types'
 
 export interface LoginConfig {
   address: string
   token: string
   remember: boolean
   autoConnect: boolean
-}
-
-// OneBot v11 标准：get_login_info 返回的结构
-export interface LoginInfo {
-  userId: number  // user_id
-  nickname: string
-  avatar: string  // 扩展字段
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -27,7 +21,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => isConnected.value && !!loginInfo.value)
 
-  // 使用 useStorage 简化配置持久化
   const savedConfig = useStorage<LoginConfig | null>('webqq_auth_config', null, localStorage)
 
   function getSavedConfig(): LoginConfig | null {
@@ -51,25 +44,17 @@ export const useAuthStore = defineStore('auth', () => {
     isConnecting.value = true
 
     try {
-      // 配置 WebSocket 重连回调，提供获取最新连接参数的函数
-      botApi.wsService.setReconnectCallback(() => {
-        if (address.value && isConnected.value) {
-          return { address: address.value, token: token.value }
-        }
-        return null
-      })
+      // socket.ts 内置了自动重连逻辑，无需手动设置 callback
+      await bot.connect(config.address, config.token)
 
-      await botApi.connect(config.address, config.token)
-
-      const apiLoginInfo = await botApi.getLoginInfo()
+      const apiLoginInfo = await bot.getLoginInfo()
       if (!apiLoginInfo) {
         throw new Error('Failed to get login info')
       }
 
       loginInfo.value = {
-        userId: apiLoginInfo.user_id,  // 使用 userId
-        nickname: apiLoginInfo.nickname,
-        avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${apiLoginInfo.user_id}`
+        user_id: apiLoginInfo.user_id,
+        nickname: apiLoginInfo.nickname
       }
       isConnected.value = true
       isConnecting.value = false
@@ -82,17 +67,16 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Login failed:', error)
       isConnected.value = false
       isConnecting.value = false
-      loginInfo.value = null  // currentUser -> loginInfo
+      loginInfo.value = null
       throw error
     }
   }
 
   function logout() {
-    botApi.disconnect()
-    botApi.wsService.setReconnectCallback(null) // 清除重连回调
+    bot.disconnect()
     isConnected.value = false
     isConnecting.value = false
-    loginInfo.value = null  // currentUser -> loginInfo
+    loginInfo.value = null
   }
 
   return {
@@ -100,7 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     isConnecting,
     token,
     address,
-    loginInfo,  // currentUser -> loginInfo
+    loginInfo,
     isAuthenticated,
     getSavedConfig,
     connect,

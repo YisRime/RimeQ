@@ -31,7 +31,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { NScrollbar } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
-import { botApi } from '@/api'
+import { bot } from '@/api'
 import { formatTime } from '@/utils/format'
 
 const props = defineProps<{ groupId?: string }>()
@@ -51,7 +51,7 @@ const list = ref<any[]>([])
 
 const loadNotices = async () => {
   try {
-    const notices = await botApi.getGroupNotice(Number(groupId.value))
+    const notices = await bot.getGroupNotice(Number(groupId.value))
     list.value = notices
   } catch (e) {
     console.error('加载群公告失败', e)

@@ -1,30 +1,40 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { botApi } from '../api'
-import type { Contact, UserInfo, GroupInfo, GroupMember } from '../types'  // Session -> Contact
+import { bot } from '../api'
+import type { GroupInfo, GroupMemberInfo, SystemNotice, FriendInfo } from '../types'
 
-export interface SystemNotice {
-  time: number
-  request_type: 'friend' | 'group'
-  sub_type?: 'add' | 'invite'
-  user_id: number
-  group_id?: number
-  nickname?: string
-  comment?: string
-  flag: string
-  status?: 'approve' | 'reject' // 本地状态记录
+// 前端使用的统一会话类型
+export interface Contact {
+  peerId: string
+  type: 'user' | 'group'
+  name: string
+  avatar: string
+  lastMsg?: string
+  time?: number
+  unread: number
+  draft?: string
+}
+
+interface ExtendedFriendInfo extends FriendInfo {
+  avatar?: string
+  py_initial?: string
+}
+
+interface ExtendedGroupInfo extends GroupInfo {
+  avatar?: string
+  py_initial?: string
 }
 
 export const useContactStore = defineStore('contact', () => {
   const contacts = ref<Contact[]>([])
-  const friends = ref<UserInfo[]>([])
-  const groups = ref<GroupInfo[]>([])
-  const groupMembersMap = ref<Record<number, GroupMember[]>>({})
+  const friends = ref<ExtendedFriendInfo[]>([])
+  const groups = ref<ExtendedGroupInfo[]>([])
+  const groupMembersMap = ref<Record<number, GroupMemberInfo[]>>({})
   const loading = ref(false)
   const notices = ref<SystemNotice[]>([])
 
-  const friendMap = new Map<number, UserInfo>()
-  const groupMap = new Map<number, GroupInfo>()
+  const friendMap = new Map<number, ExtendedFriendInfo>()
+  const groupMap = new Map<number, ExtendedGroupInfo>()
 
   async function init() {
     if (loading.value) return
@@ -38,8 +48,12 @@ export const useContactStore = defineStore('contact', () => {
 
   async function fetchFriends() {
     try {
-      const list = await botApi.getFriendList()
-      friends.value = list.map(f => ({ ...f, py_initial: getFirstLetter(f.remark || f.nickname) }))
+      const list = await bot.getFriendList()
+      friends.value = list.map(f => ({
+        ...f,
+        avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${f.user_id}`,
+        py_initial: getFirstLetter(f.remark || f.nickname)
+      }))
       friends.value.sort((a, b) => (a.py_initial || '#').localeCompare(b.py_initial || '#'))
       friendMap.clear()
       friends.value.forEach(f => friendMap.set(f.user_id, f))
@@ -50,8 +64,12 @@ export const useContactStore = defineStore('contact', () => {
 
   async function fetchGroups() {
     try {
-      const list = await botApi.getGroupList()
-      groups.value = list.map(g => ({ ...g, py_initial: getFirstLetter(g.group_name) }))
+      const list = await bot.getGroupList()
+      groups.value = list.map(g => ({
+        ...g,
+        avatar: `https://p.qlogo.cn/gh/${g.group_id}/${g.group_id}/0`,
+        py_initial: getFirstLetter(g.group_name)
+      }))
       groups.value.sort((a, b) => (a.py_initial || '#').localeCompare(b.py_initial || '#'))
       groupMap.clear()
       groups.value.forEach(g => groupMap.set(g.group_id, g))
@@ -60,25 +78,17 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  /**
-   * 获取群成员列表 (带缓存机制) - 对应 OneBot API: get_group_member_list
-   * @param groupId 群号
-   * @param force 是否强制刷新
-   */
-  async function getGroupMemberList(groupId: number, force = false): Promise<GroupMember[]> {
-    // 如果有缓存且不强制刷新，直接返回
+  async function getGroupMemberList(groupId: number, force = false): Promise<GroupMemberInfo[]> {
     if (!force && groupMembersMap.value[groupId] && groupMembersMap.value[groupId].length > 0) {
       return groupMembersMap.value[groupId]
     }
 
     try {
-      const members = await botApi.getGroupMemberList(groupId)
-
-      // 排序规则：群主 > 管理员 > 普通成员
+      const members = await bot.getGroupMemberList(groupId)
       const roleOrder = { owner: 0, admin: 1, member: 2 }
       members.sort((a, b) => {
-        const orderA = roleOrder[a.role as keyof typeof roleOrder] || 2
-        const orderB = roleOrder[b.role as keyof typeof roleOrder] || 2
+        const orderA = roleOrder[a.role || 'member']
+        const orderB = roleOrder[b.role || 'member']
         return orderA - orderB
       })
 
@@ -90,11 +100,7 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  /**
-   * 同步获取群成员 (用于 Computed 属性)
-   * 如果缓存不存在，会触发异步加载，但在数据回来前返回空数组
-   */
-  function getGroupMembers(groupId: number): GroupMember[] {
+  function getGroupMembers(groupId: number): GroupMemberInfo[] {
     if (!groupMembersMap.value[groupId]) {
       getGroupMemberList(groupId)
       return []
@@ -102,11 +108,6 @@ export const useContactStore = defineStore('contact', () => {
     return groupMembersMap.value[groupId]
   }
 
-  /**
-   * 更新或创建联系人项 (核心逻辑) - 对应会话列表的动态维护
-   * 当收到新消息时调用此方法
-   * @param peerId 会话标识 (可能是 user_id 或 group_id)
-   */
   function update(peerId: string, info: {
     type?: 'user' | 'group',
     name?: string,
@@ -115,29 +116,28 @@ export const useContactStore = defineStore('contact', () => {
     increaseUnread?: boolean
   }) {
     const idx = contacts.value.findIndex(c => c.peerId === peerId)
-    let contact: Contact  // session -> contact, Session -> Contact
+    let contact: Contact
 
     if (idx !== -1) {
-      // 会话已存在，取出并准备移动到顶部
-      contact = contacts.value[idx]!  // session -> contact, sessions -> contacts
-      contacts.value.splice(idx, 1)  // sessions -> contacts
+      contact = contacts.value[idx]!
+      contacts.value.splice(idx, 1)
     } else {
-      // 会话不存在，创建新会话
       const type = info.type || 'user'
       let name = info.name || peerId
       let avatar = ''
 
-      // 尝试从本地缓存补充信息
       if (type === 'group') {
         const g = groupMap.get(Number(peerId))
-        if (g) { name = g.group_name; avatar = g.avatar || '' } else { avatar = `https://p.qlogo.cn/gh/${peerId}/${peerId}/0` }
+        if (g) { name = g.group_name; avatar = g.avatar || '' }
+        else { avatar = `https://p.qlogo.cn/gh/${peerId}/${peerId}/0` }
       } else {
         const f = friendMap.get(Number(peerId))
-        if (f) { name = f.remark || f.nickname; avatar = f.avatar || '' } else { avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${peerId}` }
+        if (f) { name = f.remark || f.nickname; avatar = f.avatar || '' }
+        else { avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${peerId}` }
       }
 
-      contact = {  // session -> contact
-        peerId,  // id -> peerId
+      contact = {
+        peerId,
         type,
         name,
         avatar,
@@ -147,43 +147,27 @@ export const useContactStore = defineStore('contact', () => {
       }
     }
 
-    // 更新动态字段
     if (info.msg) contact.lastMsg = info.msg
     if (info.time) contact.time = info.time
     if (info.increaseUnread) contact.unread++
 
-    // 插入到列表顶部
     contacts.value.unshift(contact)
   }
 
-  /**
-   * 清除指定会话的未读数
-   * @param peerId 会话标识
-   */
   function clearUnread(peerId: string) {
     const contact = contacts.value.find(c => c.peerId === peerId)
     if (contact) contact.unread = 0
   }
 
-  /**
-   * 获取单个会话信息
-   * @param peerId 会话标识
-   */
   function getContact(peerId: string) {
     return contacts.value.find(c => c.peerId === peerId)
   }
 
-  /**
-   * 移除指定会话
-   * @param peerId 会话标识
-   */
   function removeContact(peerId: string) {
     const idx = contacts.value.findIndex(c => c.peerId === peerId)
     if (idx !== -1) {
       contacts.value.splice(idx, 1)
     }
-
-    // 同时从映射中移除（如果需要）
     const numericId = Number(peerId)
     if (!isNaN(numericId)) {
       friendMap.delete(numericId)
@@ -191,44 +175,28 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // --- System Notices ---
-
-  /**
-   * 初始化加载通知 (从 localStorage)
-   */
   function loadNoticesFromStorage() {
     const saved = localStorage.getItem('webqq_system_notices')
     if (saved) { try { notices.value = JSON.parse(saved) } catch { notices.value = [] } }
   }
 
-  /**
-   * 保存通知到 localStorage
-   */
   function saveNoticesToStorage() { localStorage.setItem('webqq_system_notices', JSON.stringify(notices.value)) }
 
-  /**
-   * 添加通知 (来自 WebSocket handler)
-   */
   function addNotice(notice: SystemNotice) {
     if (notices.value.some(n => n.flag === notice.flag)) return
     notices.value.unshift(notice)
     saveNoticesToStorage()
   }
 
-  /**
-   * 更新处理状态
-   */
   function updateNoticeStatus(flag: string, status: 'approve' | 'reject') {
-    const target = notices.value.find(n => n.flag === flag)
+    // 这里 SystemNotice 定义中没有 status 字段，但在本地存储时添加了
+    // 使用 any 绕过类型检查，或者在 types 中扩展 SystemNotice
+    const target = notices.value.find(n => n.flag === flag) as any
     if (target) { target.status = status; saveNoticesToStorage() }
   }
 
-  /**
-   * 获取未读通知数 (假设没有 status 的就是未读)
-   */
-  function unreadNoticeCount() { return notices.value.filter(n => !n.status).length }
+  function unreadNoticeCount() { return notices.value.filter(n => !(n as any).status).length }
 
-  // 初始化加载通知
   loadNoticesFromStorage()
 
   return {
@@ -247,18 +215,15 @@ export const useContactStore = defineStore('contact', () => {
     clearUnread,
     getContact,
     removeContact,
-    removeSession: removeContact,
     addNotice,
     updateNoticeStatus,
     unreadNoticeCount
   }
 })
 
-// 辅助工具：获取首字母
 function getFirstLetter(str: string): string {
   if (!str || str.length === 0) return '#'
   const first = str[0]!.toUpperCase()
   if (/[A-Z]/.test(first)) return first
   return '#'
 }
-

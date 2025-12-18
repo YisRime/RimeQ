@@ -41,7 +41,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { NScrollbar, NEmpty, useMessage } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
-import { botApi } from '@/api'
+import { bot } from '@/api'
 import { formatFileSize } from '@/utils/format'
 
 interface GroupFile {
@@ -79,7 +79,7 @@ const loadFiles = async (folderId: string = '/') => {
   loading.value = true
   currentFiles.value = []
   try {
-    const res = await botApi.getGroupFilesByFolder(Number(groupId.value), folderId)
+    const res = await bot.getGroupFilesByFolder(Number(groupId.value), folderId)
     const folders = (res.folders || []).map((f: any) => ({
       ...f,
       isDir: true as const,
@@ -122,7 +122,7 @@ const handleFileClick = (file: GroupFile) => {
 const downloadFile = async (file: GroupFile) => {
   message.loading('获取下载链接...')
   try {
-    const url = await botApi.getGroupFileUrl(Number(groupId.value), file.file_id || '', file.busid || 0)
+    const url = await bot.getGroupFileUrl(Number(groupId.value), file.file_id || '', file.busid || 0)
     if (url) {
       window.open(url, '_blank')
       message.success('已打开下载链接')
