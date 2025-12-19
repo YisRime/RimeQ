@@ -1,6 +1,6 @@
 import { socket } from './socket'
 import { BaseClient } from './base'
-import type * as T from '../types'
+import type * as T from '@/types'
 
 // 支持的后端类型
 export type BackendType = 'NapCat' | 'Lagrange' | 'LLOneBot'
@@ -18,7 +18,7 @@ export class ExtendedClient extends BaseClient {
   }
 
   setBackend(type: BackendType) {
-    console.log(`[API] Backend detected: ${type}`)
+    console.log(`[API] 客户端类型: ${type}`)
     this.backend = type
   }
 

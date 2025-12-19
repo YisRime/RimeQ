@@ -1,5 +1,5 @@
 import { socket } from './socket'
-import type * as T from '../types'
+import type * as T from '@/types'
 
 /**
  * OneBot v11 标准 API 客户端
