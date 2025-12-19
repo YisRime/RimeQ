@@ -157,7 +157,7 @@ const contactsStore = useContactsStore()
 const showAssist = ref(false)
 
 const isActive = (id: string) => route.params.id === id
-const onSelect = (id: string) => router.push(`/chats/${id}`)
+const onSelect = (id: string) => router.push(`/${id}`)
 const toggleAssist = () => (showAssist.value = !showAssist.value)
 
 // 基础过滤

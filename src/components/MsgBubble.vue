@@ -24,7 +24,7 @@
       />
     </div>
 
-    <!-- 消息体 -->
+    <!-- 消息体容器 -->
     <div class="flex flex-col max-w-[75%] md:max-w-[60%] min-w-[60px]" :class="isMe ? 'items-end' : 'items-start'">
       <!-- 昵称 (非自己时显示) -->
       <div v-if="!isMe" class="flex items-center gap-2 mb-1 ml-1 select-none">
@@ -40,7 +40,7 @@
         >
       </div>
 
-      <!-- 气泡 -->
+      <!-- 气泡主体 -->
       <div
         class="relative rounded-2xl shadow-sm border transition-all duration-200 overflow-hidden group-hover/row:shadow-md"
         :class="bubbleClass"
@@ -63,7 +63,7 @@
         <!-- C. 语音 -->
         <div v-else-if="msgType === MsgType.Record" class="flex items-center gap-2 px-2 py-1 select-none">
           <div
-            class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center cursor-pointer"
+            class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center cursor-pointer hover:bg-white/30 transition-colors"
             @click="playAudio"
           >
             <div class="i-ri-play-fill" />
@@ -75,7 +75,7 @@
         <!-- D. 文件 -->
         <div
           v-else-if="msgType === MsgType.File"
-          class="flex items-center gap-3 p-1 min-w-[200px] cursor-pointer"
+          class="flex items-center gap-3 p-1 min-w-[200px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors rounded"
           @click="downloadFile"
         >
           <div class="w-10 h-10 bg-white/20 rounded flex items-center justify-center text-xl">
@@ -98,8 +98,33 @@
           <div>{{ rawText }}</div>
         </div>
 
-        <!-- G. 默认 -->
-        <div v-else class="text-sm text-gray-400 italic">[暂不支持的消息类型: {{ msgType }}]</div>
+        <!-- G. Markdown -->
+        <div v-else-if="msgType === MsgType.Markdown" class="text-sm overflow-hidden p-1">
+          <div class="markdown-body" v-html="markdownContent"></div>
+        </div>
+
+        <!-- H. 卡片消息 (JSON/XML) -->
+        <div
+          v-else-if="[MsgType.Json, MsgType.Xml, MsgType.Card].includes(msgType)"
+          class="flex gap-3 items-center min-w-[200px]"
+        >
+          <div v-if="cardInfo?.preview" class="w-12 h-12 flex-shrink-0">
+            <img :src="cardInfo.preview" class="w-full h-full object-cover rounded" />
+          </div>
+          <div
+            v-else
+            class="w-12 h-12 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center"
+          >
+            <div class="i-ri-article-line text-xl opacity-50" />
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col">
+            <div class="text-sm font-bold truncate">{{ cardInfo?.title || '卡片消息' }}</div>
+            <div class="text-xs opacity-70 truncate">{{ cardInfo?.desc || '点击查看详情' }}</div>
+          </div>
+        </div>
+
+        <!-- I. 默认 -->
+        <div v-else class="text-sm text-gray-400 italic px-2">[暂不支持的消息类型: {{ msgType }}]</div>
 
         <!-- 发送状态 -->
         <div v-if="isMe && msg.status === 'sending'" class="absolute -left-6 top-1/2 -translate-y-1/2">
@@ -129,7 +154,7 @@ import { useMessage } from 'naive-ui'
 import { useAccountsStore } from '@/stores/accounts'
 import { useInterfaceStore } from '@/stores/interface'
 import { MsgType } from '@/types'
-import { determineMsgType } from '@/utils/msg-parser'
+import { determineMsgType, parseMsgList } from '@/utils/msg-parser'
 import { formatText } from '@/utils/text'
 import { formatFileSize } from '@/utils/format'
 import { bot } from '@/api'
@@ -149,41 +174,60 @@ const audioRef = ref<HTMLAudioElement>()
 const isMe = computed(() => props.msg.sender.user_id === accountsStore.user?.user_id)
 const isSystem = computed(() => !!props.msg.isSystem || props.msg.message_type === 'system')
 
-const msgType = computed(() => determineMsgType(props.msg.message))
+// 使用 msg-parser 的能力
+const parsedMsg = computed(() => parseMsgList(props.msg.message))
+const msgType = computed(() => determineMsgType(parsedMsg.value))
 
-const rawText = computed(() => {
-  return props.msg.message
-    .filter((s: any) => s.type === 'text')
-    .map((s: any) => s.data.text)
-    .join('')
-})
+const rawText = computed(() => parsedMsg.value.text)
 
+// 处理普通文本的 HTML 渲染 (At/Face/Text)
 const formattedHtml = computed(() => {
   let html = ''
   props.msg.message.forEach((s: any) => {
     if (s.type === 'text') html += formatText(s.data.text)
-    else if (s.type === 'at') html += `<span class="text-blue-500 font-medium">@${s.data.name || s.data.qq}</span> `
-    else if (s.type === 'face') html += `[表情]`
+    else if (s.type === 'at')
+      html += `<span class="text-blue-500 font-medium select-none">@${s.data.name || s.data.qq}</span> `
+    else if (s.type === 'face') html += `[表情]` // 如果有表情图片转换逻辑可以在这里加
   })
   return html
 })
 
+// 提取 Markdown 内容
+const markdownContent = computed(() => {
+  return parsedMsg.value.markdown || parsedMsg.value.raw.find((s: any) => s.type === 'markdown')?.data?.content || ''
+})
+
+// 提取卡片信息
+const cardInfo = computed(() => {
+  return parsedMsg.value.card
+})
+
+// 媒体 URL 提取
 const mediaUrl = computed(() => {
+  // 优先找 image/video/record
   const s = props.msg.message.find((i: any) => ['image', 'video', 'record'].includes(i.type))
   return s ? s.data.url || s.data.file : ''
 })
 
+// 文件信息提取
 const fileInfo = computed(() => {
   const s = props.msg.message.find((i: any) => i.type === 'file')
-  return s ? { name: s.data.name, size: Number(s.data.size) } : { name: '未知', size: 0 }
+  return s ? { name: s.data.name, size: Number(s.data.size) } : { name: '未知文件', size: 0 }
 })
 
+// 气泡样式计算
 const bubbleClass = computed(() => {
-  // 图片/视频去掉背景和内边距
+  // 图片/视频去掉背景和内边距，使其贴合
   if ([MsgType.Image, MsgType.Video].includes(msgType.value)) {
     return 'p-0 bg-transparent border-none shadow-none'
   }
-  // 气泡颜色
+
+  // 卡片/Markdown 通常需要一点背景
+  if ([MsgType.Card, MsgType.Json, MsgType.Xml, MsgType.Markdown].includes(msgType.value)) {
+    return 'px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-100 dark:border-gray-700 rounded-lg'
+  }
+
+  // 常规气泡颜色
   if (isMe.value) {
     return 'px-3 py-2 bg-primary text-white border-transparent rounded-tr-sm'
   }
@@ -202,6 +246,12 @@ const playAudio = () => {
 }
 
 const downloadFile = async () => {
+  // 如果是卡片消息点击，尝试跳转 URL
+  if ([MsgType.Card, MsgType.Json, MsgType.Xml].includes(msgType.value) && cardInfo.value?.url) {
+    window.open(cardInfo.value.url, '_blank')
+    return
+  }
+
   const fileSeg = props.msg.message.find((s: any) => s.type === 'file')
   const groupId = props.msg.group_id
   if (groupId && fileSeg) {
@@ -215,3 +265,49 @@ const downloadFile = async () => {
   }
 }
 </script>
+
+<style scoped>
+/* === Markdown 样式下沉 === */
+/* 使用 :deep() 穿透，因为内容通常是 v-html 动态渲染的 */
+:deep(.markdown-body) {
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.5;
+}
+
+:deep(.markdown-body) p {
+  margin-bottom: 0.5rem;
+}
+
+:deep(.markdown-body) p:last-child {
+  margin-bottom: 0;
+}
+
+:deep(.markdown-body) a {
+  color: var(--n-primary-color);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+:deep(.markdown-body) ul,
+:deep(.markdown-body) ol {
+  padding-left: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+:deep(.markdown-body) li {
+  list-style: disc;
+}
+
+:deep(.markdown-body) img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+:deep(.markdown-body) code {
+  background-color: rgba(125, 125, 125, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+</style>

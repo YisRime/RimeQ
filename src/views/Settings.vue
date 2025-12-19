@@ -142,7 +142,7 @@ import {
 import { useSettingsStore } from '@/stores/settings'
 import { useAccountsStore } from '@/stores/accounts'
 
-defineOptions({ name: 'SettingView' })
+defineOptions({ name: 'SettingsView' })
 
 const router = useRouter()
 const dialog = useDialog()

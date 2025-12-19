@@ -33,7 +33,7 @@
             v-for="m in displayMembers"
             :key="m.user_id"
             class="flex flex-col items-center gap-1 cursor-pointer group relative"
-            @click="router.push(`/chats/${m.user_id}`)"
+            @click="router.push(`/${m.user_id}`)"
           >
             <!-- 身份标识 -->
             <div
@@ -88,7 +88,7 @@
 
       <!-- 底部操作 -->
       <div class="flex flex-col gap-3 p-4 border-t border-gray-100 dark:border-gray-800 mt-4">
-        <n-button v-if="!isCurrent" type="primary" block @click="router.push(`/chats/${id}`)"> 发消息 </n-button>
+        <n-button v-if="!isCurrent" type="primary" block @click="router.push(`/${id}`)"> 发消息 </n-button>
         <n-button type="error" ghost block @click="handleDelete">
           {{ info?.type === 'group' ? '退出群聊' : '删除好友' }}
         </n-button>
@@ -108,7 +108,7 @@
             :key="m.user_id"
             class="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer"
             @click="
-              router.push(`/chats/${m.user_id}`)
+              router.push(`/${m.user_id}`)
               showAllMembers = false
             "
           >
@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NAvatar, NButton, NScrollbar, NModal, NInput, useMessage, useDialog } from 'naive-ui'
 import { useContactsStore } from '@/stores/contacts'
@@ -149,7 +149,7 @@ const { copy: copyText } = useClipboard()
 
 const id = computed(() => (route.params.id as string) || '')
 const info = computed(() => contactsStore.getSession(id.value))
-const isCurrent = computed(() => route.path === `/chats/${id.value}`)
+const isCurrent = computed(() => route.path === `/${id.value}`)
 
 const members = ref<any[]>([])
 const showAllMembers = ref(false)
@@ -191,7 +191,7 @@ const filteredMembers = computed(() => {
 })
 
 const onMenuAction = (item: any) => {
-  router.push(`/chats/${id.value}/${item.action}`)
+  router.push(`/${id.value}/${item.action}`)
 }
 
 const copy = (txt?: string) => {
@@ -215,7 +215,7 @@ const handleDelete = () => {
 
         message.success('操作成功')
         contactsStore.removeSession(id.value)
-        router.push('/chats')
+        router.push('/')
       } catch (e) {
         message.error('操作失败')
       }

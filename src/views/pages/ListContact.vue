@@ -5,7 +5,7 @@
         <!-- 新朋友入口 -->
         <div
           class="flex items-center gap-3 p-3 mb-2 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-          @click="router.push('/contacts/new-friends')"
+          @click="router.push('/notice')"
         >
           <div
             class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center text-orange-500"
@@ -111,7 +111,7 @@ const filteredGroups = computed(() => {
   return contactsStore.groups.filter((g) => g.group_name.toLowerCase().includes(k) || String(g.group_id).includes(k))
 })
 
-const toChat = (id: number) => router.push(`/chats/${id}`)
+const toChat = (id: number) => router.push(`/${id}`)
 
 onMounted(() => {
   // 如果没有数据，尝试同步一次

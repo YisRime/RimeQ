@@ -29,7 +29,7 @@
             <!-- 移动端返回 (切换到联系人列表视图) -->
             <div
               class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary"
-              @click="router.push('/chats')"
+              @click="router.push('/')"
             />
 
             <div class="flex flex-col overflow-hidden">
@@ -275,9 +275,9 @@ const onPoke = (uid: number) => {
 const toggleSidebar = () => {
   const path = route.path
   if (path.includes('/detail')) {
-    router.push(`/chats/${id.value}`)
+    router.push(`/${id.value}`)
   } else {
-    router.push(`/chats/${id.value}/detail`)
+    router.push(`/${id.value}/detail`)
   }
 }
 

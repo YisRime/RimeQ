@@ -42,19 +42,32 @@
       </n-card>
     </div>
   </div>
+
+  <div
+    v-if="isAutoConnecting"
+    class="fixed inset-0 bg-white/80 dark:bg-gray-900/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm"
+  >
+    <div class="i-ri-loader-2-line animate-spin text-4xl text-primary mb-4"></div>
+    <div class="text-gray-500">正在自动连接服务器...</div>
+    <n-button text class="mt-4 text-gray-400" @click="cancelAutoConnect">取消</n-button>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted } from 'vue'
-import { NCard, NForm, NFormItem, NInput, NButton, NCheckbox, useMessage } from 'naive-ui'
+import { reactive, onMounted, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useMessage } from 'naive-ui'
 import { useAccountsStore } from '../stores/accounts'
 import { useSettingsStore } from '../stores/settings'
-import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const accountsStore = useAccountsStore()
 const settingsStore = useSettingsStore()
 const message = useMessage()
+
+const isAutoConnecting = ref(false)
+let autoConnectTimer: number | null = null
 
 const form = reactive({
   address: '',
@@ -64,7 +77,7 @@ const form = reactive({
 })
 
 onMounted(() => {
-  // 仅回显数据，不再触发登录
+  // 1. 回显配置
   const cfg = settingsStore.config
   if (cfg.remember) {
     form.address = cfg.address
@@ -72,22 +85,54 @@ onMounted(() => {
     form.remember = true
     form.autoConnect = cfg.autoConnect
   }
+
+  // 2. 触发自动连接 (更好的实现位置)
+  if (form.autoConnect && form.address && form.token && !accountsStore.isLogged) {
+    performAutoLogin()
+  }
 })
 
-const handleLogin = async () => {
+const performAutoLogin = async () => {
+  isAutoConnecting.value = true
+  try {
+    // 稍微延迟一点，避免页面渲染闪烁，也给用户取消的机会
+    await new Promise((resolve) => {
+      autoConnectTimer = window.setTimeout(resolve, 500)
+    })
+
+    await handleLogin(true) // 传入 true 表示静默/自动模式
+  } catch (e) {
+    // 自动连接失败，仅提示，停留在登录页供用户修改
+    console.warn('自动连接失败', e)
+  } finally {
+    isAutoConnecting.value = false
+  }
+}
+
+const cancelAutoConnect = () => {
+  if (autoConnectTimer) clearTimeout(autoConnectTimer)
+  isAutoConnecting.value = false
+  message.info('已取消自动连接')
+}
+
+const handleLogin = async (isAuto = false) => {
   try {
     await accountsStore.login(form.address, form.token)
 
-    // 保存配置
+    // 保存最新配置
     settingsStore.config.address = form.address
     settingsStore.config.token = form.remember ? form.token : ''
     settingsStore.config.remember = form.remember
     settingsStore.config.autoConnect = form.autoConnect
 
-    message.success('连接成功')
-    router.push('/')
+    if (!isAuto) message.success('连接成功')
+
+    // 3. 登录成功后，跳转回原本想去的页面，或者默认页
+    const redirectPath = (route.query.redirect as string) || '/'
+    router.replace(redirectPath)
   } catch (e: any) {
     message.error(e.message || '连接失败')
+    throw e // 抛出异常中断后续逻辑
   }
 }
 </script>

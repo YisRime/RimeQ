@@ -10,7 +10,6 @@ export default defineConfig({
       extraProperties: {
         'display': 'inline-block',
         'vertical-align': 'middle',
-        'color': 'currentColor',
       },
     }),
   ],
@@ -20,18 +19,23 @@ export default defineConfig({
     transformerVariantGroup(),
   ],
 
-  shortcuts: [
-    ['wh-full', 'w-full h-full'],
-    ['flex-col-full', 'flex flex-col w-full h-full'],
+  theme: {
+    colors: {
+      primary: 'var(--primary-color)',
+      main: 'var(--color-main)',
+      sub: 'var(--color-sub)',
+      dim: 'var(--color-dim)',
+    }
+  },
 
+  shortcuts: [
+    ['abs-center', 'absolute inset-50% -translate-50%'],
     ['flex-center', 'flex items-center justify-center'],
-    ['flex-x-center', 'flex items-center'],
     ['flex-between', 'flex items-center justify-between'],
 
+    ['flex-x', 'flex items-center'],
+    ['flex-y', 'flex flex-col items-center'],
     ['flex-truncate', 'flex-1 min-w-0'],
-
-    ['text-main', 'text-[var(--n-text-color)]'],
-    ['text-sub', 'text-[var(--n-text-color-2)]'],
-    ['text-dim', 'text-[var(--n-text-color-3)]'],
+    ['flex-col-full', 'flex-col size-full'],
   ]
 })

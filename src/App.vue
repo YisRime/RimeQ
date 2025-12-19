@@ -1,73 +1,54 @@
 <template>
+  <!-- 1. Naive UI 配置容器：注入主题、语言及 CSS 变量 -->
   <n-config-provider
     :theme="theme"
     :theme-overrides="themeOverrides"
     :locale="zhCN"
     :date-locale="dateZhCN"
-    class="h-full"
+    class="size-full"
+    :style="cssVars"
   >
+    <!-- 全局样式注入 -->
     <n-global-style />
 
+    <!-- 功能性组件提供者 -->
     <n-loading-bar-provider>
       <n-message-provider>
         <n-notification-provider>
           <n-dialog-provider>
-            <!-- 统一布局容器 -->
-            <div class="flex h-full w-full bg-gray-50 dark:bg-black text-slate-900 dark:text-slate-100 overflow-hidden">
-              <!-- === 左侧栏 === -->
-              <aside
-                class="w-80 flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-colors"
-              >
-                <!-- 头部操作区：仅登录后显示 -->
-                <div
-                  v-if="accountsStore.isLogged && !interfaceStore.forwardMode.active"
-                  class="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0"
-                >
-                  <n-tooltip placement="bottom">
-                    <template #trigger>
-                      <n-avatar
-                        round
-                        :src="userAvatar"
-                        size="medium"
-                        class="cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all select-none"
-                        @click="toOptions"
-                      />
-                    </template>
-                    设置
-                  </n-tooltip>
+            <!-- 2. 主布局容器：使用 UnoCSS 语义类 -->
+            <div class="size-full flex bg-main text-main overflow-hidden">
+              <!-- === 左侧导航栏 === -->
+              <!-- bg-sub: 次级背景 (侧边栏) | border-dim: 副色调边框 -->
+              <aside class="w-80 flex-shrink-0 flex-col bg-sub border-r border-dim my-transition">
+                <!-- 头部搜索与操作 -->
+                <div v-if="accountsStore.isLogged" class="flex-x gap-3 p-4 border-b border-dim">
+                  <!-- 用户头像 -->
+                  <n-avatar
+                    round
+                    :src="userAvatar"
+                    size="medium"
+                    class="cursor-pointer hover:ring-2 ring-primary/50 transition-all select-none"
+                    @click="router.push('/settings')"
+                  />
 
+                  <!-- 搜索框 -->
                   <n-input v-model:value="searchKeyword" round placeholder="搜索..." size="small" class="flex-1">
-                    <template #prefix>
-                      <div class="i-ri-search-line text-gray-400" />
-                    </template>
+                    <template #prefix><div class="i-ri-search-line text-dim" /></template>
                   </n-input>
 
-                  <n-tooltip placement="bottom">
-                    <template #trigger>
-                      <div
-                        class="p-2 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        @click="toggleMode"
-                      >
-                        <div
-                          :class="[
-                            isChatMode ? 'i-ri-group-line' : 'i-ri-message-3-line',
-                            'text-xl text-gray-600 dark:text-gray-300'
-                          ]"
-                        />
-                      </div>
-                    </template>
-                    {{ isChatMode ? '切换到联系人' : '切换到消息' }}
-                  </n-tooltip>
+                  <!-- 模式切换按钮：使用自定义 my-btn-icon 快捷键 -->
+                  <div class="my-btn-icon" :title="isChatMode ? '联系人' : '消息'" @click="toggleMode">
+                    <div :class="isChatMode ? 'i-ri-group-line' : 'i-ri-message-3-line'" />
+                  </div>
                 </div>
 
-                <!-- 列表区域 (Router View: nav) -->
-                <!-- 未登录时，这里会渲染 SessionBar，因为数据为空，所以显示空白列表，符合需求 -->
+                <!-- 列表区域 (Session/Contact) -->
                 <div class="flex-1 overflow-hidden relative">
-                  <!-- 转发模式覆盖 -->
+                  <!-- 转发模式 -->
                   <ForwardBar v-if="interfaceStore.forwardMode.active" />
-
-                  <!-- 正常路由视图 -->
-                  <router-view v-else name="nav" v-slot="{ Component }">
+                  <!-- 正常列表 -->
+                  <router-view v-else v-slot="{ Component }" name="nav">
                     <keep-alive>
                       <component :is="Component" :keyword="searchKeyword" />
                     </keep-alive>
@@ -75,24 +56,21 @@
                 </div>
               </aside>
 
-              <!-- === 右侧内容区 === -->
-              <main class="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-black relative">
+              <!-- === 右侧主聊天区 === -->
+              <!-- bg-main: 主背景色 (聊天窗口) -->
+              <main class="flex-1 h-full overflow-hidden bg-main relative">
                 <router-view v-slot="{ Component }">
-                  <keep-alive :include="['ChatView', 'Options']">
-                    <transition name="fade" mode="out-in">
-                      <component :is="Component" class="h-full w-full" />
-                    </transition>
-                  </keep-alive>
+                  <transition name="view-fade" mode="out-in">
+                    <keep-alive :include="['ChatView', 'SettingsView']">
+                      <component :is="Component" class="size-full" />
+                    </keep-alive>
+                  </transition>
                 </router-view>
               </main>
             </div>
 
-            <!-- 全局组件 -->
-            <MediaViewer
-              v-model="interfaceStore.viewer.show"
-              :src="interfaceStore.viewer.url"
-              :list="interfaceStore.viewer.list"
-            />
+            <!-- 全局浮层组件 -->
+            <MediaViewer v-model="interfaceStore.viewer.show" :src="interfaceStore.viewer.url" />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -104,6 +82,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
+  darkTheme,
+  zhCN,
+  dateZhCN,
   NConfigProvider,
   NGlobalStyle,
   NMessageProvider,
@@ -111,64 +92,71 @@ import {
   NDialogProvider,
   NLoadingBarProvider,
   NAvatar,
-  NInput,
-  NTooltip,
-  darkTheme,
-  zhCN,
-  dateZhCN
+  NInput
 } from 'naive-ui'
 
+// Store
 import { useSettingsStore } from './stores/settings'
 import { useInterfaceStore } from './stores/interface'
 import { useAccountsStore } from './stores/accounts'
 
+// Components
 import MediaViewer from './components/MediaViewer.vue'
 import ForwardBar from '@/views/pages/ListSelect.vue'
 
-// Store
+const router = useRouter()
+const route = useRoute()
 const settingsStore = useSettingsStore()
 const interfaceStore = useInterfaceStore()
 const accountsStore = useAccountsStore()
 
-// Router
-const router = useRouter()
-const route = useRoute()
-
-// State
 const searchKeyword = ref('')
 
-// Computed
-const theme = computed(() => (settingsStore.config.darkMode ? darkTheme : null))
+/**
+ * 核心：CSS 变量注入系统
+ * 映射到 uno.config.ts 中的 theme.colors
+ */
+const cssVars = computed(() => {
+  const isDark = settingsStore.config.darkMode
+  const primary = settingsStore.config.themeColor || '#7abb7e'
 
-const themeOverrides = computed(() => {
-  const color = String(settingsStore.config.themeColor || '#7abb7e')
   return {
-    common: {
-      primaryColor: color,
-      primaryColorHover: color,
-      primaryColorPressed: color
-    }
+    '--primary-color': primary,
+    // 背景三级层级
+    '--color-main': isDark ? '#101014' : '#ffffff', // 主聊天背景
+    '--color-sub': isDark ? '#18181c' : '#f9fafb', // 侧边栏背景
+    '--color-dim': isDark ? '#242429' : '#f0f2f5', // 悬停/分割线/输入框
+
+    // 文字颜色 (适配 Naive UI)
+    '--n-text-color': isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.88)'
   }
 })
 
-const userAvatar = computed(() => accountsStore.user?.avatar || '')
+/**
+ * Naive UI 主题配置
+ */
+const theme = computed(() => (settingsStore.config.darkMode ? darkTheme : null))
+const themeOverrides = computed(() => ({
+  common: {
+    primaryColor: cssVars.value['--primary-color'],
+    primaryColorHover: cssVars.value['--primary-color'] + 'ee',
+    primaryColorPressed: cssVars.value['--primary-color'] + 'cc'
+  }
+}))
 
-const isChatMode = computed(() => {
-  return route.path.startsWith('/chats') || route.path === '/'
-})
+/**
+ * 状态逻辑
+ */
+const isChatMode = computed(() => route.name?.toString().startsWith('Chat') ?? false)
+const userAvatar = computed(() =>
+  accountsStore.user ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${accountsStore.user.user_id}` : ''
+)
 
-// Methods
 const toggleMode = () => {
   if (!accountsStore.isLogged) return
-  if (isChatMode.value) {
-    router.push('/contacts')
-  } else {
-    router.push('/chats')
-  }
+  isChatMode.value ? router.push('/contact') : router.push('/')
   searchKeyword.value = ''
 }
-
-const toOptions = () => router.push('/options')
 
 onMounted(() => {
   settingsStore.applyStyle()
@@ -176,7 +164,16 @@ onMounted(() => {
 </script>
 
 <style>
-/* 基础样式重置 */
+/* === 全局微调 === */
+
+/* 核心：为所有涉及颜色的属性开启平滑过渡 */
+* {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
 html,
 body,
 #app {
@@ -184,21 +181,29 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family:
-    v-sans,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  /* 解决移动端点击高亮 */
+  -webkit-tap-highlight-color: transparent;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
+/* 视图切换动画 (带有一点缩放感) */
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.fade-enter-from,
-.fade-leave-to {
+
+.view-fade-enter-from {
   opacity: 0;
+  transform: scale(0.98);
+}
+
+.view-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.02);
+}
+
+/* 禁止拖拽图片 */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
 }
 </style>
