@@ -3,33 +3,33 @@
     <transition name="fade-fast">
       <div
         v-if="show"
-        class="fixed z-[9999] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 min-w-[200px] flex flex-col select-none overflow-hidden"
+        class="fixed z-[9999] bg-sub rounded-xl shadow-2xl border border-dim min-w-[200px] flex flex-col select-none overflow-hidden"
         :style="{ top: y + 'px', left: x + 'px' }"
         @click.stop="close"
         @contextmenu.prevent
       >
         <!-- 用户信息区 (如果提供了 user) -->
-        <div v-if="user" class="border-b border-gray-100 dark:border-gray-700">
+        <div v-if="user" class="border-b border-dim">
           <!-- 顶部背景 -->
-          <div class="h-16 bg-gradient-to-r from-primary/20 to-primary/5"></div>
+          <div class="h-16 bg-gradient-to-r from-primary/20 to-primary/5" />
 
           <div class="px-4 pb-4 relative">
             <!-- 头像 -->
-            <n-avatar
-              :size="48"
-              :src="user.avatar"
-              round
-              class="absolute -top-8 left-4 border-3 border-white dark:border-gray-800 shadow-md"
+            <Avatar
+              size="xlarge"
+              :image="user.avatar"
+              shape="circle"
+              class="absolute -top-8 left-4 border-3 border-sub shadow-md"
             />
 
             <div class="mt-8">
-              <div class="flex items-center gap-2">
-                <span class="text-base font-bold text-gray-800 dark:text-gray-100">{{ user.nickname }}</span>
+              <div class="flex-x gap-2">
+                <span class="text-base font-bold text-main">{{ user.nickname }}</span>
                 <div v-if="user.level" class="text-[9px] bg-yellow-100 text-yellow-600 px-1 rounded">
                   Lv.{{ user.level }}
                 </div>
               </div>
-              <div class="text-xs text-gray-400 mt-0.5">
+              <div class="text-xs text-dim mt-0.5">
                 {{ user.userId }}
               </div>
             </div>
@@ -41,7 +41,7 @@
           <div
             v-for="item in options"
             :key="item.key"
-            class="px-4 py-2 hover:bg-primary/10 hover:text-primary cursor-pointer text-sm text-gray-700 dark:text-gray-200 flex items-center gap-3 transition-colors"
+            class="px-4 py-2 hover:bg-primary/10 hover:text-primary cursor-pointer text-sm text-main flex-x gap-3 my-trans"
             :class="{ 'text-red-500 hover:bg-red-50 hover:text-red-600': item.danger }"
             @click.stop="handleSelect(item.key)"
           >
@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { NAvatar } from 'naive-ui'
+import Avatar from 'primevue/avatar'
 
 export interface MenuItem {
   label: string

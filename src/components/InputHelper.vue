@@ -1,89 +1,93 @@
 <template>
-  <div
-    class="flex items-center gap-4 px-4 py-2 text-gray-500 border-t border-gray-100 dark:border-gray-800 select-none"
-  >
+  <div class="flex-x gap-4 px-4 py-2 text-sub border-t border-dim select-none">
     <!-- 表情按钮 -->
-    <n-popover trigger="click" placement="top-start" :show-arrow="false" raw :style="{ padding: 0 }">
-      <template #trigger>
-        <div class="i-ri-emotion-line text-xl cursor-pointer hover:text-primary transition-colors" title="表情" />
-      </template>
-      <!-- 内嵌 Emoji 选择器 -->
-      <div class="w-[350px] h-[300px] bg-white dark:bg-gray-900 shadow-xl rounded-xl flex flex-col">
-        <n-tabs
-          type="segment"
-          class="flex-1"
-          content-class="h-full overflow-hidden"
-          pane-class="h-full overflow-y-auto custom-scrollbar p-2"
-        >
-          <!-- 超级/小黄脸表情 -->
-          <n-tab-pane name="face" tab="表情">
-            <div class="flex flex-col gap-2">
-              <!-- 超级表情 -->
-              <div class="text-xs text-gray-400 font-bold px-1">超级表情</div>
-              <div class="grid grid-cols-6 gap-2">
-                <div
-                  v-for="id in superList"
-                  :key="'super-' + id"
-                  class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded transition-colors flex justify-center items-center"
-                  @click="handleSelectSuper(id)"
-                >
-                  <!-- Lottie 动画容器 -->
-                  <div :ref="(el) => setSuperEmojiRef(el, id)" class="w-12 h-12"></div>
-                </div>
-              </div>
+    <div>
+      <div
+        class="i-ri-emotion-line text-xl cursor-pointer hover:text-primary my-trans"
+        title="表情"
+        @click="toggleEmojiPopover"
+      />
+      <Popover ref="emojiPopoverRef">
+        <!-- 内嵌 Emoji 选择器 -->
+        <div class="w-[350px] h-[300px] bg-sub shadow-xl rounded-xl flex flex-col">
+          <Tabs value="face">
+            <TabList>
+              <Tab value="face">表情</Tab>
+              <Tab value="kaomoji">颜文字</Tab>
+            </TabList>
 
-              <!-- 小黄脸 -->
-              <div class="text-xs text-gray-400 font-bold px-1 mt-2">经典</div>
-              <div class="grid grid-cols-8 gap-1">
-                <div
-                  v-for="id in normalList"
-                  :key="'normal-' + id"
-                  class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded transition-colors flex justify-center"
-                  @click="handleSelect(id)"
-                >
-                  <img
-                    :src="EmojiUtils.getNormalUrl(id)"
-                    class="w-6 h-6 object-contain"
-                    loading="lazy"
-                    :title="String(id)"
-                  />
-                </div>
-              </div>
+            <TabPanels class="flex-1 overflow-hidden">
+              <!-- 超级/小黄脸表情 -->
+              <TabPanel value="face" class="h-full overflow-y-auto my-scrollbar p-2">
+                <div class="flex flex-col gap-2">
+                  <!-- 超级表情 -->
+                  <div class="text-xs text-dim font-bold px-1">超级表情</div>
+                  <div class="grid grid-cols-6 gap-2">
+                    <div
+                      v-for="id in superList"
+                      :key="'super-' + id"
+                      class="cursor-pointer my-hover p-1 rounded my-trans flex-center"
+                      @click="handleSelectSuper(id)"
+                    >
+                      <!-- Lottie 动画容器 -->
+                      <div :ref="(el) => setSuperEmojiRef(el, id)" class="w-12 h-12" />
+                    </div>
+                  </div>
 
-              <!-- Emoji -->
-              <div class="text-xs text-gray-400 font-bold px-1 mt-2">Emoji</div>
-              <div class="grid grid-cols-8 gap-1">
-                <div
-                  v-for="id in emojiList"
-                  :key="'emoji-' + id"
-                  class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded transition-colors text-xl flex justify-center items-center"
-                  @click="handleSelect(id)"
-                >
-                  {{ String.fromCodePoint(id) }}
-                </div>
-              </div>
-            </div>
-          </n-tab-pane>
+                  <!-- 小黄脸 -->
+                  <div class="text-xs text-dim font-bold px-1 mt-2">经典</div>
+                  <div class="grid grid-cols-8 gap-1">
+                    <div
+                      v-for="id in normalList"
+                      :key="'normal-' + id"
+                      class="cursor-pointer my-hover p-1 rounded my-trans flex-center"
+                      @click="handleSelect(id)"
+                    >
+                      <img
+                        :src="EmojiUtils.getNormalUrl(id)"
+                        class="w-6 h-6 object-contain"
+                        loading="lazy"
+                        :title="String(id)"
+                      />
+                    </div>
+                  </div>
 
-          <!-- 颜文字 -->
-          <n-tab-pane name="kaomoji" tab="颜文字">
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="(kaomoji, idx) in ['(⌒▽⌒)', '（￣▽￣）', '(=・ω・=)', '(｀・ω・´)', '(〜￣△￣)〜']"
-                :key="idx"
-                class="p-2 text-center text-sm border border-gray-200 dark:border-gray-700 rounded cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors"
-                @click="handleKaomojiSelect(kaomoji)"
-              >
-                {{ kaomoji }}
-              </div>
-            </div>
-          </n-tab-pane>
-        </n-tabs>
-      </div>
-    </n-popover>
+                  <!-- Emoji -->
+                  <div class="text-xs text-dim font-bold px-1 mt-2">Emoji</div>
+                  <div class="grid grid-cols-8 gap-1">
+                    <div
+                      v-for="id in emojiList"
+                      :key="'emoji-' + id"
+                      class="cursor-pointer my-hover p-1 rounded my-trans text-xl flex-center"
+                      @click="handleSelect(id)"
+                    >
+                      {{ String.fromCodePoint(id) }}
+                    </div>
+                  </div>
+                </div>
+              </TabPanel>
+
+              <!-- 颜文字 -->
+              <TabPanel value="kaomoji" class="h-full overflow-y-auto my-scrollbar p-2">
+                <div class="grid grid-cols-3 gap-2">
+                  <div
+                    v-for="(kaomoji, idx) in ['(⌒▽⌒)', '（￣▽￣）', '(=・ω・=)', '(｀・ω・´)', '(〜￣△￣)〜']"
+                    :key="idx"
+                    class="p-2 text-center text-sm border border-dim rounded cursor-pointer hover:bg-primary/10 hover:text-primary my-trans"
+                    @click="handleKaomojiSelect(kaomoji)"
+                  >
+                    {{ kaomoji }}
+                  </div>
+                </div>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </div>
+      </Popover>
+    </div>
 
     <!-- 图片上传 -->
-    <div class="relative overflow-hidden cursor-pointer hover:text-primary transition-colors text-xl" title="图片">
+    <div class="relative overflow-hidden cursor-pointer hover:text-primary my-trans text-xl" title="图片">
       <div class="i-ri-image-line" />
       <!-- 覆盖一个透明的 file input -->
       <input
@@ -96,7 +100,7 @@
     </div>
 
     <!-- 文件上传 -->
-    <div class="relative overflow-hidden cursor-pointer hover:text-primary transition-colors text-xl" title="文件">
+    <div class="relative overflow-hidden cursor-pointer hover:text-primary my-trans text-xl" title="文件">
       <div class="i-ri-folder-line" />
       <input
         type="file"
@@ -110,7 +114,7 @@
 
     <!-- 聊天记录 (触发搜索面板) -->
     <div
-      class="i-ri-history-line text-lg cursor-pointer hover:text-primary transition-colors"
+      class="i-ri-history-line text-lg cursor-pointer hover:text-primary my-trans"
       title="聊天记录"
       @click="$emit('history')"
     />
@@ -118,8 +122,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
-import { NPopover, NTabs, NTabPane } from 'naive-ui'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import Popover from 'primevue/popover'
+import Tabs from 'primevue/tabs'
+import TabList from 'primevue/tablist'
+import Tab from 'primevue/tab'
+import TabPanels from 'primevue/tabpanels'
+import TabPanel from 'primevue/tabpanel'
 import { EmojiUtils, normalList, emojiList, superList } from '@/utils/emoji'
 import type { AnimationItem } from 'lottie-web'
 import type { ComponentPublicInstance } from 'vue'
@@ -135,6 +144,12 @@ const emit = defineEmits<{
   (e: 'upload', file: File): void
   (e: 'history'): void
 }>()
+
+// Popover 控制
+const emojiPopoverRef = ref()
+const toggleEmojiPopover = (event: MouseEvent) => {
+  emojiPopoverRef.value.toggle(event)
+}
 
 // Lottie 动画管理
 const lottieInstances = new Map<number, AnimationItem>()

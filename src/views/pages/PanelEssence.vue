@@ -1,46 +1,44 @@
 <template>
-  <div class="h-full w-full flex flex-col bg-white dark:bg-gray-900">
-    <div class="md:hidden h-14 flex items-center px-4 border-b border-gray-100 dark:border-gray-800">
+  <div class="h-full w-full flex flex-col bg-main">
+    <div class="md:hidden h-14 flex-x px-4 border-b border-dim">
       <div class="i-ri-arrow-left-s-line text-xl mr-2 cursor-pointer" @click="goBack" />
       <span class="font-bold">精华消息</span>
     </div>
 
-    <n-scrollbar class="flex-1 p-4">
-      <n-empty v-if="loading && list.length === 0" description="加载中..." />
-      <n-empty v-if="!loading && list.length === 0" description="暂无精华消息" />
+    <div class="flex-1 p-4 overflow-y-auto my-scrollbar">
+      <div v-if="loading && list.length === 0" class="text-center text-sub py-8">加载中...</div>
+      <div v-if="!loading && list.length === 0" class="text-center text-sub py-8">暂无精华消息</div>
 
       <div v-else class="flex flex-col gap-3">
         <div
           v-for="item in list"
           :key="item.msg_id || item.message_id"
-          class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-sm transition-shadow cursor-pointer"
+          class="bg-sub p-3 rounded-xl border border-dim hover:shadow-sm my-trans cursor-pointer"
           @click="item.msg_id && jumpToMsg(String(item.msg_id))"
         >
-          <div class="flex items-center gap-2 mb-2">
-            <n-avatar :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${item.sender_id}`" round size="small" />
-            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">{{ item.sender_nick }}</span>
-            <span class="text-[10px] text-gray-400">{{
-              item.sender_time ? formatTime(item.sender_time * 1000) : ''
-            }}</span>
+          <div class="flex-x gap-2 mb-2">
+            <Avatar :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${item.sender_id}`" shape="circle" size="large" />
+            <span class="text-xs font-bold text-main">{{ item.sender_nick }}</span>
+            <span class="text-[10px] text-sub">{{ item.sender_time ? formatTime(item.sender_time * 1000) : '' }}</span>
           </div>
 
-          <div class="text-sm text-gray-600 dark:text-gray-400 pl-8 line-clamp-3">
+          <div class="text-sm text-sub pl-8 line-clamp-3">
             {{ item.msg_content ? parseContent(item.msg_content) : '' }}
           </div>
 
-          <div class="mt-2 text-[10px] text-gray-400 text-right flex items-center justify-end gap-1">
+          <div class="mt-2 text-[10px] text-sub text-right flex-x justify-end gap-1">
             <div class="i-ri-star-fill text-yellow-400" />
             由 {{ item.add_digest_nick }} 设置
           </div>
         </div>
       </div>
-    </n-scrollbar>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { NScrollbar, NAvatar, NEmpty } from 'naive-ui'
+import Avatar from 'primevue/avatar'
 import { useRoute, useRouter } from 'vue-router'
 import { bot } from '@/api'
 import { formatTime } from '@/utils/format'

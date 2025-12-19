@@ -1,26 +1,24 @@
 <template>
-  <div class="flex flex-col h-full w-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
+  <div class="flex flex-col h-full w-full bg-main border-r border-dim">
     <!-- 头部：取消按钮和标题 -->
-    <div class="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800 h-14 box-border">
-      <div
-        class="p-1.5 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        @click="interfaceStore.stopForward()"
-      >
-        <div class="i-ri-arrow-left-line text-lg text-gray-600 dark:text-gray-300" />
+    <div class="flex-x gap-3 p-4 border-b border-dim h-14 box-border">
+      <div class="p-1.5 rounded-lg cursor-pointer my-hover my-trans" @click="interfaceStore.stopForward()">
+        <div class="i-ri-arrow-left-line text-lg text-sub" />
       </div>
       <span class="font-bold text-base flex-1">选择转发目标</span>
     </div>
 
     <!-- 搜索框 -->
-    <div class="p-3 border-b border-gray-200 dark:border-gray-800">
-      <n-input v-model:value="keyword" placeholder="搜索会话..." clearable size="small">
-        <template #prefix><div class="i-ri-search-line text-gray-400" /></template>
-      </n-input>
+    <div class="p-3 border-b border-dim">
+      <div class="relative">
+        <div class="absolute left-3 top-1/2 -translate-y-1/2 i-ri-search-line text-sub" />
+        <InputText v-model="keyword" placeholder="搜索会话..." class="w-full pl-10" size="small" />
+      </div>
     </div>
 
     <!-- 会话列表 -->
-    <n-scrollbar class="flex-1 p-2">
-      <div v-if="filteredSessions.length === 0" class="flex flex-col items-center justify-center h-40 text-gray-400">
+    <div class="flex-1 p-2 overflow-y-auto my-scrollbar">
+      <div v-if="filteredSessions.length === 0" class="flex-center h-40 text-sub">
         <span class="text-xs">未找到匹配会话</span>
       </div>
 
@@ -28,31 +26,26 @@
         <div
           v-for="s in filteredSessions"
           :key="s.id"
-          class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="flex-x gap-3 p-2 rounded-lg cursor-pointer my-trans my-hover"
           :class="{ 'bg-primary/10': selectedId === s.id }"
           @click="selectedId = s.id"
         >
-          <n-avatar
-            round
-            :src="s.avatar"
-            size="medium"
-            fallback-src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
-          />
+          <Avatar shape="circle" :image="s.avatar" size="large" />
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ s.name }}</div>
-            <div class="text-xs text-gray-400 truncate">{{ s.type === 'group' ? '群组' : '好友' }}</div>
+            <div class="text-sm font-medium text-main truncate">{{ s.name }}</div>
+            <div class="text-xs text-sub truncate">{{ s.type === 'group' ? '群组' : '好友' }}</div>
           </div>
           <div v-if="selectedId === s.id" class="i-ri-checkbox-circle-fill text-primary text-xl" />
         </div>
       </div>
-    </n-scrollbar>
+    </div>
 
     <!-- 底部确认 -->
-    <div class="flex justify-end gap-3 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-      <n-button size="small" @click="interfaceStore.stopForward()">取消</n-button>
-      <n-button type="primary" size="small" :disabled="!selectedId || sending" :loading="sending" @click="handleSend">
+    <div class="flex justify-end gap-3 p-4 border-t border-dim bg-main">
+      <Button size="small" @click="interfaceStore.stopForward()">取消</Button>
+      <Button severity="primary" size="small" :disabled="!selectedId || sending" :loading="sending" @click="handleSend">
         发送 ({{ count }})
-      </n-button>
+      </Button>
     </div>
   </div>
 </template>
@@ -60,7 +53,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NInput, NScrollbar, NAvatar, NButton, useMessage } from 'naive-ui'
+import InputText from 'primevue/inputtext'
+import Avatar from 'primevue/avatar'
+import Button from 'primevue/button'
+import { useToast } from 'primevue/usetoast'
 import { useContactsStore } from '@/stores/contacts'
 import { useInterfaceStore } from '@/stores/interface'
 import { useMessagesStore } from '@/stores/messages'
@@ -70,7 +66,7 @@ import type { ForwardNode } from '@/types'
 defineOptions({ name: 'ForwardBar' })
 
 const router = useRouter()
-const message = useMessage()
+const toast = useToast()
 
 // Stores
 const contactsStore = useContactsStore()
@@ -132,11 +128,11 @@ const handleSend = async () => {
       await bot.sendPrivateForwardMsg(targetId, nodes)
     }
 
-    message.success('转发成功')
+    toast.add({ severity: 'success', summary: '转发成功', life: 3000 })
     interfaceStore.stopForward() // 退出转发模式
   } catch (e: any) {
     console.error(e)
-    message.error(e.message || '转发失败')
+    toast.add({ severity: 'error', summary: e.message || '转发失败', life: 3000 })
   } finally {
     sending.value = false
   }

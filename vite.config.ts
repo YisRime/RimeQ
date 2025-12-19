@@ -24,12 +24,6 @@ export default defineConfig({
         'vue-router',
         '@vueuse/core',
       ],
-      resolvers: [PrimeVueResolver()],
-      dirs: [
-        'src/api',
-        'src/stores',
-        'src/utils'
-      ],
       dts: 'src/types/auto-imports.d.ts'
     }),
 
@@ -39,6 +33,7 @@ export default defineConfig({
     }),
 
     VitePWA({
+      disable: process.env.NODE_ENV === 'development',
       registerType: 'autoUpdate',
       devOptions: {
         enabled: true

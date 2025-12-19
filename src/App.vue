@@ -1,99 +1,89 @@
 <template>
-  <!-- 1. Naive UI 配置容器：注入主题、语言及 CSS 变量 -->
-  <n-config-provider
-    :theme="theme"
-    :theme-overrides="themeOverrides"
-    :locale="zhCN"
-    :date-locale="dateZhCN"
-    class="size-full"
-    :style="cssVars"
-  >
-    <!-- 全局样式注入 -->
-    <n-global-style />
+  <!-- PrimeVue 容器：使用 CSS 变量注入 -->
+  <div class="size-full" :style="cssVars" :class="{ dark: settingsStore.config.darkMode }">
+    <!-- 2. 主布局容器：使用 UnoCSS 语义类 -->
+    <div class="size-full flex bg-main text-main overflow-hidden">
+      <!-- === 左侧导航栏 === -->
+      <!-- bg-sub: 次级背景 (侧边栏) | border-dim: 副色调边框 -->
+      <aside class="w-80 flex-shrink-0 flex-col bg-sub border-r border-dim my-trans">
+        <!-- 头部搜索与操作 -->
+        <div v-if="accountsStore.isLogged" class="flex-x gap-3 p-4 border-b border-dim">
+          <!-- 用户头像 -->
+          <Avatar
+            :image="userAvatar"
+            shape="circle"
+            size="large"
+            class="cursor-pointer hover:ring-2 ring-primary/50 my-trans select-none"
+            @click="router.push('/settings')"
+          />
 
-    <!-- 功能性组件提供者 -->
-    <n-loading-bar-provider>
-      <n-message-provider>
-        <n-notification-provider>
-          <n-dialog-provider>
-            <!-- 2. 主布局容器：使用 UnoCSS 语义类 -->
-            <div class="size-full flex bg-main text-main overflow-hidden">
-              <!-- === 左侧导航栏 === -->
-              <!-- bg-sub: 次级背景 (侧边栏) | border-dim: 副色调边框 -->
-              <aside class="w-80 flex-shrink-0 flex-col bg-sub border-r border-dim my-transition">
-                <!-- 头部搜索与操作 -->
-                <div v-if="accountsStore.isLogged" class="flex-x gap-3 p-4 border-b border-dim">
-                  <!-- 用户头像 -->
-                  <n-avatar
-                    round
-                    :src="userAvatar"
-                    size="medium"
-                    class="cursor-pointer hover:ring-2 ring-primary/50 transition-all select-none"
-                    @click="router.push('/settings')"
-                  />
+          <!-- 搜索框 -->
+          <div class="flex-1 relative">
+            <div class="i-ri-search-line text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+            <InputText
+              v-model="searchKeyword"
+              placeholder="搜索..."
+              class="w-full rounded-full pl-10 !bg-dim border-0 text-sm h-8"
+            />
+          </div>
 
-                  <!-- 搜索框 -->
-                  <n-input v-model:value="searchKeyword" round placeholder="搜索..." size="small" class="flex-1">
-                    <template #prefix><div class="i-ri-search-line text-dim" /></template>
-                  </n-input>
+          <!-- 模式切换按钮 -->
+          <Button
+            :icon="isChatMode ? 'i-ri-group-line' : 'i-ri-message-3-line'"
+            rounded
+            text
+            :title="isChatMode ? '联系人' : '消息'"
+            :pt="{
+              root: { class: 'w-8 h-8 p-0' },
+              icon: { class: 'text-lg' }
+            }"
+            @click="toggleMode"
+          />
+        </div>
 
-                  <!-- 模式切换按钮：使用自定义 my-btn-icon 快捷键 -->
-                  <div class="my-btn-icon" :title="isChatMode ? '联系人' : '消息'" @click="toggleMode">
-                    <div :class="isChatMode ? 'i-ri-group-line' : 'i-ri-message-3-line'" />
-                  </div>
-                </div>
+        <!-- 列表区域 (Session/Contact) -->
+        <div class="flex-1 overflow-hidden relative">
+          <!-- 转发模式 -->
+          <ForwardBar v-if="interfaceStore.forwardMode.active" />
+          <!-- 正常列表 -->
+          <router-view v-else v-slot="{ Component }" name="nav">
+            <keep-alive>
+              <component :is="Component" :keyword="searchKeyword" />
+            </keep-alive>
+          </router-view>
+        </div>
+      </aside>
 
-                <!-- 列表区域 (Session/Contact) -->
-                <div class="flex-1 overflow-hidden relative">
-                  <!-- 转发模式 -->
-                  <ForwardBar v-if="interfaceStore.forwardMode.active" />
-                  <!-- 正常列表 -->
-                  <router-view v-else v-slot="{ Component }" name="nav">
-                    <keep-alive>
-                      <component :is="Component" :keyword="searchKeyword" />
-                    </keep-alive>
-                  </router-view>
-                </div>
-              </aside>
+      <!-- === 右侧主聊天区 === -->
+      <!-- bg-main: 主背景色 (聊天窗口) -->
+      <main class="flex-1 h-full overflow-hidden bg-main relative">
+        <router-view v-slot="{ Component }">
+          <transition name="view-fade" mode="out-in">
+            <keep-alive :include="['ChatView', 'SettingsView']">
+              <component :is="Component" class="size-full" />
+            </keep-alive>
+          </transition>
+        </router-view>
+      </main>
+    </div>
 
-              <!-- === 右侧主聊天区 === -->
-              <!-- bg-main: 主背景色 (聊天窗口) -->
-              <main class="flex-1 h-full overflow-hidden bg-main relative">
-                <router-view v-slot="{ Component }">
-                  <transition name="view-fade" mode="out-in">
-                    <keep-alive :include="['ChatView', 'SettingsView']">
-                      <component :is="Component" class="size-full" />
-                    </keep-alive>
-                  </transition>
-                </router-view>
-              </main>
-            </div>
+    <!-- 全局浮层组件 -->
+    <MediaViewer v-model="interfaceStore.viewer.show" :src="interfaceStore.viewer.url" />
 
-            <!-- 全局浮层组件 -->
-            <MediaViewer v-model="interfaceStore.viewer.show" :src="interfaceStore.viewer.url" />
-          </n-dialog-provider>
-        </n-notification-provider>
-      </n-message-provider>
-    </n-loading-bar-provider>
-  </n-config-provider>
+    <!-- PrimeVue 全局服务 -->
+    <Toast position="top-right" />
+    <ConfirmDialog />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import {
-  darkTheme,
-  zhCN,
-  dateZhCN,
-  NConfigProvider,
-  NGlobalStyle,
-  NMessageProvider,
-  NNotificationProvider,
-  NDialogProvider,
-  NLoadingBarProvider,
-  NAvatar,
-  NInput
-} from 'naive-ui'
+import Avatar from 'primevue/avatar'
+import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
+import Toast from 'primevue/toast'
+import ConfirmDialog from 'primevue/confirmdialog'
 
 // Store
 import { useSettingsStore } from './stores/settings'
@@ -127,22 +117,12 @@ const cssVars = computed(() => {
     '--color-sub': isDark ? '#18181c' : '#f9fafb', // 侧边栏背景
     '--color-dim': isDark ? '#242429' : '#f0f2f5', // 悬停/分割线/输入框
 
-    // 文字颜色 (适配 Naive UI)
-    '--n-text-color': isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.88)'
+    // 文字颜色
+    '--text-main': isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.88)',
+    '--text-sub': isDark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.65)',
+    '--text-dim': isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)'
   }
 })
-
-/**
- * Naive UI 主题配置
- */
-const theme = computed(() => (settingsStore.config.darkMode ? darkTheme : null))
-const themeOverrides = computed(() => ({
-  common: {
-    primaryColor: cssVars.value['--primary-color'],
-    primaryColorHover: cssVars.value['--primary-color'] + 'ee',
-    primaryColorPressed: cssVars.value['--primary-color'] + 'cc'
-  }
-}))
 
 /**
  * 状态逻辑
@@ -154,7 +134,11 @@ const userAvatar = computed(() =>
 
 const toggleMode = () => {
   if (!accountsStore.isLogged) return
-  isChatMode.value ? router.push('/contact') : router.push('/')
+  if (isChatMode.value) {
+    router.push('/contact')
+  } else {
+    router.push('/')
+  }
   searchKeyword.value = ''
 }
 

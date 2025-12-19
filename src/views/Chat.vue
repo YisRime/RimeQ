@@ -1,42 +1,36 @@
 <template>
-  <div class="flex h-full w-full relative overflow-hidden bg-gray-50 dark:bg-black">
+  <div class="flex h-full w-full relative overflow-hidden bg-main">
     <!-- 主聊天区域 -->
-    <main class="flex-1 h-full min-w-0 relative flex flex-col">
+    <main class="flex-1 h-full min-w-0 relative flex-col">
       <!-- 空状态 -->
-      <div v-if="!id" class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
-        <div class="i-ri-message-3-line text-6xl mb-4"></div>
+      <div v-if="!id" class="flex-center flex-col h-full text-dim opacity-50">
+        <div class="i-ri-message-3-line text-6xl mb-4" />
         <span class="text-lg">选择一个聊天开始对话</span>
       </div>
 
       <!-- 聊天窗口 -->
-      <div
-        v-else
-        class="flex flex-col h-full w-full bg-[#f2f2f2] dark:bg-[#101010] relative transition-all duration-300"
-        :style="bgStyle"
-      >
+      <div v-else class="flex-col-full bg-main relative my-trans" :style="bgStyle">
         <!-- 背景模糊遮罩 -->
         <div
           v-if="bgStyle"
           class="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-0 pointer-events-none"
           :style="`backdrop-filter: blur(${settingsStore.config.bgBlur}px);`"
-        ></div>
+        />
 
         <!-- 顶部 Header -->
-        <header
-          class="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center justify-between px-4 z-10 flex-shrink-0"
-        >
-          <div class="flex items-center gap-3 overflow-hidden">
+        <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 z-10 flex-shrink-0">
+          <div class="flex-x gap-3 overflow-hidden">
             <!-- 移动端返回 (切换到联系人列表视图) -->
             <div
-              class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary"
+              class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary my-trans"
               @click="router.push('/')"
             />
 
             <div class="flex flex-col overflow-hidden">
-              <span class="font-bold text-lg text-gray-800 dark:text-gray-100 truncate">
+              <span class="font-bold text-lg text-main truncate">
                 {{ session?.name || id }}
               </span>
-              <span v-if="session?.type === 'group'" class="text-[10px] text-gray-500 truncate">
+              <span v-if="session?.type === 'group'" class="text-[10px] text-dim truncate">
                 {{ id }}
               </span>
             </div>
@@ -44,7 +38,7 @@
 
           <!-- 右侧操作 -->
           <div
-            class="i-ri-more-2-fill cursor-pointer text-xl text-gray-500 hover:text-primary transition-colors"
+            class="i-ri-more-2-fill cursor-pointer text-xl text-sub hover:text-primary my-trans"
             @click="toggleSidebar"
           />
         </header>
@@ -53,12 +47,12 @@
         <div
           id="msgPan"
           ref="scrollRef"
-          class="flex-1 overflow-y-auto p-4 custom-scrollbar scroll-smooth z-0"
+          class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0"
           @scroll="onScroll"
         >
           <!-- 加载 Loading -->
-          <div v-if="messagesStore.loading[id]" class="flex justify-center py-4">
-            <div class="i-ri-loader-4-line animate-spin text-gray-400" />
+          <div v-if="messagesStore.loading[id]" class="flex-center py-4">
+            <div class="i-ri-loader-4-line animate-spin text-dim" />
           </div>
 
           <!-- 消息气泡 -->
@@ -75,50 +69,39 @@
         <transition name="slide-up">
           <div
             v-if="interfaceStore.multiSelect"
-            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 border border-gray-200 dark:border-gray-700 z-50 select-none"
+            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none"
           >
-            <div class="text-sm font-bold border-r pr-6 border-gray-200 dark:border-gray-600">
+            <div class="text-sm font-bold border-r pr-6 border-dim">
               已选 {{ interfaceStore.selectedIds.length }} 项
             </div>
 
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <div
-                  class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary"
-                  @click="handleBatchForward"
-                />
-              </template>
-              合并转发
-            </n-tooltip>
+            <div
+              class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans"
+              title="合并转发"
+              @click="handleBatchForward"
+            />
 
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <div
-                  class="i-ri-close-line text-xl cursor-pointer hover:text-gray-500"
-                  @click="interfaceStore.stopMulti()"
-                />
-              </template>
-              退出多选
-            </n-tooltip>
+            <div
+              class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans"
+              title="退出多选"
+              @click="interfaceStore.stopMulti()"
+            />
           </div>
         </transition>
 
         <!-- 底部输入区域 -->
-        <div
-          v-if="!interfaceStore.multiSelect"
-          class="flex flex-col h-auto bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-10 relative"
-        >
+        <div v-if="!interfaceStore.multiSelect" class="flex flex-col h-auto bg-sub border-t border-dim z-10 relative">
           <!-- 引用回复提示 -->
           <div
             v-if="interfaceStore.replyTarget"
-            class="px-4 py-2 bg-gray-50 dark:bg-gray-800 flex justify-between items-center text-xs text-gray-500 border-b border-gray-100 dark:border-gray-700"
+            class="px-4 py-2 bg-dim flex-between text-xs text-sub border-b border-dim"
           >
             <div class="truncate max-w-[80%]">
               回复 <span class="font-bold">@{{ interfaceStore.replyTarget.sender.nickname }}</span> :
               {{ getSummary(interfaceStore.replyTarget) }}
             </div>
             <div
-              class="i-ri-close-circle-fill cursor-pointer hover:text-red-500"
+              class="i-ri-close-circle-fill cursor-pointer hover:text-red-500 my-trans"
               @click="interfaceStore.setReply(null)"
             />
           </div>
@@ -131,13 +114,13 @@
             <textarea
               ref="inputRef"
               v-model="text"
-              class="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-6 custom-scrollbar placeholder-gray-400 py-2"
+              class="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-6 my-scrollbar placeholder-dim text-main py-2"
               placeholder="发送消息 (Ctrl+Enter 发送)"
               @keydown.enter.ctrl.prevent="doSend"
-            ></textarea>
+            />
 
             <div class="flex justify-end pb-1">
-              <n-button size="small" type="primary" :disabled="!text.trim()" @click="doSend"> 发送 </n-button>
+              <Button size="small" :disabled="!text.trim()" @click="doSend">发送</Button>
             </div>
           </div>
         </div>
@@ -150,7 +133,7 @@
     <!-- 右侧侧边栏 (路由视图) -->
     <aside
       v-if="hasSidebar"
-      class="border-l border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0"
+      class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0"
     >
       <router-view name="sidebar" />
     </aside>
@@ -160,7 +143,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NButton, NTooltip, useMessage } from 'naive-ui'
+import { useToast } from 'primevue/usetoast'
+import Button from 'primevue/button'
 import { useContactsStore } from '@/stores/contacts'
 import { useMessagesStore } from '@/stores/messages'
 import { useInterfaceStore } from '@/stores/interface'
@@ -179,7 +163,7 @@ defineOptions({ name: 'ChatView' })
 
 const router = useRouter()
 const route = useRoute()
-const toast = useMessage()
+const toast = useToast()
 
 // Stores
 const contactsStore = useContactsStore()
@@ -265,9 +249,9 @@ const doSend = () => {
 const onPoke = (uid: number) => {
   const isGroup = id.value.length > 5
   if (isGroup) {
-    bot.sendGroupPoke(Number(id.value), uid)
+    bot.groupPoke(Number(id.value), uid)
   } else {
-    bot.sendFriendPoke(uid)
+    bot.friendPoke(uid)
   }
   messagesStore.addSystem(id.value, `你戳了戳 ${uid}`)
 }
@@ -329,7 +313,7 @@ const onMenuSelect = (key: string) => {
       break
     case 'recall':
       messagesStore.recallMsg(id.value, msg.message_id)
-      bot.deleteMsg(msg.message_id).catch(() => toast.error('撤回失败'))
+      bot.deleteMsg(msg.message_id).catch(() => toast.add({ severity: 'error', summary: '撤回失败', life: 3000 }))
       break
   }
 }

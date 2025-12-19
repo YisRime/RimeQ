@@ -1,7 +1,7 @@
 <template>
   <!-- 1. 系统消息 / 撤回提示 -->
-  <div v-if="isSystem" class="flex justify-center my-4 w-full select-none">
-    <div class="bg-gray-200 dark:bg-gray-800 text-gray-500 text-xs px-3 py-1 rounded-full shadow-sm">
+  <div v-if="isSystem" class="flex-center my-4 w-full select-none">
+    <div class="bg-dim text-sub text-xs px-3 py-1 rounded-full shadow-sm">
       {{ rawText }}
     </div>
   </div>
@@ -15,11 +15,11 @@
   >
     <!-- 头像 -->
     <div class="flex-shrink-0 flex flex-col justify-start mt-1">
-      <n-avatar
-        round
-        :size="40"
-        :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${msg.sender.user_id}`"
-        class="shadow-sm cursor-pointer hover:scale-105 transition-transform duration-200 select-none bg-white dark:bg-gray-800"
+      <Avatar
+        shape="circle"
+        :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${msg.sender.user_id}`"
+        size="large"
+        class="shadow-sm cursor-pointer hover:scale-105 my-trans select-none bg-sub"
         @dblclick="emit('poke', msg.sender.user_id)"
       />
     </div>
@@ -27,8 +27,8 @@
     <!-- 消息体容器 -->
     <div class="flex flex-col max-w-[75%] md:max-w-[60%] min-w-[60px]" :class="isMe ? 'items-end' : 'items-start'">
       <!-- 昵称 (非自己时显示) -->
-      <div v-if="!isMe" class="flex items-center gap-2 mb-1 ml-1 select-none">
-        <span class="text-xs text-gray-500 font-medium">
+      <div v-if="!isMe" class="flex-x gap-2 mb-1 ml-1 select-none">
+        <span class="text-xs text-sub font-medium">
           {{ msg.sender.card || msg.sender.nickname }}
         </span>
         <!-- 身份标识 -->
@@ -42,28 +42,28 @@
 
       <!-- 气泡主体 -->
       <div
-        class="relative rounded-2xl shadow-sm border transition-all duration-200 overflow-hidden group-hover/row:shadow-md"
+        class="relative rounded-2xl shadow-sm border my-trans overflow-hidden group-hover/row:shadow-md"
         :class="bubbleClass"
       >
         <!-- A. 纯文本/表情/At -->
         <div v-if="msgType === MsgType.Text" class="text-sm leading-6 break-words whitespace-pre-wrap">
-          <span v-html="formattedHtml"></span>
+          <span v-html="formattedHtml" />
         </div>
 
         <!-- B. 图片 -->
         <div v-else-if="msgType === MsgType.Image" class="relative">
           <img
             :src="mediaUrl"
-            class="max-w-[300px] max-h-[300px] min-w-[100px] rounded-lg cursor-pointer bg-gray-100 dark:bg-gray-700 block"
+            class="max-w-[300px] max-h-[300px] min-w-[100px] rounded-lg cursor-pointer bg-dim block"
             loading="lazy"
             @click.stop="previewImage"
           />
         </div>
 
         <!-- C. 语音 -->
-        <div v-else-if="msgType === MsgType.Record" class="flex items-center gap-2 px-2 py-1 select-none">
+        <div v-else-if="msgType === MsgType.Record" class="flex-x gap-2 px-2 py-1 select-none">
           <div
-            class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center cursor-pointer hover:bg-white/30 transition-colors"
+            class="w-8 h-8 rounded-full bg-white/20 flex-center cursor-pointer hover:bg-white/30 my-trans"
             @click="playAudio"
           >
             <div class="i-ri-play-fill" />
@@ -75,13 +75,13 @@
         <!-- D. 文件 -->
         <div
           v-else-if="msgType === MsgType.File"
-          class="flex items-center gap-3 p-1 min-w-[200px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors rounded"
+          class="flex-x gap-3 p-1 min-w-[200px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 my-trans rounded"
           @click="downloadFile"
         >
-          <div class="w-10 h-10 bg-white/20 rounded flex items-center justify-center text-xl">
+          <div class="w-10 h-10 bg-white/20 rounded flex-center text-xl">
             <div class="i-ri-file-line" />
           </div>
-          <div class="flex-1 min-w-0">
+          <div class="flex-truncate">
             <div class="text-sm truncate">{{ fileInfo.name }}</div>
             <div class="text-xs opacity-70">{{ formatFileSize(fileInfo.size) }}</div>
           </div>
@@ -100,7 +100,7 @@
 
         <!-- G. Markdown -->
         <div v-else-if="msgType === MsgType.Markdown" class="text-sm overflow-hidden p-1">
-          <div class="markdown-body" v-html="markdownContent"></div>
+          <div class="markdown-body" v-html="markdownContent" />
         </div>
 
         <!-- H. 卡片消息 (JSON/XML) -->
@@ -111,24 +111,21 @@
           <div v-if="cardInfo?.preview" class="w-12 h-12 flex-shrink-0">
             <img :src="cardInfo.preview" class="w-full h-full object-cover rounded" />
           </div>
-          <div
-            v-else
-            class="w-12 h-12 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center"
-          >
+          <div v-else class="w-12 h-12 flex-shrink-0 bg-dim rounded flex-center">
             <div class="i-ri-article-line text-xl opacity-50" />
           </div>
-          <div class="flex-1 min-w-0 flex flex-col">
+          <div class="flex-truncate flex flex-col">
             <div class="text-sm font-bold truncate">{{ cardInfo?.title || '卡片消息' }}</div>
             <div class="text-xs opacity-70 truncate">{{ cardInfo?.desc || '点击查看详情' }}</div>
           </div>
         </div>
 
         <!-- I. 默认 -->
-        <div v-else class="text-sm text-gray-400 italic px-2">[暂不支持的消息类型: {{ msgType }}]</div>
+        <div v-else class="text-sm text-dim italic px-2">[暂不支持的消息类型: {{ msgType }}]</div>
 
         <!-- 发送状态 -->
         <div v-if="isMe && msg.status === 'sending'" class="absolute -left-6 top-1/2 -translate-y-1/2">
-          <div class="i-ri-loader-4-line animate-spin text-gray-400 text-xs" />
+          <div class="i-ri-loader-4-line animate-spin text-dim text-xs" />
         </div>
         <div
           v-if="isMe && msg.status === 'fail'"
@@ -140,7 +137,7 @@
       </div>
 
       <!-- 撤回提示 -->
-      <div v-if="msg.recalled" class="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+      <div v-if="msg.recalled" class="text-[10px] text-dim mt-1 flex-x gap-1">
         <div class="i-ri-arrow-go-back-line" />
         已撤回
       </div>
@@ -150,7 +147,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useToast } from 'primevue/usetoast'
+import Avatar from 'primevue/avatar'
 import { useAccountsStore } from '@/stores/accounts'
 import { useInterfaceStore } from '@/stores/interface'
 import { MsgType } from '@/types'
@@ -165,7 +163,7 @@ const emit = defineEmits<{
   (e: 'poke', uid: number): void
 }>()
 
-const toast = useMessage()
+const toast = useToast()
 const accountsStore = useAccountsStore()
 const interfaceStore = useInterfaceStore()
 const audioRef = ref<HTMLAudioElement>()
@@ -224,14 +222,14 @@ const bubbleClass = computed(() => {
 
   // 卡片/Markdown 通常需要一点背景
   if ([MsgType.Card, MsgType.Json, MsgType.Xml, MsgType.Markdown].includes(msgType.value)) {
-    return 'px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-100 dark:border-gray-700 rounded-lg'
+    return 'px-3 py-2 bg-sub text-main border-dim rounded-lg'
   }
 
   // 常规气泡颜色
   if (isMe.value) {
     return 'px-3 py-2 bg-primary text-white border-transparent rounded-tr-sm'
   }
-  return 'px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-100 dark:border-gray-700 rounded-tl-sm'
+  return 'px-3 py-2 bg-sub text-main border-dim rounded-tl-sm'
 })
 
 // Actions
@@ -256,11 +254,11 @@ const downloadFile = async () => {
   const groupId = props.msg.group_id
   if (groupId && fileSeg) {
     try {
-      toast.loading('获取下载地址...')
+      toast.add({ severity: 'info', summary: '获取下载地址...', life: 2000 })
       const res = await bot.getGroupFileUrl(groupId, fileSeg.data.file_id, fileSeg.data.busid)
       if (res.url) window.open(res.url)
     } catch {
-      toast.error('获取失败')
+      toast.add({ severity: 'error', summary: '获取失败', life: 3000 })
     }
   }
 }

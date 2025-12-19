@@ -1,4 +1,4 @@
-import { MsgType } from '../types'
+import { MsgType } from '@/types'
 import type { MessageSegment, FileInfo } from '../types'
 
 /**

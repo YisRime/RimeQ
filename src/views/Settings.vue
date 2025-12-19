@@ -1,121 +1,127 @@
 <template>
-  <div class="flex flex-col h-full w-full bg-gray-50 dark:bg-black">
+  <div class="flex-col-full bg-main">
     <!-- 头部 -->
-    <header
-      class="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center justify-between px-4 flex-shrink-0 z-10"
-    >
-      <div class="flex items-center gap-3">
+    <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 flex-shrink-0 z-10">
+      <div class="flex-x gap-3">
         <!-- 移动端返回 -->
         <div class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer" @click="router.back()" />
-        <span class="font-bold text-lg text-gray-800 dark:text-gray-100">设置</span>
+        <span class="font-bold text-lg text-main">设置</span>
       </div>
 
-      <n-button type="error" size="small" secondary @click="handleLogout">
+      <Button severity="danger" size="small" outlined @click="handleLogout">
         <template #icon><div class="i-ri-logout-box-line" /></template>
-        退出登录
-      </n-button>
+        <span>退出登录</span>
+      </Button>
     </header>
 
     <!-- 内容滚动区 -->
-    <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
-      <div
-        class="max-w-3xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800"
-      >
-        <n-tabs type="line" animated class="px-6 py-4">
-          <!-- 通用设置 -->
-          <n-tab-pane name="general" tab="通用">
-            <n-form label-placement="left" label-width="auto" class="mt-4 max-w-lg">
-              <n-form-item label="自动连接">
-                <n-switch v-model:value="config.autoConnect">
-                  <template #checked>开启</template>
-                  <template #unchecked>关闭</template>
-                </n-switch>
-                <div class="text-xs text-gray-400 ml-3">启动时自动登录上次账号</div>
-              </n-form-item>
+    <div class="flex-1 overflow-y-auto my-scrollbar p-4 md:p-8">
+      <div class="max-w-3xl mx-auto bg-sub rounded-2xl shadow-sm border border-dim">
+        <Tabs value="general" class="px-6 py-4">
+          <TabList>
+            <Tab value="general">通用</Tab>
+            <Tab value="theme">外观</Tab>
+            <Tab value="advanced">高级</Tab>
+            <Tab value="about">关于</Tab>
+          </TabList>
 
-              <n-form-item label="记住密码">
-                <n-switch v-model:value="config.remember" />
-              </n-form-item>
-
-              <n-divider />
-
-              <n-form-item label="日志级别">
-                <n-select v-model:value="config.logLevel" :options="logOptions" size="small" class="w-32" />
-              </n-form-item>
-            </n-form>
-          </n-tab-pane>
-
-          <!-- 外观设置 -->
-          <n-tab-pane name="theme" tab="外观">
-            <n-form label-placement="top" class="mt-4">
-              <n-grid :cols="1" :y-gap="24">
-                <n-form-item-gi label="深色模式">
-                  <div class="flex items-center gap-4">
-                    <n-switch v-model:value="config.darkMode" />
-                    <span class="text-xs text-gray-400">强制开启深色主题</span>
+          <TabPanels>
+            <!-- 通用设置 -->
+            <TabPanel value="general">
+              <div class="mt-4 max-w-lg flex flex-col gap-6">
+                <div class="flex-between py-3 border-b border-dim">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm font-medium text-main">自动连接</label>
+                    <span class="text-xs text-dim">启动时自动登录上次账号</span>
                   </div>
-                </n-form-item-gi>
-
-                <n-form-item-gi label="聊天背景图 (URL)">
-                  <n-input v-model:value="config.bgImage" placeholder="https://..." clearable>
-                    <template #prefix><div class="i-ri-image-line text-gray-400" /></template>
-                  </n-input>
-                </n-form-item-gi>
-
-                <n-form-item-gi label="背景模糊度 (px)">
-                  <div class="w-full max-w-md flex items-center gap-4">
-                    <n-slider v-model:value="config.bgBlur" :min="0" :max="20" class="flex-1" />
-                    <span class="w-8 text-right">{{ config.bgBlur }}</span>
-                  </div>
-                </n-form-item-gi>
-              </n-grid>
-            </n-form>
-          </n-tab-pane>
-
-          <!-- 高级设置 -->
-          <n-tab-pane name="advanced" tab="高级">
-            <n-form class="mt-4">
-              <n-form-item label="防撤回 (本地拦截)">
-                <div class="flex flex-col gap-1">
-                  <n-switch v-model:value="config.antiRecall" />
-                  <span class="text-xs text-gray-400">拦截撤回指令，仅在本地保留消息，重启后失效</span>
+                  <ToggleSwitch v-model="config.autoConnect" />
                 </div>
-              </n-form-item>
 
-              <n-form-item label="自定义 CSS">
-                <n-input
-                  v-model:value="config.css"
-                  type="textarea"
-                  placeholder="/* 输入 CSS 代码覆盖样式 */"
-                  :rows="6"
-                  class="font-mono text-xs"
-                />
-              </n-form-item>
+                <div class="flex-between py-3 border-b border-dim">
+                  <label class="text-sm font-medium text-main">记住密码</label>
+                  <ToggleSwitch v-model="config.remember" />
+                </div>
 
-              <n-divider />
-
-              <div class="flex gap-4">
-                <n-button @click="printConfig">打印配置到控制台</n-button>
-                <n-button type="warning" @click="resetApp">重置应用</n-button>
+                <div class="flex-between py-3">
+                  <label class="text-sm font-medium text-main">日志级别</label>
+                  <Select v-model="config.logLevel" :options="logOptions" class="w-32" />
+                </div>
               </div>
-            </n-form>
-          </n-tab-pane>
+            </TabPanel>
 
-          <!-- 关于 -->
-          <n-tab-pane name="about" tab="关于">
-            <div class="flex flex-col items-center py-8">
-              <div class="i-ri-radar-line text-6xl text-primary mb-4" />
-              <h2 class="text-2xl font-bold">WebQQ Refactored</h2>
-              <p class="text-gray-400 mt-2">v2.0.0 (Dev)</p>
-              <div class="mt-6">
-                <n-button tag="a" href="https://github.com/YisRime/WebQQ" target="_blank" secondary>
-                  <template #icon><div class="i-ri-github-fill" /></template>
-                  GitHub
-                </n-button>
+            <!-- 外观设置 -->
+            <TabPanel value="theme">
+              <div class="mt-4 flex flex-col gap-6">
+                <div class="flex-between py-3 border-b border-dim">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm font-medium text-main">深色模式</label>
+                    <span class="text-xs text-dim">强制开启深色主题</span>
+                  </div>
+                  <ToggleSwitch v-model="config.darkMode" />
+                </div>
+
+                <div class="flex flex-col gap-2 py-3 border-b border-dim">
+                  <label class="text-sm font-medium text-main">聊天背景图 (URL)</label>
+                  <div class="relative">
+                    <div class="i-ri-image-line text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+                    <InputText v-model="config.bgImage" placeholder="https://..." class="w-full pl-10" />
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-3 py-3">
+                  <label class="text-sm font-medium text-main">背景模糊度 (px)</label>
+                  <div class="flex-x gap-4">
+                    <Slider v-model="config.bgBlur" :min="0" :max="20" class="flex-1" />
+                    <span class="w-8 text-right text-main">{{ config.bgBlur }}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </n-tab-pane>
-        </n-tabs>
+            </TabPanel>
+
+            <!-- 高级设置 -->
+            <TabPanel value="advanced">
+              <div class="mt-4 flex flex-col gap-6">
+                <div class="flex-between py-3 border-b border-dim">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm font-medium text-main">防撤回 (本地拦截)</label>
+                    <span class="text-xs text-dim">拦截撤回指令，仅在本地保留消息，重启后失效</span>
+                  </div>
+                  <ToggleSwitch v-model="config.antiRecall" />
+                </div>
+
+                <div class="flex flex-col gap-2 py-3 border-b border-dim">
+                  <label class="text-sm font-medium text-main">自定义 CSS</label>
+                  <Textarea
+                    v-model="config.css"
+                    placeholder="/* 输入 CSS 代码覆盖样式 */"
+                    :rows="6"
+                    class="font-mono text-xs"
+                  />
+                </div>
+
+                <div class="flex gap-4 pt-3">
+                  <Button outlined @click="printConfig">打印配置到控制台</Button>
+                  <Button severity="warn" outlined @click="resetApp">重置应用</Button>
+                </div>
+              </div>
+            </TabPanel>
+
+            <!-- 关于 -->
+            <TabPanel value="about">
+              <div class="flex-center flex-col py-8">
+                <div class="i-ri-radar-line text-6xl text-primary mb-4" />
+                <h2 class="text-2xl font-bold text-main">WebQQ Refactored</h2>
+                <p class="text-sub mt-2">v2.0.0 (Dev)</p>
+                <div class="mt-6">
+                  <Button as="a" href="https://github.com/YisRime/WebQQ" target="_blank" outlined>
+                    <template #icon><div class="i-ri-github-fill" /></template>
+                    <span>GitHub</span>
+                  </Button>
+                </div>
+              </div>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </div>
     </div>
   </div>
@@ -123,30 +129,28 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import {
-  NButton,
-  NTabs,
-  NTabPane,
-  NForm,
-  NFormItem,
-  NSwitch,
-  NInput,
-  NGrid,
-  NFormItemGi,
-  NSlider,
-  NDivider,
-  NSelect,
-  useDialog,
-  useMessage
-} from 'naive-ui'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
+import Button from 'primevue/button'
+import Tabs from 'primevue/tabs'
+import TabList from 'primevue/tablist'
+import Tab from 'primevue/tab'
+import TabPanels from 'primevue/tabpanels'
+import TabPanel from 'primevue/tabpanel'
+import ToggleSwitch from 'primevue/toggleswitch'
+import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
+import Slider from 'primevue/slider'
+import Select from 'primevue/select'
+
 import { useSettingsStore } from '@/stores/settings'
 import { useAccountsStore } from '@/stores/accounts'
 
 defineOptions({ name: 'SettingsView' })
 
 const router = useRouter()
-const dialog = useDialog()
-const message = useMessage()
+const toast = useToast()
+const confirm = useConfirm()
 
 // Stores
 const settingsStore = useSettingsStore()
@@ -161,12 +165,13 @@ const logOptions = [
 
 // Actions
 const handleLogout = () => {
-  dialog.warning({
-    title: '确认退出',
-    content: '确定要断开连接吗？将返回登录页面。',
-    positiveText: '退出',
-    negativeText: '取消',
-    onPositiveClick: () => {
+  confirm.require({
+    message: '确定要断开连接吗？将返回登录页面。',
+    header: '确认退出',
+    icon: 'i-ri-error-warning-line',
+    rejectLabel: '取消',
+    acceptLabel: '退出',
+    accept: () => {
       accountsStore.logout()
       router.push('/login')
     }
@@ -174,17 +179,18 @@ const handleLogout = () => {
 }
 
 const printConfig = () => {
-  console.log('Current Config:', JSON.parse(JSON.stringify(config.value)))
-  message.success('已打印至控制台')
+  console.log('Current Config:', JSON.parse(JSON.stringify(config)))
+  toast.add({ severity: 'success', summary: '已打印至控制台', life: 3000 })
 }
 
 const resetApp = () => {
-  dialog.error({
-    title: '危险操作',
-    content: '这将清空所有本地缓存（包括聊天记录和配置），确定继续吗？',
-    positiveText: '确认重置',
-    negativeText: '取消',
-    onPositiveClick: () => {
+  confirm.require({
+    message: '这将清空所有本地缓存（包括聊天记录和配置），确定继续吗？',
+    header: '危险操作',
+    icon: 'i-ri-error-warning-line',
+    rejectLabel: '取消',
+    acceptLabel: '确认重置',
+    accept: () => {
       localStorage.clear()
       window.location.reload()
     }

@@ -1,91 +1,88 @@
 <template>
-  <div class="flex flex-col h-full w-full bg-white dark:bg-gray-900">
-    <n-scrollbar class="flex-1">
-      <n-collapse display-directive="show" :default-expanded-names="['friends', 'groups']" class="p-2">
+  <div class="flex-col-full bg-sub">
+    <div class="flex-1 overflow-y-auto my-scrollbar">
+      <Accordion :value="['friends', 'groups']" multiple class="p-2">
         <!-- 新朋友入口 -->
-        <div
-          class="flex items-center gap-3 p-3 mb-2 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-          @click="router.push('/notice')"
-        >
-          <div
-            class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center text-orange-500"
-          >
+        <div class="flex-x gap-3 p-3 mb-2 rounded-xl cursor-pointer my-hover my-trans" @click="router.push('/notice')">
+          <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex-center text-orange-500">
             <div class="i-ri-user-add-line text-xl" />
           </div>
-          <div class="flex-1 min-w-0">
-            <span class="font-medium text-base text-gray-700 dark:text-gray-200">新朋友</span>
+          <div class="flex-truncate">
+            <span class="font-medium text-base text-main">新朋友</span>
           </div>
-          <div class="i-ri-arrow-right-s-line text-gray-400" />
+          <div class="i-ri-arrow-right-s-line text-dim" />
         </div>
 
         <!-- 好友列表 -->
-        <n-collapse-item title="好友" name="friends">
-          <template #header-extra>
-            <span class="text-xs text-gray-400">{{ filteredFriends.length }}</span>
-          </template>
-
-          <div class="flex flex-col gap-1">
-            <div
-              v-for="friend in filteredFriends"
-              :key="friend.user_id"
-              class="flex items-center gap-3 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded-lg transition-colors"
-              @click="toChat(friend.user_id)"
-            >
-              <n-avatar
-                round
-                :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
-                size="medium"
-                fallback-src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                  {{ friend.remark || friend.nickname }}
-                </div>
-                <div v-if="friend.remark" class="text-xs text-gray-400 truncate">
-                  {{ friend.nickname }}
+        <AccordionPanel value="friends">
+          <AccordionHeader>
+            <div class="flex-between w-full">
+              <span class="text-main">好友</span>
+              <span class="text-xs text-dim">{{ filteredFriends.length }}</span>
+            </div>
+          </AccordionHeader>
+          <AccordionContent>
+            <div class="flex flex-col gap-1">
+              <div
+                v-for="friend in filteredFriends"
+                :key="friend.user_id"
+                class="flex-x gap-3 p-2.5 my-hover cursor-pointer rounded-lg my-trans"
+                @click="toChat(friend.user_id)"
+              >
+                <Avatar shape="circle" :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`" />
+                <div class="flex-truncate">
+                  <div class="text-sm font-medium text-main truncate">
+                    {{ friend.remark || friend.nickname }}
+                  </div>
+                  <div v-if="friend.remark" class="text-xs text-dim truncate">
+                    {{ friend.nickname }}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </n-collapse-item>
+          </AccordionContent>
+        </AccordionPanel>
 
         <!-- 群组列表 -->
-        <n-collapse-item title="群组" name="groups">
-          <template #header-extra>
-            <span class="text-xs text-gray-400">{{ filteredGroups.length }}</span>
-          </template>
-
-          <div class="flex flex-col gap-1">
-            <div
-              v-for="group in filteredGroups"
-              :key="group.group_id"
-              class="flex items-center gap-3 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded-lg transition-colors"
-              @click="toChat(group.group_id)"
-            >
-              <n-avatar
-                round
-                :src="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`"
-                size="medium"
-                fallback-src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                  {{ group.group_name }}
+        <AccordionPanel value="groups">
+          <AccordionHeader>
+            <div class="flex-between w-full">
+              <span class="text-main">群组</span>
+              <span class="text-xs text-dim">{{ filteredGroups.length }}</span>
+            </div>
+          </AccordionHeader>
+          <AccordionContent>
+            <div class="flex flex-col gap-1">
+              <div
+                v-for="group in filteredGroups"
+                :key="group.group_id"
+                class="flex-x gap-3 p-2.5 my-hover cursor-pointer rounded-lg my-trans"
+                @click="toChat(group.group_id)"
+              >
+                <Avatar shape="circle" :image="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`" />
+                <div class="flex-truncate">
+                  <div class="text-sm font-medium text-main truncate">
+                    {{ group.group_name }}
+                  </div>
+                  <div class="text-xs text-dim truncate">{{ group.member_count || 0 }}人</div>
                 </div>
-                <div class="text-xs text-gray-400 truncate">{{ group.member_count || 0 }}人</div>
               </div>
             </div>
-          </div>
-        </n-collapse-item>
-      </n-collapse>
-    </n-scrollbar>
+          </AccordionContent>
+        </AccordionPanel>
+      </Accordion>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { NScrollbar, NCollapse, NCollapseItem, NAvatar } from 'naive-ui'
+import Accordion from 'primevue/accordion'
+import AccordionPanel from 'primevue/accordionpanel'
+import AccordionHeader from 'primevue/accordionheader'
+import AccordionContent from 'primevue/accordioncontent'
+import Avatar from 'primevue/avatar'
 import { useContactsStore } from '@/stores/contacts'
 
 defineOptions({ name: 'ContactBar' })
