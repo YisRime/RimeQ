@@ -13,12 +13,10 @@ export default defineConfig({
       },
     }),
   ],
-
   transformers: [
     transformerDirectives(),
     transformerVariantGroup(),
   ],
-
   theme: {
     colors: {
       primary: 'var(--primary-color)',
@@ -27,16 +25,13 @@ export default defineConfig({
       dim: 'var(--color-dim)',
     }
   },
-
   shortcuts: [
     // 文本颜色
     ['text-main', 'text-[var(--text-main)]'],
     ['text-sub', 'text-[var(--text-sub)]'],
     ['text-dim', 'text-[var(--text-dim)]'],
-
     // 定位辅助
     ['abs-center', 'absolute inset-50% -translate-50%'],
-
     // 布局辅助
     ['flex-center', 'flex items-center justify-center'],
     ['flex-between', 'flex items-center justify-between'],
@@ -44,15 +39,17 @@ export default defineConfig({
     ['flex-y', 'flex flex-col items-center'],
     ['flex-truncate', 'flex-1 min-w-0'],
     ['flex-col-full', 'flex-col size-full'],
-
     // 动画过渡
     ['my-trans', 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'],
-
+    // 视图切换
+    ['my-fade-enter-active', 'my-trans'],
+    ['my-fade-leave-active', 'my-trans'],
+    ['my-fade-enter-from', 'opacity-0 scale-98'],
+    ['my-fade-leave-to', 'opacity-0 scale-102'],
     // 交互反馈
     ['my-hover', 'hover:bg-dim cursor-pointer my-trans'],
     ['my-press', 'active:scale-95 select-none my-trans'],
-
-    // 滚动条样式
+    // 滚动条
     ['my-scrollbar', `
       [&::-webkit-scrollbar]:w-1.5
       [&::-webkit-scrollbar]:h-1.5

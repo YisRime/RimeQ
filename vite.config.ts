@@ -20,7 +20,6 @@ export default defineConfig({
     AutoImport({
       imports: [
         'vue',
-        'pinia',
         'vue-router',
         '@vueuse/core',
       ],
