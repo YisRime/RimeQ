@@ -85,20 +85,30 @@ export class AccountStore {
 
   /**
    * 登录连接
+   * 优化：并行处理，非关键数据后台加载，加快 UI 响应速度
    * @param addr 服务器地址
    * @param tk Access Token
    */
   async login(addr: string, tk: string) {
     this.isConnecting.value = true
     try {
+      // 1. 建立 WS 连接 (必须等待)
       await bot.connect(addr, tk)
+
+      // 2. 获取登录号信息 (必须等待，用于确认身份)
       const info = await bot.getLoginInfo()
+
       if (info) {
         this.user.value = info
         this.isConnected.value = true
         this.config.value.address = addr
         if (this.config.value.remember) this.config.value.token = tk
-        await chatStore.syncData()
+
+        // 3. [优化] 异步同步通讯录，不阻塞 UI 跳转
+        // 这里不使用 await，让它在后台静默加载
+        chatStore.syncData().catch(e => {
+          console.warn('[Storage] Background sync failed:', e)
+        })
       } else {
         throw new Error('无法获取用户信息')
       }
@@ -153,6 +163,7 @@ export class ChatStore {
    */
   async syncData() {
     try {
+      // 并行请求以加快速度
       const [fList, gList] = await Promise.all([
         bot.getFriendList(),
         bot.getGroupList()
@@ -284,6 +295,7 @@ export class ChatStore {
   /** 添加系统消息 */
   addSystemMsg(id: string, text: string) {
     const sysMsg: ChatMsg = {
+      post_type: 'message',
       message_id: -Math.random(),
       time: Date.now() / 1000,
       message_type: id.length > 5 ? 'group' : 'private',
@@ -352,6 +364,7 @@ export class ChatStore {
     }
 
     const tempMsg: ChatMsg = {
+      post_type: 'message',
       message_id: 0,
       time: Date.now() / 1000,
       message_type: isGroup ? 'group' : 'private',

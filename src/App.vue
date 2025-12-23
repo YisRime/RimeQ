@@ -1,9 +1,6 @@
 <template>
   <!-- 根容器 -->
-  <div
-    class="size-full overflow-hidden select-none text-main bg-main font-sans transition-colors duration-300"
-    :class="{ dark: accountStore.config.value.darkMode }"
-  >
+  <div class="size-full overflow-hidden select-none text-main bg-main font-sans transition-colors duration-300">
     <!-- 主布局容器 -->
     <div class="size-full flex overflow-hidden relative">
       <!-- 左侧侧边栏 (Aside) -->
@@ -17,7 +14,6 @@
           <!-- 用户头像容器 -->
           <div class="shrink-0 flex-center w-10 xl:w-auto my-trans">
             <div class="relative group cursor-pointer shrink-0" @click="toggleMenu">
-              <!-- 头像组件 -->
               <Avatar
                 :image="userAvatar"
                 shape="circle"
@@ -26,7 +22,7 @@
               <!-- 状态指示点 -->
               <div
                 class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
-                :class="accountStore.isLogged ? 'bg-green-500' : 'bg-red-500'"
+                :class="accountStore.isLogged ? 'bg-green-500' : 'bg-gray-500'"
               />
             </div>
           </div>
@@ -130,7 +126,7 @@
       </main>
     </div>
     <!-- 全局交互组件 -->
-    <Toast position="top-right" />
+    <Toast position="top-left" />
     <ConfirmDialog />
   </div>
 </template>
@@ -154,40 +150,26 @@ const isMobile = breakpoints.smaller('md')
 const isTablet = breakpoints.between('md', 'xl')
 // const isDesktop = breakpoints.greaterOrEqual('xl') // 备用
 
-// 本地状态
-const searchKeyword = ref('') // 搜索关键字
-const showMenu = ref(false) // 菜单展开状态
+// 状态
+const searchKeyword = ref('')
+const showMenu = ref(false)
 
-// 用户头像
 const userAvatar = computed(() => {
   const uid = accountStore.user.value?.user_id
   return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
 })
 
-// 是否"内容模式" (移动端路由切换)
-const isContentMode = computed(() => {
-  const p = route.path
-  return p !== '/' && p !== '/contact'
-})
+const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
 
-// 导航按钮数据
 const navButtons = [
   { label: '会话', path: '/', icon: 'i-ri-message-3-line' },
   { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line' },
   { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line' }
 ]
 
-// 切换菜单展开状态
-const toggleMenu = () => {
-  showMenu.value = !showMenu.value
-}
+const toggleMenu = () => (showMenu.value = !showMenu.value)
+const navigate = (path: string) => router.push(path)
 
-// 导航跳转
-const navigate = (path: string) => {
-  router.push(path)
-}
-
-// 关闭媒体查看器
 const closeViewer = (show: boolean) => {
   if (!show) {
     const query = { ...route.query }
@@ -196,12 +178,9 @@ const closeViewer = (show: boolean) => {
   }
 }
 
-// 生命周期: 初始化主题
-onMounted(() => {
-  applyTheme()
-})
+// 主题初始化
+onMounted(() => applyTheme())
 
-// 监听配置: 重新应用主题
 watch(
   () => [accountStore.config.value.themeColor, accountStore.config.value.darkMode],
   () => applyTheme(),
@@ -210,28 +189,6 @@ watch(
 </script>
 
 <style lang="scss">
-/* 全局变量定义 - Light Mode */
-:root {
-  --color-main: #ffffff;
-  --color-sub: #f3f4f6;
-  --color-dim: #e5e7eb;
-
-  --text-main: #1f2937;
-  --text-sub: #4b5563;
-  --text-dim: #9ca3af;
-}
-
-/* 全局变量定义 - Dark Mode */
-.dark {
-  --color-main: #111827;
-  --color-sub: #1f2937;
-  --color-dim: #374151;
-
-  --text-main: #f9fafb;
-  --text-sub: #d1d5db;
-  --text-dim: #9ca3af;
-}
-
 /* 基础样式 */
 html,
 body,

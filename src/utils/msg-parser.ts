@@ -1,5 +1,11 @@
+import { socket } from '@/api/socket'
+import { chatStore } from '@/utils/storage'
 import { MsgType } from '@/types'
-import type { MessageSegment, FileInfo } from '../types'
+import type { MessageSegment, FileInfo, OneBotEvent, Message, SystemNotice, MetaEvent } from '@/types'
+
+// ============================================================================
+// 消息解析逻辑 (Parser Functions)
+// ============================================================================
 
 /**
  * HTML 转义
@@ -28,9 +34,7 @@ export function formatText(text: string): string {
   return result
 }
 
-/**
- * CQ 码解析相关类型和函数
- */
+/** CQ 码解析相关类型 */
 export interface CQSegment {
   type: string
   data: Record<string, string>
@@ -38,30 +42,20 @@ export interface CQSegment {
 
 /**
  * 解析 CQ 码消息为 Segment 数组
- * 兼容旧版 OneBot 实现
  */
 export function parseCQ(msg: string): CQSegment[] {
-  // 如果不是字符串，直接返回
   if (typeof msg !== 'string') return msg as unknown as CQSegment[]
-
   const segments: CQSegment[] = []
-
-  // 正则匹配 [CQ:type,key=value] 或 纯文本
-  // 1. 匹配 CQ 码: \[CQ:([a-zA-Z0-9-_]+)((?:,[a-zA-Z0-9-_]+=[^,\]]*)*)\]
-  // 2. 匹配非 CQ 码文本
   const regex = /\[CQ:([a-zA-Z0-9-_]+)((?:,[a-zA-Z0-9-_]+=[^,\]]*)*)\]/g
 
   let lastIndex = 0
   let match
 
   while ((match = regex.exec(msg)) !== null) {
-    // 1. 处理前面的纯文本
     if (match.index > lastIndex) {
       const text = msg.substring(lastIndex, match.index)
       if (text) segments.push({ type: 'text', data: { text: decodeCQText(text) } })
     }
-
-    // 2. 处理 CQ 码
     const type = match[1]
     const paramsStr = match[2]
     const data: Record<string, string> = {}
@@ -77,23 +71,17 @@ export function parseCQ(msg: string): CQSegment[] {
         }
       })
     }
-
     segments.push({ type: type || 'unknown', data })
     lastIndex = regex.lastIndex
   }
 
-  // 3. 处理剩余文本
   if (lastIndex < msg.length) {
     const text = msg.substring(lastIndex)
     if (text) segments.push({ type: 'text', data: { text: decodeCQText(text) } })
   }
-
   return segments
 }
 
-/**
- * 反转义 CQ 码中的特殊字符
- */
 function decodeCQText(str: string): string {
   if (!str) return ''
   return str
@@ -108,7 +96,7 @@ export interface ParsedMessage {
   images: string[]
   files: FileInfo[]
   replyId: string | null
-  atUserId: number | null  // atUid -> atUserId
+  atUserId: number | null
   faces: number[]
   markdown?: string
   card?: {
@@ -123,9 +111,7 @@ export interface ParsedMessage {
 }
 
 /**
- * 解析多种格式的消息（字符串、Segment 数组、CQSegment 数组）为统一的结构化对象
- * @param message 原始消息数据
- * @returns 解析后的消息对象
+ * 解析多种格式的消息为统一结构
  */
 export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): ParsedMessage {
   const result: ParsedMessage = {
@@ -133,19 +119,15 @@ export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): 
     images: [],
     files: [],
     replyId: null,
-    atUserId: null,  // atUid -> atUserId
+    atUserId: null,
     faces: [],
     raw: []
   }
 
-  // 1. 兼容 CQ 码字符串格式
   let chain = message
   if (typeof message === 'string') {
-    // 尝试解析 CQ 码
-    if (message.includes('[CQ:')) {
-      chain = parseCQ(message)
-    } else {
-      // 纯文本
+    if (message.includes('[CQ:')) chain = parseCQ(message)
+    else {
       result.text = message
       return result
     }
@@ -154,7 +136,6 @@ export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): 
   if (!Array.isArray(chain)) return result
   result.raw = chain
 
-  // 2. 遍历解析 Segment
   for (const seg of chain) {
     const data = seg.data || {}
 
@@ -162,79 +143,56 @@ export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): 
       case 'text':
         result.text += (data.text as string) || ''
         break
-
       case 'image':
         const imgUrl = (data.url || data.file) as string | undefined
         if (imgUrl && typeof imgUrl === 'string') result.images.push(imgUrl)
         result.text += '[图片]'
         break
-
       case 'face':
         result.faces.push(Number(data.id))
         result.text += '[表情]'
         break
-
-      case 'mface': // 商城表情
+      case 'mface':
         const mfaceUrl = data.url as string | undefined
         if (mfaceUrl && typeof mfaceUrl === 'string') result.images.push(mfaceUrl)
         result.text += `[${(data.summary as string) || '表情'}]`
         break
-
       case 'file':
         const fileData = data as FileInfo & Record<string, unknown>
-        if (fileData.name && fileData.size) {
-          result.files.push(fileData as FileInfo)
-        }
+        if (fileData.name && fileData.size) result.files.push(fileData as FileInfo)
         result.text += `[文件: ${(data.name as string) || '未知'}]`
         break
-
       case 'at':
-        result.atUserId = Number(data.qq)  // atUid -> atUserId
-        // 只有当 at 没有对应的文本显示时，才手动添加 @xxx，防止重复
-        // 但通常 CQ 码里 at 只是一个定位符，不包含显示文本
+        result.atUserId = Number(data.qq)
         result.text += `@${(data.name as string) || data.qq} `
         break
-
       case 'reply':
         result.replyId = String(data.id)
         break
-
       case 'markdown':
         result.markdown = data.content as string | undefined
         result.text += '[Markdown]'
         break
-
       case 'json':
       case 'xml':
         result.text += '[卡片消息]'
         try {
           const cardInfo = extractCardInfo((data.data || data.content || seg.data) as string | Record<string, unknown>)
           if (cardInfo) result.card = cardInfo
-        } catch {
-          // 解析失败，保持默认
-        }
+        } catch { }
         break
-
       case 'video':
         result.text += '[视频]'
         break
     }
   }
-
   return result
 }
 
-/**
- * 原项目 getJSON / buildXML 的简化逻辑
- * 提取复杂 JSON/XML 结构中的关键展示信息
- * @param rawData 原始 JSON 或 XML 字符串/对象
- * @returns 提取后的卡片信息对象，解析失败返回 null
- */
 function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessage['card'] | null {
   try {
     let data: Record<string, unknown> = typeof rawData === 'string' ? {} : rawData
     if (typeof rawData === 'string') {
-      // XML 处理：简单正则提取
       if (rawData.startsWith('<?xml') || rawData.includes('<msg')) {
         const titleMatch = rawData.match(/summary="([^"]*)"/) || rawData.match(/<title>([^<]*)<\/title>/)
         const urlMatch = rawData.match(/url="([^"]*)"/)
@@ -251,7 +209,6 @@ function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessa
     }
 
     const meta = (data.meta as Record<string, unknown>) || {}
-    // 常见的结构 key: detail_1, news, music, app
     const detail = (meta.detail_1 || meta.news || Object.values(meta)[0] || {}) as Record<string, unknown>
 
     return {
@@ -268,12 +225,9 @@ function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessa
 }
 
 /**
- * 根据解析后的消息内容判定消息的主体类型（用于会话预览或气泡渲染样式判定）
- * @param message 消息内容（支持 ParsedMessage 或原始 Segment 数组）
- * @returns 判定出的消息类型枚举
+ * 根据解析后的消息内容判定消息的主体类型
  */
 export function determineMsgType(message: string | MessageSegment[] | ParsedMessage): MsgType {
-  // 如果已经是 ParsedMessage，直接判断（避免重复解析）
   if (typeof message === 'object' && 'text' in message && 'images' in message && 'raw' in message) {
     const parsed = message as ParsedMessage
     if (parsed.files.length > 0) return MsgType.File
@@ -282,16 +236,11 @@ export function determineMsgType(message: string | MessageSegment[] | ParsedMess
     if (parsed.images.length > 0 && !parsed.text.trim()) return MsgType.Image
     return MsgType.Text
   }
-
-  // 如果是字符串，直接返回 Text
   if (typeof message === 'string') return MsgType.Text
-
-  // 如果是数组，检查 segment 类型
   if (!Array.isArray(message)) return MsgType.Text
 
   if (message.some(s => s.type === 'file')) return MsgType.File
   if (message.some(s => s.type === 'markdown')) return MsgType.Markdown
-  // 增加对卡片的判断
   if (message.some(s => s.type === 'json' || s.type === 'xml')) return MsgType.Json
 
   const hasImage = message.some(s => s.type === 'image' || s.type === 'mface')
@@ -301,3 +250,99 @@ export function determineMsgType(message: string | MessageSegment[] | ParsedMess
 
   return MsgType.Text
 }
+
+// ============================================================================
+// 业务事件处理逻辑 (Event Business Logic)
+// ============================================================================
+
+/**
+ * 集中处理 OneBot 事件并更新 ChatStore
+ */
+class OneBotHandler {
+  constructor() {
+    // 监听 Socket 转发的原始数据包
+    socket.onReceive(this.dispatch.bind(this))
+  }
+
+  /** 事件分发入口 */
+  public dispatch(evt: OneBotEvent) {
+    switch (evt.post_type) {
+      case 'message': return this.onMessage(evt as Message)
+      case 'notice': return this.onNotice(evt as SystemNotice)
+      case 'request': return this.onRequest(evt as SystemNotice)
+      case 'meta_event': return this.onMeta(evt as MetaEvent)
+    }
+  }
+
+  private onMessage(msg: Message) {
+    const isGroup = msg.message_type === 'group'
+    const id = isGroup ? msg.group_id : msg.user_id
+    if (!id) return
+
+    chatStore.addMsg(String(id), {
+      ...msg,
+      // 统一解析消息内容
+      message: parseMsgList(msg.message).raw,
+      // 确保 Sender 字段完整
+      sender: { ...msg.sender, nickname: msg.sender.card || msg.sender.nickname || 'Unknown' },
+      status: 'success'
+    })
+  }
+
+  private onNotice(evt: SystemNotice) {
+    const pid = String(evt.group_id || evt.user_id || '')
+    if (!pid) return
+
+    switch (evt.notice_type) {
+      // 消息撤回
+      case 'group_recall':
+      case 'friend_recall':
+        if (evt.message_id) chatStore.recallMsg(pid, evt.message_id)
+        break
+      // 戳一戳
+      case 'notify':
+        if (evt.sub_type === 'poke') {
+          const actor = evt.user_id === evt.self_id ? '你' : evt.user_id
+          const target = evt.target_id === evt.self_id ? '你' : evt.target_id
+          chatStore.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`)
+        }
+        break
+      // 群禁言
+      case 'group_ban':
+        {
+          const action = evt.sub_type === 'ban' ? `禁言 ${evt.duration}秒` : '解除禁言'
+          chatStore.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`)
+        }
+        break
+      // 群成员变动
+      case 'group_increase':
+        chatStore.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`)
+        chatStore.getMembers(Number(pid), true)
+        break
+      case 'group_decrease':
+        chatStore.addSystemMsg(pid, `${evt.user_id} 退群`)
+        chatStore.getMembers(Number(pid), true)
+        break
+    }
+  }
+
+  private onRequest(evt: SystemNotice) {
+    chatStore.notices.value.unshift(evt)
+    // 浏览器通知
+    if (Notification.permission === 'granted') {
+      new Notification(evt.request_type === 'friend' ? '好友请求' : '入群请求', {
+        body: `${evt.user_id}: ${evt.comment || ''}`
+      })
+    }
+  }
+
+  private onMeta(evt: MetaEvent) {
+    // 连接成功后同步数据
+    if (evt.meta_event_type === 'lifecycle' && evt.sub_type === 'connect') {
+      chatStore.syncData()
+    }
+  }
+}
+
+// 导出单例，实例化时会自动注册到 Socket
+export const oneBotHandler = new OneBotHandler()

@@ -1,27 +1,19 @@
-// ================= START FILE: src/utils/theme.ts =================
 import { colord, extend } from 'colord'
 import mixPlugin from 'colord/plugins/mix'
 import namesPlugin from 'colord/plugins/names'
 import { accountStore } from './storage'
 
-// 启用插件以支持更多颜色名称和混合模式
 extend([mixPlugin, namesPlugin])
 
-/**
- * 将 CSS 变量应用到 HTML 根元素
- */
 const setProperty = (key: string, value: string) => {
   document.documentElement.style.setProperty(key, value)
 }
 
-/**
- * 注入自定义 CSS 和动态主题变量
- */
 export function applyTheme() {
   const config = accountStore.config.value
-  const isDark = config.darkMode // 或者结合系统偏好: usePreferredDark()
+  const isDark = config.darkMode
 
-  // 1. 注入用户自定义 CSS (高级设置中的内容)
+  // 1. 注入用户自定义 CSS
   const styleId = 'user-custom-css'
   let styleEl = document.getElementById(styleId)
   if (!styleEl) {
@@ -32,35 +24,54 @@ export function applyTheme() {
   styleEl.textContent = config.css || ''
 
   // 2. 计算动态主题色
-  // 默认绿色 #7abb7e，防止用户输入空值
-  const primaryInput = config.themeColor || '#7abb7e'
-  const primaryColor = colord(primaryInput)
+  const primaryInput = String(config.themeColor)
+  const primary = colord(primaryInput)
 
-  if (primaryColor.isValid()) {
-    // --- 基础色 ---
-    setProperty('--primary-color', primaryColor.toHex())
+  if (primary.isValid()) {
+    // --- 品牌色 ---
+    setProperty('--primary-color', primary.toHex())
 
-    // --- 状态色生成策略 ---
     if (isDark) {
-      // 深色模式下：Hover 稍微变亮，Active 变暗，Soft 背景透明度增加
-      setProperty('--primary-hover', primaryColor.lighten(0.05).toHex())
-      setProperty('--primary-active', primaryColor.darken(0.05).toHex())
-      // Soft: 用于选中项背景，使用 rgba 格式以支持透明度
-      setProperty('--primary-soft', primaryColor.alpha(0.20).toRgbString())
-    } else {
-      // 浅色模式下：Hover 稍微变暗，Active 更暗
-      setProperty('--primary-hover', primaryColor.darken(0.05).toHex())
-      setProperty('--primary-active', primaryColor.darken(0.10).toHex())
-      // Soft: 浅色背景，透明度较低
-      setProperty('--primary-soft', primaryColor.alpha(0.12).toRgbString())
-    }
+      // === 深色模式 ===
+      // 交互色
+      setProperty('--primary-hover', primary.lighten(0.05).toHex())
+      setProperty('--primary-active', primary.darken(0.05).toHex())
+      setProperty('--primary-soft', primary.alpha(0.20).toRgbString())
+      setProperty('--primary-content', primary.isDark() ? '#ffffff' : '#000000')
 
-    // --- 文本对比色 (可选) ---
-    // 计算在主色背景上的文字颜色 (白/黑)
-    setProperty('--primary-content', primaryColor.isDark() ? '#ffffff' : '#000000')
+      // 全局背景 (黑 + 少量主色)
+      setProperty('--color-main', colord('#000000').mix(primary, 0.08).toHex())
+      setProperty('--color-sub', colord('#000000').mix(primary, 0.15).toHex())
+      setProperty('--color-dim', colord('#000000').mix(primary, 0.25).toHex())
+
+      // 全局文字 (白 + 极少主色)
+      setProperty('--text-main', colord('#ffffff').mix(primary, 0.05).toHex())
+      setProperty('--text-sub', colord('#ffffff').mix(primary, 0.30).toHex())
+      setProperty('--text-dim', colord('#ffffff').mix(primary, 0.60).toHex())
+    } else {
+      // === 浅色模式 ===
+      // 交互色
+      setProperty('--primary-hover', primary.darken(0.05).toHex())
+      setProperty('--primary-active', primary.darken(0.10).toHex())
+      setProperty('--primary-soft', primary.alpha(0.10).toRgbString())
+      setProperty('--primary-content', primary.isDark() ? '#ffffff' : '#000000')
+
+      // 全局背景 (白 + 极少主色)
+      setProperty('--color-main', '#ffffff')
+      setProperty('--color-sub', colord('#ffffff').mix(primary, 0.06).toHex())
+      setProperty('--color-dim', colord('#ffffff').mix(primary, 0.15).toHex())
+
+      // 全局文字 (黑 + 少量主色)
+      setProperty('--text-main', colord('#000000').mix(primary, 0.10).toHex())
+      setProperty('--text-sub', colord('#000000').mix(primary, 0.40).toHex())
+      setProperty('--text-dim', colord('#000000').mix(primary, 0.70).toHex())
+    }
   }
 
-  // 3. 处理背景模糊 (CSS Variable)
+  // 3. 背景模糊变量
   setProperty('--bg-blur', `${config.bgBlur}px`)
+
+  // 4. 全局切换 dark class
+  if (isDark) document.documentElement.classList.add('dark')
+  else document.documentElement.classList.remove('dark')
 }
-// ================= END FILE =================

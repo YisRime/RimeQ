@@ -152,6 +152,8 @@ export interface Sender {
  * 用于前端 UI 展示及历史记录存储，统一了不同后端的字段差异
  */
 export interface Message {
+  /** 事件类型 */
+  post_type: 'message'
   /** 消息 ID */
   message_id: number
   /** 消息真实 ID (Seq) */
@@ -563,6 +565,19 @@ export interface StatusInfo {
 // ============================================================================
 
 /**
+ * 元事件 (心跳/生命周期)
+ */
+export interface MetaEvent {
+  time: number
+  self_id: number
+  post_type: 'meta_event'
+  meta_event_type: 'lifecycle' | 'heartbeat'
+  sub_type?: 'connect' | 'enable' | 'disable'
+  status?: StatusInfo
+  interval?: number
+}
+
+/**
  * 系统通知/请求事件
  * 对应 post_type: request | notice
  */
@@ -606,6 +621,12 @@ export interface SystemNotice {
     url?: string
   }
 }
+
+/**
+ * OneBot 统一事件类型
+ * 涵盖 消息、通知、请求、元事件
+ */
+export type OneBotEvent = Message | SystemNotice | MetaEvent
 
 // ============================================================================
 // 扩展功能响应 (Extension Responses)
