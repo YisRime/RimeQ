@@ -22,7 +22,7 @@
               <!-- 状态指示点 -->
               <div
                 class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
-                :class="accountStore.isLogged ? 'bg-green-500' : 'bg-gray-500'"
+                :class="settingsStore.isLogged ? 'bg-green-500' : 'bg-gray-500'"
               />
             </div>
           </div>
@@ -132,11 +132,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
-import { accountStore } from '@/utils/storage'
-import { applyTheme } from '@/utils/theme'
+import { settingsStore } from '@/utils/settings'
 import MediaViewer from '@/components/MediaViewer.vue'
 import Avatar from 'primevue/avatar'
 
@@ -155,7 +154,7 @@ const searchKeyword = ref('')
 const showMenu = ref(false)
 
 const userAvatar = computed(() => {
-  const uid = accountStore.user.value?.user_id
+  const uid = settingsStore.user.value?.user_id
   return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
 })
 
@@ -177,15 +176,6 @@ const closeViewer = (show: boolean) => {
     router.replace({ query })
   }
 }
-
-// 主题初始化
-onMounted(() => applyTheme())
-
-watch(
-  () => [accountStore.config.value.themeColor, accountStore.config.value.darkMode],
-  () => applyTheme(),
-  { deep: true }
-)
 </script>
 
 <style lang="scss">

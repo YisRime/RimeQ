@@ -126,7 +126,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
-import { accountStore, type ChatMsg } from '@/utils/storage'
+import { settingsStore } from '@/utils/settings'
+import type { ChatMsg } from '@/utils/storage'
 import { MsgType } from '@/types'
 import { determineMsgType, parseMsgList, formatText } from '@/utils/msg-parser'
 
@@ -145,7 +146,7 @@ const router = useRouter()
 const audioRef = ref<HTMLAudioElement>()
 
 // --- Logic ---
-const isMe = computed(() => props.msg.sender.user_id === accountStore.user.value?.user_id)
+const isMe = computed(() => props.msg.sender.user_id === settingsStore.user.value?.user_id)
 const isSystem = computed(() => !!props.msg.isSystem)
 
 const parsedMsg = computed(() => parseMsgList(props.msg.message))

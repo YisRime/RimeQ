@@ -1,5 +1,5 @@
 import { socket } from '@/api/socket'
-import { chatStore } from '@/utils/storage'
+import { dataStore } from '@/utils/storage'
 import { MsgType } from '@/types'
 import type { MessageSegment, FileInfo, OneBotEvent, Message, SystemNotice, MetaEvent } from '@/types'
 
@@ -232,7 +232,7 @@ export function determineMsgType(message: string | MessageSegment[] | ParsedMess
     const parsed = message as ParsedMessage
     if (parsed.files.length > 0) return MsgType.File
     if (parsed.markdown) return MsgType.Markdown
-    if (parsed.card) return MsgType.Card
+    if (parsed.card) return MsgType.Json
     if (parsed.images.length > 0 && !parsed.text.trim()) return MsgType.Image
     return MsgType.Text
   }
@@ -279,7 +279,7 @@ class OneBotHandler {
     const id = isGroup ? msg.group_id : msg.user_id
     if (!id) return
 
-    chatStore.addMsg(String(id), {
+    dataStore.addMsg(String(id), {
       ...msg,
       // 统一解析消息内容
       message: parseMsgList(msg.message).raw,
@@ -297,37 +297,37 @@ class OneBotHandler {
       // 消息撤回
       case 'group_recall':
       case 'friend_recall':
-        if (evt.message_id) chatStore.recallMsg(pid, evt.message_id)
+        if (evt.message_id) dataStore.recallMsg(pid, evt.message_id)
         break
       // 戳一戳
       case 'notify':
         if (evt.sub_type === 'poke') {
           const actor = evt.user_id === evt.self_id ? '你' : evt.user_id
           const target = evt.target_id === evt.self_id ? '你' : evt.target_id
-          chatStore.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`)
+          dataStore.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`)
         }
         break
       // 群禁言
       case 'group_ban':
         {
           const action = evt.sub_type === 'ban' ? `禁言 ${evt.duration}秒` : '解除禁言'
-          chatStore.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`)
+          dataStore.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`)
         }
         break
       // 群成员变动
       case 'group_increase':
-        chatStore.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`)
-        chatStore.getMembers(Number(pid), true)
+        dataStore.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`)
+        dataStore.getMembers(Number(pid), true)
         break
       case 'group_decrease':
-        chatStore.addSystemMsg(pid, `${evt.user_id} 退群`)
-        chatStore.getMembers(Number(pid), true)
+        dataStore.addSystemMsg(pid, `${evt.user_id} 退群`)
+        dataStore.getMembers(Number(pid), true)
         break
     }
   }
 
   private onRequest(evt: SystemNotice) {
-    chatStore.notices.value.unshift(evt)
+    dataStore.notices.value.unshift(evt)
     // 浏览器通知
     if (Notification.permission === 'granted') {
       new Notification(evt.request_type === 'friend' ? '好友请求' : '入群请求', {
@@ -339,7 +339,7 @@ class OneBotHandler {
   private onMeta(evt: MetaEvent) {
     // 连接成功后同步数据
     if (evt.meta_event_type === 'lifecycle' && evt.sub_type === 'connect') {
-      chatStore.syncData()
+      dataStore.syncData()
     }
   }
 }

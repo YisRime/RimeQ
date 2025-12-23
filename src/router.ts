@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import { accountStore } from '@/utils/storage'
+import { settingsStore } from '@/utils/settings'
 
 // 视图组件
 import LoginView from '@/views/Login.vue'
@@ -67,7 +67,7 @@ export const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.title) document.title = `${to.meta.title} - RimeQ`
 
-  if (accountStore.isLogged) {
+  if (settingsStore.isLogged) {
     if (to.name === 'Login') return next('/')
     next()
   } else {

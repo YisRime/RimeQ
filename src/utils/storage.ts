@@ -1,10 +1,10 @@
 import { ref } from 'vue'
-import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
 import { determineMsgType, parseMsgList } from '@/utils/msg-parser'
+import { settingsStore } from './settings'
 import { MsgType } from '@/types'
 import type {
-  LoginInfo, FriendInfo, GroupInfo, GroupMemberInfo,
+  FriendInfo, GroupInfo, GroupMemberInfo,
   SystemNotice, Message, MessageSegment
 } from '@/types'
 
@@ -30,116 +30,15 @@ export type ChatMsg = Message & {
   isSystem?: boolean
 }
 
-/** 应用全局配置 */
-export interface AppConfig {
-  autoConnect: boolean
-  address: string
-  token: string
-  remember: boolean
-  darkMode: boolean
-  autoTheme: boolean
-  themeColor: number | string
-  bgImage: string
-  bgBlur: number
-  antiRecall: boolean
-  css: string
-  logLevel: string
-}
-
 // =========================================================================================
-// Account Store
+// Data Store
 // =========================================================================================
 
 /**
- * 账户存储类
- * 管理登录状态、用户信息与持久化配置
- */
-export class AccountStore {
-  /** 是否已连接服务器 */
-  isConnected = ref(false)
-  /** 连接中状态 */
-  isConnecting = ref(false)
-  /** 当前登录用户信息 */
-  user = ref<LoginInfo | null>(null)
-
-  /** 应用配置 (持久化) */
-  config = useStorage<AppConfig>('app_settings_v2', {
-    autoConnect: false,
-    address: '',
-    token: '',
-    remember: false,
-    darkMode: false,
-    autoTheme: true,
-    themeColor: '#7abb7e',
-    bgImage: '',
-    bgBlur: 0,
-    antiRecall: false,
-    css: '',
-    logLevel: 'error'
-  }, localStorage, { mergeDefaults: true })
-
-  /** 是否已登录且获取到信息 */
-  get isLogged() {
-    return this.isConnected.value && !!this.user.value
-  }
-
-  /**
-   * 登录连接
-   * 优化：并行处理，非关键数据后台加载，加快 UI 响应速度
-   * @param addr 服务器地址
-   * @param tk Access Token
-   */
-  async login(addr: string, tk: string) {
-    this.isConnecting.value = true
-    try {
-      // 1. 建立 WS 连接 (必须等待)
-      await bot.connect(addr, tk)
-
-      // 2. 获取登录号信息 (必须等待，用于确认身份)
-      const info = await bot.getLoginInfo()
-
-      if (info) {
-        this.user.value = info
-        this.isConnected.value = true
-        this.config.value.address = addr
-        if (this.config.value.remember) this.config.value.token = tk
-
-        // 3. [优化] 异步同步通讯录，不阻塞 UI 跳转
-        // 这里不使用 await，让它在后台静默加载
-        chatStore.syncData().catch(e => {
-          console.warn('[Storage] Background sync failed:', e)
-        })
-      } else {
-        throw new Error('无法获取用户信息')
-      }
-    } catch (e) {
-      this.isConnected.value = false
-      this.user.value = null
-      throw e
-    } finally {
-      this.isConnecting.value = false
-    }
-  }
-
-  /** 登出并断开连接 */
-  logout() {
-    bot.disconnect()
-    this.isConnected.value = false
-    this.user.value = null
-  }
-}
-
-export const accountStore = new AccountStore()
-
-// =========================================================================================
-// Chat Store
-// =========================================================================================
-
-/**
- * 聊天存储类
+ * 数据存储类
  * 管理联系人列表、消息记录与会话状态
  */
-export class ChatStore {
+export class DataStore {
   /** 好友列表 */
   friends = ref<FriendInfo[]>([])
   /** 群组列表 */
@@ -171,7 +70,7 @@ export class ChatStore {
       this.friends.value = fList
       this.groups.value = gList
     } catch (e) {
-      console.error('[Storage] 通讯录同步失败', e)
+      console.error('[DataStore] 通讯录同步失败', e)
     }
   }
 
@@ -342,7 +241,7 @@ export class ChatStore {
         }
       }
     } catch (e) {
-      console.error('[Storage] Fetch history failed', e)
+      console.error('[DataStore] Fetch history failed', e)
     } finally {
       this.historyLoading.value[id] = false
     }
@@ -369,8 +268,8 @@ export class ChatStore {
       time: Date.now() / 1000,
       message_type: isGroup ? 'group' : 'private',
       sender: {
-        user_id: accountStore.user.value?.user_id || 0,
-        nickname: accountStore.user.value?.nickname || '我'
+        user_id: settingsStore.user.value?.user_id || 0,
+        nickname: settingsStore.user.value?.nickname || '我'
       },
       message: chain,
       status: 'sending'
@@ -388,7 +287,7 @@ export class ChatStore {
       if (res && res.message_id) tempMsg.message_id = res.message_id
     } catch (e) {
       tempMsg.status = 'fail'
-      console.error('[Storage] Send failed', e)
+      console.error('[DataStore] Send failed', e)
     }
   }
 
@@ -398,7 +297,7 @@ export class ChatStore {
     if (!list) return
     const target = list.find(m => m.message_id === msgId)
     if (target) {
-      if (accountStore.config.value.antiRecall) {
+      if (settingsStore.config.value.antiRecall) {
         target.recalled = true
       } else {
         const idx = list.indexOf(target)
@@ -411,4 +310,4 @@ export class ChatStore {
   }
 }
 
-export const chatStore = new ChatStore()
+export const dataStore = new DataStore()

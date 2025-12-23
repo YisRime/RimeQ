@@ -10,11 +10,7 @@
     <div class="p-4 border-b border-dim">
       <div class="relative">
         <div class="absolute left-3 top-1/2 -translate-y-1/2 i-ri-search-line text-dim" />
-        <InputText
-          v-model="keyword"
-          placeholder="搜索成员..."
-          class="w-full pl-10 !bg-dim border-0 rounded-lg h-10"
-        />
+        <InputText v-model="keyword" placeholder="搜索成员..." class="w-full pl-10 !bg-dim border-0 rounded-lg h-10" />
       </div>
     </div>
 
@@ -31,17 +27,23 @@
           <div class="flex-1 min-w-0">
             <div class="flex-x gap-2">
               <span class="text-sm font-bold text-main truncate">{{ m.card || m.nickname }}</span>
-              <span v-if="m.role === 'owner'" class="text-[10px] bg-yellow-100 text-yellow-600 px-1.5 rounded-full font-bold">群主</span>
-              <span v-if="m.role === 'admin'" class="text-[10px] bg-green-100 text-green-600 px-1.5 rounded-full font-bold">管理</span>
+              <span
+                v-if="m.role === 'owner'"
+                class="text-[10px] bg-yellow-100 text-yellow-600 px-1.5 rounded-full font-bold"
+                >群主</span
+              >
+              <span
+                v-if="m.role === 'admin'"
+                class="text-[10px] bg-green-100 text-green-600 px-1.5 rounded-full font-bold"
+                >管理</span
+              >
             </div>
             <div class="text-xs text-dim mt-0.5">{{ m.user_id }}</div>
           </div>
           <div class="i-ri-arrow-right-s-line text-dim opacity-0 group-hover:opacity-100 my-trans" />
         </div>
 
-        <div v-if="filteredMembers.length === 0" class="py-20 text-center text-dim">
-          未找到匹配的成员
-        </div>
+        <div v-if="filteredMembers.length === 0" class="py-20 text-center text-dim">未找到匹配的成员</div>
       </div>
     </div>
   </div>
@@ -52,7 +54,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import InputText from 'primevue/inputtext'
-import { chatStore } from '@/utils/storage'
+import { dataStore } from '@/utils/storage'
 
 defineOptions({ name: 'GroupMember' })
 
@@ -66,16 +68,17 @@ const id = computed(() => (route.params.id as string) || '')
 const filteredMembers = computed(() => {
   const k = keyword.value.toLowerCase().trim()
   if (!k) return members.value
-  return members.value.filter(m => 
-    String(m.user_id).includes(k) || 
-    (m.nickname || '').toLowerCase().includes(k) || 
-    (m.card || '').toLowerCase().includes(k)
+  return members.value.filter(
+    (m) =>
+      String(m.user_id).includes(k) ||
+      (m.nickname || '').toLowerCase().includes(k) ||
+      (m.card || '').toLowerCase().includes(k)
   )
 })
 
 onMounted(async () => {
   if (id.value) {
-    members.value = await chatStore.getMembers(Number(id.value))
+    members.value = await dataStore.getMembers(Number(id.value))
   }
 })
 </script>

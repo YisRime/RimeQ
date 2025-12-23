@@ -82,7 +82,7 @@ import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import { useConfirm } from 'primevue/useconfirm'
-import { chatStore, type Session } from '@/utils/storage'
+import { dataStore, type Session } from '@/utils/storage'
 import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
 
 defineOptions({ name: 'SessionView' })
@@ -96,7 +96,7 @@ const isActive = (id: string) => route.params.id === id
 const onSelect = (id: string) => router.push(`/${id}`)
 
 const filteredSessions = computed(() => {
-  let list = chatStore.sessions.value
+  let list = dataStore.sessions.value
   if (props.keyword) {
     const k = props.keyword.toLowerCase()
     list = list.filter((s) => s.name.toLowerCase().includes(k) || s.id.includes(k))
@@ -140,7 +140,7 @@ const onMenuSelect = (key: string) => {
       header: '删除会话',
       icon: 'i-ri-error-warning-line',
       accept: () => {
-        chatStore.removeSession(id)
+        dataStore.removeSession(id)
         if (isActive(id)) router.push('/')
       }
     })

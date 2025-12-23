@@ -108,7 +108,7 @@ import AccordionPanel from 'primevue/accordionpanel'
 import AccordionHeader from 'primevue/accordionheader'
 import AccordionPanelContent from 'primevue/accordioncontent'
 import Avatar from 'primevue/avatar'
-import { chatStore } from '@/utils/storage'
+import { dataStore } from '@/utils/storage'
 import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
 
 defineOptions({ name: 'ContactView' })
@@ -117,7 +117,7 @@ const props = defineProps<{ keyword?: string }>()
 const router = useRouter()
 
 const filteredFriends = computed(() => {
-  const list = chatStore.friends.value
+  const list = dataStore.friends.value
   if (!props.keyword) return list
   const k = props.keyword.toLowerCase()
   return list.filter(
@@ -129,7 +129,7 @@ const filteredFriends = computed(() => {
 })
 
 const filteredGroups = computed(() => {
-  const list = chatStore.groups.value
+  const list = dataStore.groups.value
   if (!props.keyword) return list
   const k = props.keyword.toLowerCase()
   return list.filter((g) => g.group_name.toLowerCase().includes(k) || String(g.group_id).includes(k))
@@ -138,7 +138,7 @@ const filteredGroups = computed(() => {
 const toChat = (id: number) => router.push(`/${id}`)
 
 onMounted(() => {
-  if (chatStore.friends.value.length === 0) chatStore.syncData()
+  if (dataStore.friends.value.length === 0) dataStore.syncData()
 })
 
 const showMenu = ref(false)

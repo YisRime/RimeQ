@@ -60,7 +60,7 @@
         <!-- 登录按钮 -->
         <Button
           :label="isAutoConnecting ? '登录中...' : '登录'"
-          :loading="accountStore.isConnecting.value && !isAutoConnecting"
+          :loading="settingsStore.isConnecting.value && !isAutoConnecting"
           :icon="isAutoConnecting ? 'i-ri-loader-4-line animate-spin' : ''"
           class="w-full font-bold h-10 shadow-lg shadow-primary/20 hover:shadow-primary/30 my-trans !bg-primary hover:!bg-primary-hover !border-none text-white text-sm"
           @click="isAutoConnecting ? cancelAuto() : handleLogin(false)"
@@ -74,7 +74,7 @@
 import { reactive, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { accountStore } from '@/utils/storage'
+import { settingsStore } from '@/utils/settings'
 
 // 路由实例
 const router = useRouter()
@@ -97,12 +97,12 @@ const handleLogin = async (isAuto = false) => {
   }
 
   try {
-    Object.assign(accountStore.config.value, {
+    Object.assign(settingsStore.config.value, {
       remember: form.remember,
       autoConnect: form.autoConnect
     })
 
-    await accountStore.login(form.address, form.token)
+    await settingsStore.login(form.address, form.token)
 
     if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 2000 })
     router.replace((route.query.redirect as string) || '/')
@@ -118,12 +118,12 @@ const handleLogin = async (isAuto = false) => {
 // 取消自动登录
 const cancelAuto = () => {
   isAutoConnecting.value = false
-  accountStore.isConnecting.value = false
+  settingsStore.isConnecting.value = false
 }
 
 // 初始化
 onMounted(() => {
-  const cfg = accountStore.config.value
+  const cfg = settingsStore.config.value
   if (cfg.remember) {
     Object.assign(form, {
       address: cfg.address,
@@ -132,7 +132,7 @@ onMounted(() => {
       autoConnect: cfg.autoConnect
     })
   }
-  if (form.autoConnect && form.address && form.token && !accountStore.isLogged) {
+  if (form.autoConnect && form.address && form.token && !settingsStore.isLogged) {
     isAutoConnecting.value = true
     handleLogin(true)
   }

@@ -139,7 +139,7 @@ import ToggleSwitch from 'primevue/toggleswitch'
 import InputText from 'primevue/inputtext'
 import Slider from 'primevue/slider'
 import Select from 'primevue/select'
-import { accountStore } from '@/utils/storage'
+import { settingsStore } from '@/utils/settings'
 
 defineOptions({ name: 'SettingsView' })
 
@@ -147,7 +147,7 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 
-const config = accountStore.config
+const config = settingsStore.config
 
 const logOptions = [
   { label: 'Error', value: 'error' },
@@ -161,7 +161,7 @@ const handleLogout = () => {
     header: '确认退出',
     icon: 'i-ri-error-warning-line',
     accept: () => {
-      accountStore.logout()
+      settingsStore.logout()
       router.push('/login')
     }
   })

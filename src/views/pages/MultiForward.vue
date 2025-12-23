@@ -61,7 +61,7 @@ import InputText from 'primevue/inputtext'
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import { chatStore, type ChatMsg } from '@/utils/storage'
+import { dataStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
 import type { ForwardNode } from '@/types'
 
@@ -76,14 +76,19 @@ const selectedId = ref('')
 const sending = ref(false)
 
 const id = computed(() => (route.params.id as string) || '')
-const messageIds = computed(() => String(route.query.ids || '').split(',').map(Number).filter(Boolean))
+const messageIds = computed(() =>
+  String(route.query.ids || '')
+    .split(',')
+    .map(Number)
+    .filter(Boolean)
+)
 const count = computed(() => messageIds.value.length)
 
 const filteredSessions = computed(() => {
-  let list = chatStore.sessions.value
+  let list = dataStore.sessions.value
   if (keyword.value) {
     const k = keyword.value.toLowerCase()
-    list = list.filter(s => s.name.toLowerCase().includes(k) || s.id.includes(k))
+    list = list.filter((s) => s.name.toLowerCase().includes(k) || s.id.includes(k))
   }
   return list
 })
@@ -93,12 +98,12 @@ const handleSend = async () => {
   sending.value = true
 
   try {
-    const allMsgs = chatStore.getMsgList(id.value)
-    const targetMsgs = allMsgs.filter(m => messageIds.value.includes(m.message_id))
+    const allMsgs = dataStore.getMsgList(id.value)
+    const targetMsgs = allMsgs.filter((m) => messageIds.value.includes(m.message_id))
 
     if (targetMsgs.length === 0) throw new Error('未找到有效消息')
 
-    const nodes: ForwardNode[] = targetMsgs.map(m => ({
+    const nodes: ForwardNode[] = targetMsgs.map((m) => ({
       type: 'node',
       data: {
         nickname: m.sender.nickname,
@@ -108,7 +113,7 @@ const handleSend = async () => {
     }))
 
     const targetId = Number(selectedId.value)
-    const session = chatStore.getSession(selectedId.value)
+    const session = dataStore.getSession(selectedId.value)
     const isGroup = session?.type === 'group' || selectedId.value.length > 5
 
     if (isGroup) await bot.sendGroupForwardMsg(targetId, nodes)

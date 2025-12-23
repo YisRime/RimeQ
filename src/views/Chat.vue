@@ -13,7 +13,7 @@
         <div
           v-if="bgStyle"
           class="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-0 pointer-events-none"
-          :style="`backdrop-filter: blur(${accountStore.config.value.bgBlur}px);`"
+          :style="`backdrop-filter: blur(${settingsStore.config.value.bgBlur}px);`"
         />
 
         <!-- 头部 -->
@@ -35,8 +35,13 @@
         </header>
 
         <!-- 消息列表 -->
-        <div id="msgPan" ref="scrollRef" class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0" @scroll="onScroll">
-          <div v-if="chatStore.historyLoading.value[id]" class="flex-center py-4">
+        <div
+          id="msgPan"
+          ref="scrollRef"
+          class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0"
+          @scroll="onScroll"
+        >
+          <div v-if="dataStore.historyLoading.value[id]" class="flex-center py-4">
             <div class="i-ri-loader-4-line animate-spin text-dim" />
           </div>
           <MsgBubble
@@ -53,17 +58,28 @@
 
         <!-- 多选工具栏 -->
         <transition name="slide-up">
-          <div v-if="isMultiSelect" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none">
+          <div
+            v-if="isMultiSelect"
+            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none"
+          >
             <div class="text-sm font-bold border-r pr-6 border-dim text-main">已选 {{ selectedIds.length }} 项</div>
-            <div class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans" @click="goToForward" />
-            <div class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans" @click="isMultiSelect = false" />
+            <div
+              class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans"
+              @click="goToForward"
+            />
+            <div
+              class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans"
+              @click="isMultiSelect = false"
+            />
           </div>
         </transition>
 
         <!-- 输入区 -->
         <div v-if="!isMultiSelect" class="flex flex-col h-auto bg-sub border-t border-dim z-10 relative">
           <div v-if="replyTarget" class="px-4 py-2 bg-dim flex-between text-xs text-sub border-b border-dim">
-            <div class="truncate max-w-[80%]">回复 <span class="font-bold">@{{ replyTarget.sender.nickname }}</span> : {{ getSummary(replyTarget) }}</div>
+            <div class="truncate max-w-[80%]">
+              回复 <span class="font-bold">@{{ replyTarget.sender.nickname }}</span> : {{ getSummary(replyTarget) }}
+            </div>
             <div class="i-ri-close-circle-fill cursor-pointer hover:text-red-500" @click="replyTarget = null" />
           </div>
           <InputTool :session-id="id" @insert="onInsert" />
@@ -87,7 +103,10 @@
     </main>
 
     <!-- === 右侧面板 (子路由) === -->
-    <aside v-if="hasSidebar" class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0">
+    <aside
+      v-if="hasSidebar"
+      class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0"
+    >
       <router-view name="sidebar" />
     </aside>
   </div>
@@ -103,7 +122,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
-import { accountStore, chatStore, type ChatMsg } from '@/utils/storage'
+import { settingsStore } from '@/utils/settings'
+import { dataStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
 import { determineMsgType } from '@/utils/msg-parser'
 import { MsgType } from '@/types'
@@ -122,9 +142,9 @@ const confirm = useConfirm()
 
 // --- State ---
 const id = computed(() => (route.params.id as string) || '')
-const session = computed(() => chatStore.getSession(id.value))
-const list = computed(() => chatStore.getMsgList(id.value))
-const hasSidebar = computed(() => route.matched.some(r => r.components?.sidebar))
+const session = computed(() => dataStore.getSession(id.value))
+const list = computed(() => dataStore.getMsgList(id.value))
+const hasSidebar = computed(() => route.matched.some((r) => r.components?.sidebar))
 const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
 
 const inputText = ref('')
@@ -143,7 +163,11 @@ const toggleSelect = (msgId: number) => {
 }
 
 // --- Appearance ---
-const bgStyle = computed(() => accountStore.config.value.bgImage ? `background-image: url(${accountStore.config.value.bgImage}); background-size: cover; background-position: center;` : '')
+const bgStyle = computed(() =>
+  settingsStore.config.value.bgImage
+    ? `background-image: url(${settingsStore.config.value.bgImage}); background-size: cover; background-position: center;`
+    : ''
+)
 
 // --- Actions ---
 /** 滚动消息列表到底部 */
@@ -155,13 +179,13 @@ const scrollToBottom = async () => {
 /** 监听滚动事件，触发历史消息拉取 */
 const onScroll = (e: Event) => {
   const el = e.target as HTMLElement
-  if (el.scrollTop < 50 && id.value) chatStore.fetchHistory(id.value)
+  if (el.scrollTop < 50 && id.value) dataStore.fetchHistory(id.value)
 }
 
 /** 执行消息发送 */
 const doSend = () => {
   if (!inputText.value.trim()) return
-  chatStore.sendMsg(id.value, inputText.value, replyTarget.value?.message_id)
+  dataStore.sendMsg(id.value, inputText.value, replyTarget.value?.message_id)
   inputText.value = ''
   replyTarget.value = null
 }
@@ -176,13 +200,13 @@ const onInsert = (str: string) => {
 const onPoke = (uid: number) => {
   if (isGroup.value) bot.groupPoke(Number(id.value), uid)
   else bot.friendPoke(uid)
-  chatStore.addSystemMsg(id.value, `你戳了戳 ${uid}`)
+  dataStore.addSystemMsg(id.value, `你戳了戳 ${uid}`)
 }
 
 /** 跳转至合并转发页面 */
 const goToForward = () => {
   if (selectedIds.value.length === 0) return
-  router.push({ 
+  router.push({
     path: `/${id.value}/forward`,
     query: { ids: selectedIds.value.join(',') }
   })
@@ -205,9 +229,7 @@ const menuOpts = computed<MenuItem[]>(() => {
         { label: '精华消息', key: 'essence', icon: 'i-ri-star-line' }
       ]
     } else {
-      return [
-        { label: '删除好友', key: 'delete_friend', icon: 'i-ri-delete-bin-line', danger: true }
-      ]
+      return [{ label: '删除好友', key: 'delete_friend', icon: 'i-ri-delete-bin-line', danger: true }]
     }
   }
 
@@ -249,7 +271,7 @@ const onMenuSelect = (key: string) => {
         icon: 'i-ri-error-warning-line',
         accept: async () => {
           await bot.deleteFriend(Number(id.value))
-          chatStore.removeSession(id.value)
+          dataStore.removeSession(id.value)
           router.push('/')
         }
       })
@@ -263,7 +285,7 @@ const onMenuSelect = (key: string) => {
   if (!contextMsg.value) return
   const msg = contextMsg.value
   switch (key) {
-    case 'reply': 
+    case 'reply':
       replyTarget.value = msg
       inputRef.value?.focus()
       break
@@ -275,7 +297,7 @@ const onMenuSelect = (key: string) => {
       selectedIds.value = [msg.message_id]
       break
     case 'recall':
-      chatStore.recallMsg(id.value, msg.message_id)
+      dataStore.recallMsg(id.value, msg.message_id)
       bot.deleteMsg(msg.message_id).catch(() => toast.add({ severity: 'error', summary: '撤回失败', life: 3000 }))
       break
   }
@@ -285,21 +307,32 @@ const onMenuSelect = (key: string) => {
 const getSummary = (msg: ChatMsg) => {
   const type = determineMsgType(msg.message)
   if (type === MsgType.Text) {
-    const txt = msg.message.filter(s => s.type === 'text').map(s => s.data.text).join('')
+    const txt = msg.message
+      .filter((s) => s.type === 'text')
+      .map((s) => s.data.text)
+      .join('')
     return txt.slice(0, 20) + (txt.length > 20 ? '...' : '')
   }
   return `[${type}]`
 }
 
 // --- Watchers ---
-watch(() => id.value, (newId) => {
-  if (newId) {
-    chatStore.clearUnread(newId)
-    isMultiSelect.value = false
-    replyTarget.value = null
-    chatStore.fetchHistory(newId).then(scrollToBottom)
+watch(
+  () => id.value,
+  (newId) => {
+    if (newId) {
+      dataStore.clearUnread(newId)
+      isMultiSelect.value = false
+      replyTarget.value = null
+      dataStore.fetchHistory(newId).then(scrollToBottom)
+    }
   }
-})
+)
 
-watch(() => list.value.length, (n, o) => { if (n > o) scrollToBottom() })
+watch(
+  () => list.value.length,
+  (n, o) => {
+    if (n > o) scrollToBottom()
+  }
+)
 </script>
