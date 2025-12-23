@@ -1,42 +1,40 @@
 <template>
-  <teleport to="body">
-    <transition name="fade">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-[2000] bg-black/90 flex flex-col overflow-hidden"
-        @click.self="close"
-        @wheel.prevent="handleWheel"
-      >
-        <!-- 顶部工具栏 -->
-        <div class="h-16 flex-between px-6 text-white bg-black/50 absolute top-0 left-0 right-0 z-10">
-          <span class="text-sm opacity-80">{{ scale.toFixed(0) }}%</span>
-          <div class="flex-x gap-6 text-xl">
-            <div class="i-ri-arrow-go-back-line cursor-pointer hover:text-primary" @click="rotate(-90)" />
-            <div class="i-ri-arrow-go-forward-line cursor-pointer hover:text-primary" @click="rotate(90)" />
-            <div class="i-ri-download-line cursor-pointer hover:text-primary" @click="download" />
-            <div class="i-ri-close-line cursor-pointer hover:text-primary text-2xl" @click="close" />
-          </div>
-        </div>
-
-        <!-- 图片显示区 -->
-        <div
-          class="flex-1 w-full h-full flex-center cursor-move"
-          @mousedown="startDrag"
-          @mousemove="onDrag"
-          @mouseup="stopDrag"
-          @mouseleave="stopDrag"
-        >
-          <img
-            ref="imgRef"
-            :src="src"
-            class="transition-transform duration-100 ease-linear select-none max-w-none max-h-none"
-            :style="imgStyle"
-            draggable="false"
-          />
+  <transition name="fade">
+    <div
+      v-if="show"
+      class="absolute inset-0 z-[50] bg-black/90 flex flex-col overflow-hidden"
+      @click.self="close"
+      @wheel.prevent="handleWheel"
+    >
+      <!-- 顶部工具栏 -->
+      <div class="h-16 flex-between px-6 text-white bg-black/50 absolute top-0 left-0 right-0 z-10">
+        <span class="text-sm opacity-80">{{ scale.toFixed(0) }}%</span>
+        <div class="flex-x gap-6 text-xl">
+          <div class="i-ri-arrow-go-back-line cursor-pointer hover:text-primary" @click="rotate(-90)" />
+          <div class="i-ri-arrow-go-forward-line cursor-pointer hover:text-primary" @click="rotate(90)" />
+          <div class="i-ri-download-line cursor-pointer hover:text-primary" @click="download" />
+          <div class="i-ri-close-line cursor-pointer hover:text-primary text-2xl" @click="close" />
         </div>
       </div>
-    </transition>
-  </teleport>
+
+      <!-- 图片显示区 -->
+      <div
+        class="flex-1 w-full h-full flex-center cursor-move"
+        @mousedown="startDrag"
+        @mousemove="onDrag"
+        @mouseup="stopDrag"
+        @mouseleave="stopDrag"
+      >
+        <img
+          ref="imgRef"
+          :src="src"
+          class="transition-transform duration-100 ease-linear select-none max-w-none max-h-none"
+          :style="imgStyle"
+          draggable="false"
+        />
+      </div>
+    </div>
+  </transition>
 </template>
 
 <script setup lang="ts">

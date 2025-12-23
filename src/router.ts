@@ -1,109 +1,77 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import { useAccountsStore } from '@/stores/accounts'
+import { accountStore } from '@/utils/storage'
 
-// Views - 主要视图组件
+// 视图组件
 import LoginView from '@/views/Login.vue'
 import ChatView from '@/views/Chat.vue'
-import SettingView from '@/views/Settings.vue'
+import SettingsView from '@/views/Settings.vue'
 import NoticeView from '@/views/Notice.vue'
+import SessionList from '@/views/Session.vue'
+import ContactList from '@/views/Contact.vue'
 
-// Sidebar Components - 左侧导航组件
-import SessionBar from '@/views/pages/ListSession.vue'
-import ContactBar from '@/views/pages/ListContact.vue'
+// 侧边栏组件
+import GroupFile from '@/views/pages/GroupFile.vue'
+import GroupNotice from '@/views/pages/GroupNotice.vue'
+import GroupEssence from '@/views/pages/GroupEssence.vue'
+import GroupMember from '@/views/pages/GroupMember.vue'
+import MultiForward from '@/views/pages/MultiForward.vue'
 
-// Sub-Sidebar Panels - 右侧面板组件
-import PanelChatInfo from '@/views/pages/PanelChatInfo.vue'
-import PanelGroupFile from '@/views/pages/PanelGroupFile.vue'
-import PanelAnnounce from '@/views/pages/PanelAnnounce.vue'
-import PanelEssence from '@/views/pages/PanelEssence.vue'
-
-/**
- * 路由配置表
- * @remarks
- */
 const routes: RouteRecordRaw[] = [
-  /**
-   * 登录页
-   */
   {
     path: '/login',
     name: 'Login',
-    components: { default: LoginView, nav: SessionBar },
-    meta: { public: true }
+    components: { default: LoginView, nav: SessionList },
+    meta: { public: true, title: '登录' }
   },
-
-  /**
-   * 联系人列表页
-   */
-  {
-    path: '/contact',
-    name: 'Contact',
-    components: { default: ChatView, nav: ContactBar }
-  },
-
-  /**
-   * 通知/新朋友页
-   */
-  {
-    path: '/notice',
-    name: 'Notice',
-    components: { default: NoticeView, nav: ContactBar }
-  },
-
-  /**
-   * 设置页
-   */
   {
     path: '/settings',
     name: 'Settings',
-    components: { default: SettingView, nav: SessionBar }
+    components: { default: SettingsView, nav: SessionList },
+    meta: { title: '设置' }
   },
-
-  /**
-   * 会话页
-   * @description
-   * 包含子路由用于显示右侧面板
-   */
+  {
+    path: '/contact',
+    name: 'Contact',
+    components: { default: ChatView, nav: ContactList },
+    meta: { title: '好友' }
+  },
+  {
+    path: '/notice',
+    name: 'Notice',
+    components: { default: NoticeView, nav: ContactList },
+    meta: { title: '通知' }
+  },
   {
     path: '/:id?',
     name: 'Chat',
-    components: { default: ChatView, nav: SessionBar },
+    components: { default: ChatView, nav: SessionList },
+    meta: { title: '会话' },
     children: [
-      /** 聊天详情面板 */
-      { path: 'detail', name: 'ChatDetail', components: { sidebar: PanelChatInfo } },
-      /** 群文件面板 */
-      { path: 'files', name: 'ChatFiles', components: { sidebar: PanelGroupFile } },
-      /** 群公告面板 */
-      { path: 'notice', name: 'ChatNotice', components: { sidebar: PanelAnnounce } },
-      /** 精华消息面板 */
-      { path: 'essence', name: 'ChatEssence', components: { sidebar: PanelEssence } }
+      { path: 'member', name: 'GroupMember', components: { sidebar: GroupMember } },
+      { path: 'file', name: 'GroupFile', components: { sidebar: GroupFile } },
+      { path: 'notice', name: 'GroupNotice', components: { sidebar: GroupNotice } },
+      { path: 'essence', name: 'GroupEssence', components: { sidebar: GroupEssence } },
+      { path: 'forward', name: 'MultiForward', components: { sidebar: MultiForward } }
     ]
   }
 ]
 
-/**
- * 路由实例
- */
 export const router = createRouter({
   history: createWebHashHistory(),
   routes
 })
 
 /**
- * 全局前置守卫
+ * 路由守卫：处理鉴权逻辑
  */
 router.beforeEach((to, from, next) => {
-  const accountsStore = useAccountsStore()
-  const isPublic = to.meta.public === true
+  if (to.meta.title) document.title = `${to.meta.title} - RimeQ`
 
-  // 已登录状态
-  if (accountsStore.isLogged) {
-    if (to.path === '/login') return next('/')
-    return next()
-  }
-  // 未登录状态
-  else {
-    if (isPublic) return next()
-    return next({ path: '/login', query: { redirect: to.fullPath } })
+  if (accountStore.isLogged) {
+    if (to.name === 'Login') return next('/')
+    next()
+  } else {
+    if (to.meta.public === true) next()
+    else next({ name: 'Login', query: { redirect: to.fullPath } })
   }
 })

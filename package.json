@@ -20,6 +20,7 @@
     "@primevue/themes": "^4.5.4",
     "@vueuse/core": "^14.1.0",
     "@vueuse/motion": "^3.0.3",
+    "colord": "^2.9.3",
     "lottie-web": "^5.13.0",
     "markdown-it": "^14.1.0",
     "primevue": "^4.5.4",

@@ -47,14 +47,14 @@ export class Socket {
 
       this.ws.onopen = () => {
         console.log('[API] Websocket 已连接')
-        this.beat()
+        this.heartbeat()
         resolve()
       }
 
       this.ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data)
-          this.handle(data)
+          this.onMessage(data)
         } catch (err) {
           console.error('[API] JSON 解析出错:', err)
         }
@@ -62,7 +62,7 @@ export class Socket {
 
       this.ws.onclose = (e) => {
         console.warn('[API] Websocket 已断开:', e.code, e.reason)
-        this.clear()
+        this.heartbeat()
         if (this.active) {
           setTimeout(() => this.connect(this.url, this.token), 5000)
         }
@@ -83,7 +83,7 @@ export class Socket {
   disconnect() {
     this.active = false
     this.ws?.close()
-    this.clear()
+    this.heartbeat()
   }
 
   /**
@@ -94,7 +94,7 @@ export class Socket {
    * @returns Promise 解析后的响应数据 `data` 字段
    * @throws {Error} WebSocket 未连接、调用超时或 API 返回错误
    */
-  call<T = any>(action: string, params = {}): Promise<T> {
+  request<T = any>(action: string, params = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       if (this.ws?.readyState !== WebSocket.OPEN) return reject(new Error('WebSocket Offline'))
 
@@ -114,7 +114,7 @@ export class Socket {
    * @param action - 动作名称
    * @param params - 参数对象
    */
-  send(action: string, params = {}) {
+  emit(action: string, params = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ action, params }))
     }
@@ -124,7 +124,7 @@ export class Socket {
    * 处理接收到的 WebSocket 消息
    * @param data - 解析后的 JSON 数据
    */
-  private handle(data: any) {
+  private onMessage(data: any) {
     if (data.echo && this.pending.has(data.echo)) {
       const req = this.pending.get(data.echo)!
       this.pending.delete(data.echo)
@@ -141,13 +141,13 @@ export class Socket {
   /**
    * 心跳保活
    */
-  private beat() {
-    this.clear()
+  private heartbeat() {
+    this.dispose()
     this.timer = window.setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.send('get_status')
+        this.onMessage('get_status')
       } else {
-        this.clear()
+        this.dispose()
       }
     }, 30000)
   }
@@ -155,7 +155,7 @@ export class Socket {
   /**
    * 清理资源
    */
-  private clear() {
+  private dispose() {
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null

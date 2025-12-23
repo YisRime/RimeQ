@@ -1,20 +1,18 @@
 <template>
   <div class="flex-col-full bg-main">
-    <!-- 头部 -->
+    <!-- Header -->
     <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 flex-shrink-0 z-10">
       <div class="flex-x gap-3">
-        <!-- 移动端返回 -->
         <div class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer" @click="router.back()" />
         <span class="font-bold text-lg text-main">设置</span>
       </div>
-
       <Button severity="danger" size="small" outlined @click="handleLogout">
         <template #icon><div class="i-ri-logout-box-line" /></template>
         <span>退出登录</span>
       </Button>
     </header>
 
-    <!-- 内容滚动区 -->
+    <!-- Content -->
     <div class="flex-1 overflow-y-auto my-scrollbar p-4 md:p-8">
       <div class="max-w-3xl mx-auto bg-sub rounded-2xl shadow-sm border border-dim">
         <Tabs value="general" class="px-6 py-4">
@@ -36,12 +34,10 @@
                   </div>
                   <ToggleSwitch v-model="config.autoConnect" />
                 </div>
-
                 <div class="flex-between py-3 border-b border-dim">
                   <label class="text-sm font-medium text-main">记住密码</label>
                   <ToggleSwitch v-model="config.remember" />
                 </div>
-
                 <div class="flex-between py-3">
                   <label class="text-sm font-medium text-main">日志级别</label>
                   <Select v-model="config.logLevel" :options="logOptions" class="w-32" />
@@ -59,7 +55,13 @@
                   </div>
                   <ToggleSwitch v-model="config.darkMode" />
                 </div>
-
+                <div class="flex flex-col gap-2 py-3 border-b border-dim">
+                  <label class="text-sm font-medium text-main">主题色</label>
+                  <div class="flex-x gap-3">
+                    <input type="color" v-model="config.themeColor" class="w-10 h-10 rounded cursor-pointer border-0 bg-transparent" />
+                    <span class="text-sm font-mono opacity-70">{{ config.themeColor }}</span>
+                  </div>
+                </div>
                 <div class="flex flex-col gap-2 py-3 border-b border-dim">
                   <label class="text-sm font-medium text-main">聊天背景图 (URL)</label>
                   <div class="relative">
@@ -67,7 +69,6 @@
                     <InputText v-model="config.bgImage" placeholder="https://..." class="w-full pl-10" />
                   </div>
                 </div>
-
                 <div class="flex flex-col gap-3 py-3">
                   <label class="text-sm font-medium text-main">背景模糊度 (px)</label>
                   <div class="flex-x gap-4">
@@ -84,23 +85,16 @@
                 <div class="flex-between py-3 border-b border-dim">
                   <div class="flex flex-col gap-1">
                     <label class="text-sm font-medium text-main">防撤回 (本地拦截)</label>
-                    <span class="text-xs text-dim">拦截撤回指令，仅在本地保留消息，重启后失效</span>
+                    <span class="text-xs text-dim">仅在本地保留消息，重启后失效</span>
                   </div>
                   <ToggleSwitch v-model="config.antiRecall" />
                 </div>
-
                 <div class="flex flex-col gap-2 py-3 border-b border-dim">
                   <label class="text-sm font-medium text-main">自定义 CSS</label>
-                  <Textarea
-                    v-model="config.css"
-                    placeholder="/* 输入 CSS 代码覆盖样式 */"
-                    :rows="6"
-                    class="font-mono text-xs"
-                  />
+                  <textarea v-model="config.css" placeholder="/* 输入 CSS 代码 */" rows="6" class="font-mono text-xs w-full p-2 bg-dim border-0 rounded-lg outline-none" />
                 </div>
-
                 <div class="flex gap-4 pt-3">
-                  <Button outlined @click="printConfig">打印配置到控制台</Button>
+                  <Button outlined @click="printConfig">打印配置</Button>
                   <Button severity="warn" outlined @click="resetApp">重置应用</Button>
                 </div>
               </div>
@@ -128,6 +122,10 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 设置视图
+ * 提供通用、外观、高级功能的配置
+ */
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -139,12 +137,9 @@ import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import ToggleSwitch from 'primevue/toggleswitch'
 import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
 import Slider from 'primevue/slider'
 import Select from 'primevue/select'
-
-import { useSettingsStore } from '@/stores/settings'
-import { useAccountsStore } from '@/stores/accounts'
+import { accountStore } from '@/utils/storage'
 
 defineOptions({ name: 'SettingsView' })
 
@@ -152,10 +147,7 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 
-// Stores
-const settingsStore = useSettingsStore()
-const accountsStore = useAccountsStore()
-const config = settingsStore.config
+const config = accountStore.config
 
 const logOptions = [
   { label: 'Error', value: 'error' },
@@ -163,23 +155,20 @@ const logOptions = [
   { label: 'Debug', value: 'debug' }
 ]
 
-// Actions
 const handleLogout = () => {
   confirm.require({
     message: '确定要断开连接吗？将返回登录页面。',
     header: '确认退出',
     icon: 'i-ri-error-warning-line',
-    rejectLabel: '取消',
-    acceptLabel: '退出',
     accept: () => {
-      accountsStore.logout()
+      accountStore.logout()
       router.push('/login')
     }
   })
 }
 
 const printConfig = () => {
-  console.log('Current Config:', JSON.parse(JSON.stringify(config)))
+  console.log('[Settings] Current Config:', JSON.parse(JSON.stringify(config.value)))
   toast.add({ severity: 'success', summary: '已打印至控制台', life: 3000 })
 }
 
@@ -188,8 +177,6 @@ const resetApp = () => {
     message: '这将清空所有本地缓存（包括聊天记录和配置），确定继续吗？',
     header: '危险操作',
     icon: 'i-ri-error-warning-line',
-    rejectLabel: '取消',
-    acceptLabel: '确认重置',
     accept: () => {
       localStorage.clear()
       window.location.reload()

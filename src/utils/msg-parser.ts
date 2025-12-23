@@ -2,6 +2,33 @@ import { MsgType } from '@/types'
 import type { MessageSegment, FileInfo } from '../types'
 
 /**
+ * HTML 转义
+ */
+export function escapeHtml(str: string): string {
+  if (!str) return ''
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+/**
+ * 文本处理：转义 HTML + 自动链接
+ */
+export function formatText(text: string): string {
+  if (!text) return ''
+  let result = escapeHtml(text)
+  result = result.replace(/\n/g, '<br>')
+  const urlRegex = /(https?:\/\/[^\s<]+)/g
+  result = result.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline cursor-pointer" onclick="event.stopPropagation()">${url}</a>`
+  })
+  return result
+}
+
+/**
  * CQ 码解析相关类型和函数
  */
 export interface CQSegment {
@@ -95,6 +122,11 @@ export interface ParsedMessage {
   raw: MessageSegment[]
 }
 
+/**
+ * 解析多种格式的消息（字符串、Segment 数组、CQSegment 数组）为统一的结构化对象
+ * @param message 原始消息数据
+ * @returns 解析后的消息对象
+ */
 export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): ParsedMessage {
   const result: ParsedMessage = {
     text: '',
@@ -195,6 +227,8 @@ export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): 
 /**
  * 原项目 getJSON / buildXML 的简化逻辑
  * 提取复杂 JSON/XML 结构中的关键展示信息
+ * @param rawData 原始 JSON 或 XML 字符串/对象
+ * @returns 提取后的卡片信息对象，解析失败返回 null
  */
 function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessage['card'] | null {
   try {
@@ -233,6 +267,11 @@ function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessa
   }
 }
 
+/**
+ * 根据解析后的消息内容判定消息的主体类型（用于会话预览或气泡渲染样式判定）
+ * @param message 消息内容（支持 ParsedMessage 或原始 Segment 数组）
+ * @returns 判定出的消息类型枚举
+ */
 export function determineMsgType(message: string | MessageSegment[] | ParsedMessage): MsgType {
   // 如果已经是 ParsedMessage，直接判断（避免重复解析）
   if (typeof message === 'object' && 'text' in message && 'images' in message && 'raw' in message) {

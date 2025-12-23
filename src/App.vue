@@ -1,163 +1,238 @@
 <template>
-  <!-- PrimeVue 容器：使用 CSS 变量注入 -->
-  <div class="size-full" :style="cssVars" :class="{ dark: settingsStore.config.darkMode }">
-    <!-- 2. 主布局容器：使用 UnoCSS 语义类 -->
-    <div class="size-full flex bg-main text-main overflow-hidden">
-      <!-- === 左侧导航栏 === -->
-      <!-- bg-sub: 次级背景 (侧边栏) | border-dim: 副色调边框 -->
-      <aside class="w-80 flex-shrink-0 flex-col bg-sub border-r border-dim my-trans">
-        <!-- 头部搜索与操作 -->
-        <div v-if="accountsStore.isLogged" class="flex-x gap-3 p-4 border-b border-dim">
-          <!-- 用户头像 -->
-          <Avatar
-            :image="userAvatar"
-            shape="circle"
-            size="large"
-            class="cursor-pointer hover:ring-2 ring-primary/50 my-trans select-none"
-            @click="router.push('/settings')"
-          />
-
-          <!-- 搜索框 -->
-          <div class="flex-1 relative">
-            <div class="i-ri-search-line text-dim absolute left-3 top-1/2 -translate-y-1/2" />
-            <InputText
-              v-model="searchKeyword"
-              placeholder="搜索..."
-              class="w-full rounded-full pl-10 !bg-dim border-0 text-sm h-8"
-            />
+  <!-- 根容器 -->
+  <div
+    class="size-full overflow-hidden select-none text-main bg-main font-sans transition-colors duration-300"
+    :class="{ dark: accountStore.config.value.darkMode }"
+  >
+    <!-- 主布局容器 -->
+    <div class="size-full flex overflow-hidden relative">
+      <!-- 左侧侧边栏 (Aside) -->
+      <aside
+        v-show="!isMobile || !isContentMode"
+        class="flex-col shrink-0 bg-sub border-r border-dim my-trans z-30 overflow-hidden"
+        :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
+      >
+        <!-- 顶部交互区 -->
+        <header class="h-16 shrink-0 relative flex-x px-4 border-b border-dim">
+          <!-- 用户头像容器 -->
+          <div class="shrink-0 flex-center w-10 xl:w-auto my-trans">
+            <div class="relative group cursor-pointer shrink-0" @click="toggleMenu">
+              <!-- 头像组件 -->
+              <Avatar
+                :image="userAvatar"
+                shape="circle"
+                class="bg-dim shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-10 h-10"
+              />
+              <!-- 状态指示点 -->
+              <div
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
+                :class="accountStore.isLogged ? 'bg-green-500' : 'bg-red-500'"
+              />
+            </div>
           </div>
-
-          <!-- 模式切换按钮 -->
-          <Button
-            :icon="isChatMode ? 'i-ri-group-line' : 'i-ri-message-3-line'"
-            rounded
-            text
-            :title="isChatMode ? '联系人' : '消息'"
-            :pt="{
-              root: { class: 'w-8 h-8 p-0' },
-              icon: { class: 'text-lg' }
-            }"
-            @click="toggleMode"
-          />
+          <!-- 交互区域 -->
+          <div v-if="!isTablet" class="flex-1 h-10 ml-3 flex items-center overflow-hidden">
+            <!-- 导航按钮组 -->
+            <div
+              class="my-squeeze flex items-center justify-start gap-2 shrink-0"
+              :class="showMenu ? 'w-[144px] mr-2 opacity-100' : 'w-0 mr-0 opacity-0'"
+            >
+              <div
+                v-for="btn in navButtons"
+                :key="btn.path"
+                class="w-10 h-10 rounded-lg flex-center my-trans text-xl shrink-0"
+                :class="
+                  route.path === btn.path ? 'bg-primary-soft text-primary' : 'text-sub hover:bg-dim hover:text-main'
+                "
+                :title="btn.label"
+                @click="navigate(btn.path)"
+              >
+                <div :class="btn.icon" />
+              </div>
+            </div>
+            <!-- 搜索框 -->
+            <div
+              class="h-full bg-dim rounded-lg flex-x px-3 text-dim focus-within:text-primary focus-within:ring-1 ring-primary/50 transition-all duration-300 ease-in-out flex-1 min-w-0"
+            >
+              <div class="i-ri-search-line mr-2 shrink-0" />
+              <input
+                v-model="searchKeyword"
+                class="bg-transparent border-none outline-none text-sm text-main size-full placeholder-dim/70 min-w-0"
+                placeholder="搜索..."
+              />
+            </div>
+          </div>
+        </header>
+        <!-- 垂直菜单 (仅 Tablet 模式) -->
+        <div
+          v-if="isTablet"
+          class="my-squeeze flex flex-col items-center"
+          :class="
+            showMenu ? 'max-h-[200px] opacity-100 py-2 border-b border-dim' : 'max-h-0 opacity-0 py-0 border-none'
+          "
+        >
+          <div
+            v-for="btn in navButtons"
+            :key="btn.path"
+            class="w-10 h-10 rounded-lg flex-center transition-colors duration-200 text-xl mb-1 last:mb-0 cursor-pointer"
+            :class="route.path === btn.path ? 'text-primary bg-primary-soft' : 'text-sub hover:bg-dim hover:text-main'"
+            :title="btn.label"
+            @click="navigate(btn.path)"
+          >
+            <div :class="btn.icon" />
+          </div>
         </div>
-
-        <!-- 列表区域 (Session/Contact) -->
-        <div class="flex-1 overflow-hidden relative">
-          <!-- 转发模式 -->
-          <ForwardBar v-if="interfaceStore.forwardMode.active" />
-          <!-- 正常列表 -->
-          <router-view v-else v-slot="{ Component }" name="nav">
+        <!-- 列表内容区 -->
+        <div class="flex-1 overflow-hidden relative w-full">
+          <router-view v-slot="{ Component }" name="nav">
             <keep-alive>
               <component :is="Component" :keyword="searchKeyword" />
             </keep-alive>
           </router-view>
         </div>
       </aside>
-
-      <!-- === 右侧主聊天区 === -->
-      <!-- bg-main: 主背景色 (聊天窗口) -->
-      <main class="flex-1 h-full overflow-hidden bg-main relative">
-        <router-view v-slot="{ Component }">
-          <transition name="view-fade" mode="out-in">
-            <keep-alive :include="['ChatView', 'SettingsView']">
-              <component :is="Component" class="size-full" />
+      <!-- 右侧主内容区 (Main) -->
+      <main v-show="!isMobile || isContentMode" class="flex-1 h-full overflow-hidden bg-main relative z-20 flex w-full">
+        <div class="flex-1 h-full relative overflow-hidden flex flex-col min-w-0">
+          <!-- 核心路由视图 -->
+          <router-view v-slot="{ Component }">
+            <keep-alive :include="['ChatView', 'SettingsView', 'ContactView']">
+              <component :is="Component" :key="route.path" class="size-full" />
             </keep-alive>
-          </transition>
+          </router-view>
+          <!-- 媒体查看器 -->
+          <MediaViewer
+            :model-value="!!route.query.view"
+            :src="String(route.query.view || '')"
+            @update:model-value="closeViewer"
+          />
+        </div>
+        <!-- 扩展侧边栏 (二级路由) -->
+        <router-view v-slot="{ Component }" name="sidebar">
+          <Transition
+            enter-active-class="my-slide-active"
+            leave-active-class="my-slide-active"
+            enter-from-class="my-slide-hidden"
+            leave-to-class="my-slide-hidden"
+          >
+            <component
+              :is="Component"
+              v-if="Component"
+              class="z-[60] border-l border-dim bg-sub shadow-2xl fixed inset-0"
+              :class="
+                isMobile
+                  ? ''
+                  : 'md:absolute md:inset-y-0 md:right-0 md:w-[360px] xl:static xl:w-[320px] xl:shadow-none xl:z-auto'
+              "
+            />
+          </Transition>
         </router-view>
       </main>
     </div>
-
-    <!-- 全局浮层组件 -->
-    <MediaViewer v-model="interfaceStore.viewer.show" :src="interfaceStore.viewer.url" />
-
-    <!-- PrimeVue 全局服务 -->
+    <!-- 全局交互组件 -->
     <Toast position="top-right" />
     <ConfirmDialog />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
+import { accountStore } from '@/utils/storage'
+import { applyTheme } from '@/utils/theme'
+import MediaViewer from '@/components/MediaViewer.vue'
 import Avatar from 'primevue/avatar'
-import InputText from 'primevue/inputtext'
-import Button from 'primevue/button'
-import Toast from 'primevue/toast'
-import ConfirmDialog from 'primevue/confirmdialog'
 
-// Store
-import { useSettingsStore } from './stores/settings'
-import { useInterfaceStore } from './stores/interface'
-import { useAccountsStore } from './stores/accounts'
-
-// Components
-import MediaViewer from './components/MediaViewer.vue'
-import ForwardBar from '@/views/pages/ListSelect.vue'
-
+// 路由实例
 const router = useRouter()
 const route = useRoute()
-const settingsStore = useSettingsStore()
-const interfaceStore = useInterfaceStore()
-const accountsStore = useAccountsStore()
 
-const searchKeyword = ref('')
+// 响应式断点
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
+const isTablet = breakpoints.between('md', 'xl')
+// const isDesktop = breakpoints.greaterOrEqual('xl') // 备用
 
-/**
- * 核心：CSS 变量注入系统
- * 映射到 uno.config.ts 中的 theme.colors
- */
-const cssVars = computed(() => {
-  const isDark = settingsStore.config.darkMode
-  const primary = settingsStore.config.themeColor || '#7abb7e'
+// 本地状态
+const searchKeyword = ref('') // 搜索关键字
+const showMenu = ref(false) // 菜单展开状态
 
-  return {
-    '--primary-color': primary,
-    // 背景三级层级
-    '--color-main': isDark ? '#101014' : '#ffffff', // 主聊天背景
-    '--color-sub': isDark ? '#18181c' : '#f9fafb', // 侧边栏背景
-    '--color-dim': isDark ? '#242429' : '#f0f2f5', // 悬停/分割线/输入框
-
-    // 文字颜色
-    '--text-main': isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.88)',
-    '--text-sub': isDark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.65)',
-    '--text-dim': isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)'
-  }
+// 用户头像
+const userAvatar = computed(() => {
+  const uid = accountStore.user.value?.user_id
+  return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
 })
 
-/**
- * 状态逻辑
- */
-const isChatMode = computed(() => route.name?.toString().startsWith('Chat') ?? false)
-const userAvatar = computed(() =>
-  accountsStore.user ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${accountsStore.user.user_id}` : ''
-)
+// 是否"内容模式" (移动端路由切换)
+const isContentMode = computed(() => {
+  const p = route.path
+  return p !== '/' && p !== '/contact'
+})
 
-const toggleMode = () => {
-  if (!accountsStore.isLogged) return
-  if (isChatMode.value) {
-    router.push('/contact')
-  } else {
-    router.push('/')
-  }
-  searchKeyword.value = ''
+// 导航按钮数据
+const navButtons = [
+  { label: '会话', path: '/', icon: 'i-ri-message-3-line' },
+  { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line' },
+  { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line' }
+]
+
+// 切换菜单展开状态
+const toggleMenu = () => {
+  showMenu.value = !showMenu.value
 }
 
+// 导航跳转
+const navigate = (path: string) => {
+  router.push(path)
+}
+
+// 关闭媒体查看器
+const closeViewer = (show: boolean) => {
+  if (!show) {
+    const query = { ...route.query }
+    delete query.view
+    router.replace({ query })
+  }
+}
+
+// 生命周期: 初始化主题
 onMounted(() => {
-  settingsStore.applyStyle()
+  applyTheme()
 })
+
+// 监听配置: 重新应用主题
+watch(
+  () => [accountStore.config.value.themeColor, accountStore.config.value.darkMode],
+  () => applyTheme(),
+  { deep: true }
+)
 </script>
 
-<style>
-/* === 全局微调 === */
+<style lang="scss">
+/* 全局变量定义 - Light Mode */
+:root {
+  --color-main: #ffffff;
+  --color-sub: #f3f4f6;
+  --color-dim: #e5e7eb;
 
-/* 核心：为所有涉及颜色的属性开启平滑过渡 */
-* {
-  transition:
-    background-color 0.3s ease,
-    border-color 0.3s ease,
-    color 0.3s ease;
+  --text-main: #1f2937;
+  --text-sub: #4b5563;
+  --text-dim: #9ca3af;
 }
 
+/* 全局变量定义 - Dark Mode */
+.dark {
+  --color-main: #111827;
+  --color-sub: #1f2937;
+  --color-dim: #374151;
+
+  --text-main: #f9fafb;
+  --text-sub: #d1d5db;
+  --text-dim: #9ca3af;
+}
+
+/* 基础样式 */
 html,
 body,
 #app {
@@ -165,27 +240,13 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  /* 解决移动端点击高亮 */
-  -webkit-tap-highlight-color: transparent;
+  background-color: var(--color-main);
+  color: var(--text-main);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 视图切换动画 (带有一点缩放感) */
-.view-fade-enter-active,
-.view-fade-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.view-fade-enter-from {
-  opacity: 0;
-  transform: scale(0.98);
-}
-
-.view-fade-leave-to {
-  opacity: 0;
-  transform: scale(1.02);
-}
-
-/* 禁止拖拽图片 */
+/* 禁止图片拖拽 */
 img {
   -webkit-user-drag: none;
   user-select: none;

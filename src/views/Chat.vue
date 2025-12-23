@@ -1,156 +1,110 @@
 <template>
   <div class="flex h-full w-full relative overflow-hidden bg-main">
-    <!-- 主聊天区域 -->
-    <main class="flex-1 h-full min-w-0 relative flex-col">
+    <!-- === 主聊天窗口 === -->
+    <main class="flex-1 h-full min-w-0 relative flex flex-col">
       <!-- 空状态 -->
       <div v-if="!id" class="flex-center flex-col h-full text-dim opacity-50">
         <div class="i-ri-message-3-line text-6xl mb-4" />
         <span class="text-lg">选择一个聊天开始对话</span>
       </div>
 
-      <!-- 聊天窗口 -->
-      <div v-else class="flex-col-full bg-main relative my-trans" :style="bgStyle">
-        <!-- 背景模糊遮罩 -->
+      <!-- 会话区域 -->
+      <div v-else class="flex flex-col h-full bg-main relative my-trans" :style="bgStyle">
         <div
           v-if="bgStyle"
           class="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-0 pointer-events-none"
-          :style="`backdrop-filter: blur(${settingsStore.config.bgBlur}px);`"
+          :style="`backdrop-filter: blur(${accountStore.config.value.bgBlur}px);`"
         />
 
-        <!-- 顶部 Header -->
-        <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 z-10 flex-shrink-0">
+        <!-- 头部 -->
+        <header
+          class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 z-10 flex-shrink-0 cursor-default"
+          @contextmenu.prevent="onHeaderContext"
+        >
           <div class="flex-x gap-3 overflow-hidden">
-            <!-- 移动端返回 (切换到联系人列表视图) -->
             <div
-              class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary my-trans"
+              class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary text-main"
               @click="router.push('/')"
             />
-
             <div class="flex flex-col overflow-hidden">
-              <span class="font-bold text-lg text-main truncate">
-                {{ session?.name || id }}
-              </span>
-              <span v-if="session?.type === 'group'" class="text-[10px] text-dim truncate">
-                {{ id }}
-              </span>
+              <span class="font-bold text-lg text-main truncate">{{ session?.name || id }}</span>
+              <span v-if="session?.type === 'group'" class="text-[10px] text-dim truncate">{{ id }}</span>
             </div>
           </div>
-
-          <!-- 右侧操作 -->
-          <div
-            class="i-ri-more-2-fill cursor-pointer text-xl text-sub hover:text-primary my-trans"
-            @click="toggleSidebar"
-          />
+          <!-- 移除更多按钮 -->
         </header>
 
         <!-- 消息列表 -->
-        <div
-          id="msgPan"
-          ref="scrollRef"
-          class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0"
-          @scroll="onScroll"
-        >
-          <!-- 加载 Loading -->
-          <div v-if="messagesStore.loading[id]" class="flex-center py-4">
+        <div id="msgPan" ref="scrollRef" class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0" @scroll="onScroll">
+          <div v-if="chatStore.historyLoading.value[id]" class="flex-center py-4">
             <div class="i-ri-loader-4-line animate-spin text-dim" />
           </div>
-
-          <!-- 消息气泡 -->
           <MsgBubble
             v-for="(msg, index) in list"
             :key="msg.message_id || index"
             :msg="msg"
+            :selection-mode="isMultiSelect"
+            :is-selected="selectedIds.includes(msg.message_id)"
             @contextmenu="onContextMenu"
             @poke="onPoke"
+            @select="toggleSelect"
           />
         </div>
 
-        <!-- 多选模式工具栏 -->
+        <!-- 多选工具栏 -->
         <transition name="slide-up">
-          <div
-            v-if="interfaceStore.multiSelect"
-            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none"
-          >
-            <div class="text-sm font-bold border-r pr-6 border-dim">
-              已选 {{ interfaceStore.selectedIds.length }} 项
-            </div>
-
-            <div
-              class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans"
-              title="合并转发"
-              @click="handleBatchForward"
-            />
-
-            <div
-              class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans"
-              title="退出多选"
-              @click="interfaceStore.stopMulti()"
-            />
+          <div v-if="isMultiSelect" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none">
+            <div class="text-sm font-bold border-r pr-6 border-dim text-main">已选 {{ selectedIds.length }} 项</div>
+            <div class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans" @click="goToForward" />
+            <div class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans" @click="isMultiSelect = false" />
           </div>
         </transition>
 
-        <!-- 底部输入区域 -->
-        <div v-if="!interfaceStore.multiSelect" class="flex flex-col h-auto bg-sub border-t border-dim z-10 relative">
-          <!-- 引用回复提示 -->
-          <div
-            v-if="interfaceStore.replyTarget"
-            class="px-4 py-2 bg-dim flex-between text-xs text-sub border-b border-dim"
-          >
-            <div class="truncate max-w-[80%]">
-              回复 <span class="font-bold">@{{ interfaceStore.replyTarget.sender.nickname }}</span> :
-              {{ getSummary(interfaceStore.replyTarget) }}
-            </div>
-            <div
-              class="i-ri-close-circle-fill cursor-pointer hover:text-red-500 my-trans"
-              @click="interfaceStore.setReply(null)"
-            />
+        <!-- 输入区 -->
+        <div v-if="!isMultiSelect" class="flex flex-col h-auto bg-sub border-t border-dim z-10 relative">
+          <div v-if="replyTarget" class="px-4 py-2 bg-dim flex-between text-xs text-sub border-b border-dim">
+            <div class="truncate max-w-[80%]">回复 <span class="font-bold">@{{ replyTarget.sender.nickname }}</span> : {{ getSummary(replyTarget) }}</div>
+            <div class="i-ri-close-circle-fill cursor-pointer hover:text-red-500" @click="replyTarget = null" />
           </div>
-
-          <!-- 工具栏 -->
           <InputTool :session-id="id" @insert="onInsert" />
-
-          <!-- 输入框 -->
           <div class="flex-1 px-4 pb-2 flex flex-col min-h-[120px]">
             <textarea
               ref="inputRef"
-              v-model="text"
+              v-model="inputText"
               class="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-6 my-scrollbar placeholder-dim text-main py-2"
               placeholder="发送消息 (Ctrl+Enter 发送)"
               @keydown.enter.ctrl.prevent="doSend"
             />
-
             <div class="flex justify-end pb-1">
-              <Button size="small" :disabled="!text.trim()" @click="doSend">发送</Button>
+              <Button size="small" :disabled="!inputText.trim()" @click="doSend">发送</Button>
             </div>
           </div>
         </div>
 
-        <!-- 右键菜单 -->
+        <!-- 通用右键菜单 -->
         <ContextMenu v-model:show="showMenu" :x="menuX" :y="menuY" :options="menuOpts" @select="onMenuSelect" />
       </div>
     </main>
 
-    <!-- 右侧侧边栏 (路由视图) -->
-    <aside
-      v-if="hasSidebar"
-      class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0"
-    >
+    <!-- === 右侧面板 (子路由) === -->
+    <aside v-if="hasSidebar" class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0">
       <router-view name="sidebar" />
     </aside>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+/**
+ * 聊天核心视图
+ * 负责消息列表展示、输入交互与多选逻辑
+ */
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
-import { useContactsStore } from '@/stores/contacts'
-import { useMessagesStore } from '@/stores/messages'
-import { useInterfaceStore } from '@/stores/interface'
-import { useSettingsStore } from '@/stores/settings'
+import { accountStore, chatStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
-import type { Message } from '@/types'
 import { determineMsgType } from '@/utils/msg-parser'
 import { MsgType } from '@/types'
 
@@ -164,122 +118,100 @@ defineOptions({ name: 'ChatView' })
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const confirm = useConfirm()
 
-// Stores
-const contactsStore = useContactsStore()
-const messagesStore = useMessagesStore()
-const interfaceStore = useInterfaceStore()
-const settingsStore = useSettingsStore()
-
-// State
+// --- State ---
 const id = computed(() => (route.params.id as string) || '')
-const session = computed(() => contactsStore.getSession(id.value))
-const list = computed(() => messagesStore.getList(id.value))
-const hasSidebar = computed(() => route.matched.some((r) => r.components?.sidebar))
+const session = computed(() => chatStore.getSession(id.value))
+const list = computed(() => chatStore.getMsgList(id.value))
+const hasSidebar = computed(() => route.matched.some(r => r.components?.sidebar))
+const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
 
-// Background
-const bgStyle = computed(() =>
-  settingsStore.config.bgImage
-    ? `background-image: url(${settingsStore.config.bgImage}); background-size: cover; background-position: center;`
-    : ''
-)
-
-// Refs
+const inputText = ref('')
 const scrollRef = ref<HTMLElement>()
 const inputRef = ref<HTMLTextAreaElement>()
-const text = ref('')
-const showMenu = ref(false)
-const menuX = ref(0)
-const menuY = ref(0)
-const targetMsg = ref<Message | null>(null)
 
-// --- Scroll Logic ---
-const scrollToBottom = async () => {
-  await nextTick()
-  if (scrollRef.value) {
-    scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-  }
+// Local UI State
+const isMultiSelect = ref(false)
+const selectedIds = ref<number[]>([])
+const replyTarget = ref<ChatMsg | null>(null)
+
+const toggleSelect = (msgId: number) => {
+  const idx = selectedIds.value.indexOf(msgId)
+  if (idx > -1) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(msgId)
 }
 
-const onScroll = (e: Event) => {
-  const el = e.target as HTMLElement
-  // 触顶加载历史
-  if (el.scrollTop < 50 && id.value) {
-    messagesStore.fetchHistory(id.value)
-  }
-}
-
-// Watchers
-watch(
-  () => id.value,
-  async (newId) => {
-    if (newId) {
-      contactsStore.clearUnread(newId)
-      // 重置交互状态
-      interfaceStore.setReply(null)
-      interfaceStore.stopMulti()
-
-      await messagesStore.fetchHistory(newId)
-      scrollToBottom()
-    }
-  }
-)
-
-watch(
-  () => list.value.length,
-  (newLen, oldLen) => {
-    // 简单判断：只有新消息才自动滚动，历史加载保持位置(需更复杂逻辑，这里简化)
-    if (newLen > oldLen) scrollToBottom()
-  }
-)
+// --- Appearance ---
+const bgStyle = computed(() => accountStore.config.value.bgImage ? `background-image: url(${accountStore.config.value.bgImage}); background-size: cover; background-position: center;` : '')
 
 // --- Actions ---
+/** 滚动消息列表到底部 */
+const scrollToBottom = async () => {
+  await nextTick()
+  if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+}
 
+/** 监听滚动事件，触发历史消息拉取 */
+const onScroll = (e: Event) => {
+  const el = e.target as HTMLElement
+  if (el.scrollTop < 50 && id.value) chatStore.fetchHistory(id.value)
+}
+
+/** 执行消息发送 */
+const doSend = () => {
+  if (!inputText.value.trim()) return
+  chatStore.sendMsg(id.value, inputText.value, replyTarget.value?.message_id)
+  inputText.value = ''
+  replyTarget.value = null
+}
+
+/** 插入文本到输入框 */
 const onInsert = (str: string) => {
-  text.value += str
+  inputText.value += str
   inputRef.value?.focus()
 }
 
-const doSend = () => {
-  if (!text.value.trim()) return
-  messagesStore.sendMsg(id.value, text.value)
-  text.value = ''
-}
-
+/** 发送戳一戳消息 */
 const onPoke = (uid: number) => {
-  const isGroup = id.value.length > 5
-  if (isGroup) {
-    bot.groupPoke(Number(id.value), uid)
-  } else {
-    bot.friendPoke(uid)
-  }
-  messagesStore.addSystem(id.value, `你戳了戳 ${uid}`)
+  if (isGroup.value) bot.groupPoke(Number(id.value), uid)
+  else bot.friendPoke(uid)
+  chatStore.addSystemMsg(id.value, `你戳了戳 ${uid}`)
 }
 
-const toggleSidebar = () => {
-  const path = route.path
-  if (path.includes('/detail')) {
-    router.push(`/${id.value}`)
-  } else {
-    router.push(`/${id.value}/detail`)
-  }
-}
-
-const getSummary = (msg: Message) => {
-  // 简易摘要生成
-  const type = determineMsgType(msg.message)
-  if (type === MsgType.Text) {
-    const txt = msg.message
-      .filter((s) => s.type === 'text')
-      .map((s) => s.data.text)
-      .join('')
-    return txt.slice(0, 20) + (txt.length > 20 ? '...' : '')
-  }
-  return `[${type}]`
+/** 跳转至合并转发页面 */
+const goToForward = () => {
+  if (selectedIds.value.length === 0) return
+  router.push({ 
+    path: `/${id.value}/forward`,
+    query: { ids: selectedIds.value.join(',') }
+  })
 }
 
 // --- Context Menu ---
+const showMenu = ref(false)
+const menuX = ref(0)
+const menuY = ref(0)
+const menuType = ref<'msg' | 'header'>('msg')
+const contextMsg = ref<ChatMsg | null>(null)
+
 const menuOpts = computed<MenuItem[]>(() => {
+  if (menuType.value === 'header') {
+    if (isGroup.value) {
+      return [
+        { label: '群成员', key: 'member', icon: 'i-ri-group-line' },
+        { label: '群文件', key: 'file', icon: 'i-ri-folder-open-line' },
+        { label: '群公告', key: 'notice', icon: 'i-ri-megaphone-line' },
+        { label: '精华消息', key: 'essence', icon: 'i-ri-star-line' }
+      ]
+    } else {
+      return [
+        { label: '删除好友', key: 'delete_friend', icon: 'i-ri-delete-bin-line', danger: true }
+      ]
+    }
+  }
+
+  // Msg Menu
   return [
     { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
     { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
@@ -288,50 +220,86 @@ const menuOpts = computed<MenuItem[]>(() => {
   ]
 })
 
-const onContextMenu = (e: MouseEvent, msg: Message) => {
-  if (interfaceStore.multiSelect) return
-  targetMsg.value = msg
+/** 处理消息右键菜单 */
+const onContextMenu = (e: MouseEvent, msg: ChatMsg) => {
+  if (isMultiSelect.value) return
+  menuType.value = 'msg'
+  contextMsg.value = msg
   menuX.value = e.clientX
   menuY.value = e.clientY
   showMenu.value = true
 }
 
-const onMenuSelect = (key: string) => {
-  if (!targetMsg.value) return
-  const msg = targetMsg.value
+/** 处理头部右键菜单 */
+const onHeaderContext = (e: MouseEvent) => {
+  menuType.value = 'header'
+  menuX.value = e.clientX
+  menuY.value = e.clientY
+  showMenu.value = true
+}
 
+/** 处理菜单项点击事件 */
+const onMenuSelect = (key: string) => {
+  // Header Actions
+  if (menuType.value === 'header') {
+    if (key === 'delete_friend') {
+      confirm.require({
+        message: '确定要删除该好友吗？',
+        header: '删除好友',
+        icon: 'i-ri-error-warning-line',
+        accept: async () => {
+          await bot.deleteFriend(Number(id.value))
+          chatStore.removeSession(id.value)
+          router.push('/')
+        }
+      })
+    } else {
+      router.push(`/${id.value}/${key}`)
+    }
+    return
+  }
+
+  // Msg Actions
+  if (!contextMsg.value) return
+  const msg = contextMsg.value
   switch (key) {
-    case 'reply':
-      interfaceStore.setReply(msg)
+    case 'reply': 
+      replyTarget.value = msg
       inputRef.value?.focus()
       break
     case 'forward':
-      interfaceStore.startForward([msg.message_id], 'single')
+      router.push({ path: `/${id.value}/forward`, query: { ids: String(msg.message_id) } })
       break
     case 'select':
-      interfaceStore.startMulti(msg.message_id)
+      isMultiSelect.value = true
+      selectedIds.value = [msg.message_id]
       break
     case 'recall':
-      messagesStore.recallMsg(id.value, msg.message_id)
+      chatStore.recallMsg(id.value, msg.message_id)
       bot.deleteMsg(msg.message_id).catch(() => toast.add({ severity: 'error', summary: '撤回失败', life: 3000 }))
       break
   }
 }
 
-const handleBatchForward = () => {
-  if (interfaceStore.selectedIds.length === 0) return
-  interfaceStore.startForward(interfaceStore.selectedIds, 'batch')
+/** 获取消息的简短摘要 */
+const getSummary = (msg: ChatMsg) => {
+  const type = determineMsgType(msg.message)
+  if (type === MsgType.Text) {
+    const txt = msg.message.filter(s => s.type === 'text').map(s => s.data.text).join('')
+    return txt.slice(0, 20) + (txt.length > 20 ? '...' : '')
+  }
+  return `[${type}]`
 }
-</script>
 
-<style scoped>
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translate(-50%, 150%);
-  opacity: 0;
-}
-</style>
+// --- Watchers ---
+watch(() => id.value, (newId) => {
+  if (newId) {
+    chatStore.clearUnread(newId)
+    isMultiSelect.value = false
+    replyTarget.value = null
+    chatStore.fetchHistory(newId).then(scrollToBottom)
+  }
+})
+
+watch(() => list.value.length, (n, o) => { if (n > o) scrollToBottom() })
+</script>

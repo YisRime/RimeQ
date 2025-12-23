@@ -45,7 +45,12 @@ export interface EmojiDef {
 const LOCAL_FACE_MODE = import.meta.env.VITE_LOCAL_FACE === 'true'
 const BASE_URL = import.meta.env.BASE_URL
 
+/**
+ * 表情相关工具类
+ * 负责解析 QQ 表情 (APNG/Lottie) 与标准 Emoji
+ */
 export class EmojiUtils {
+  /** 获取普通 QQ 表情的图片 URL */
   static getNormalUrl(id: number): string {
     if (LOCAL_FACE_MODE) {
       return `${BASE_URL}img/qface/${id}.png`
@@ -54,6 +59,7 @@ export class EmojiUtils {
     }
   }
 
+  /** 获取超级 QQ 表情 (Lottie) 的配置 JSON URL */
   static getSuperUrl(id: number): string {
     if (LOCAL_FACE_MODE) {
       return `${BASE_URL}img/qface/${id}.json`
@@ -62,6 +68,7 @@ export class EmojiUtils {
     }
   }
 
+  /** 根据 ID 获取完整的表情定义 */
   static get(id: number): EmojiDef {
     if (id < 5000) {
       // QQ 表情
