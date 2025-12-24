@@ -1,38 +1,80 @@
 <template>
-  <div class="flex flex-col h-full w-full bg-sub overflow-hidden">
+  <div class="flex flex-col h-full w-full overflow-hidden">
     <!-- 顶部固定区域 -->
-    <div class="flex-none px-2 pt-3 pb-2 flex flex-col gap-2 z-20 bg-sub">
+    <div class="flex-none px-3 pt-3 pb-2 flex flex-col gap-2 z-20">
       <!-- 系统通知 -->
-      <div
-        v-if="!keyword"
-        class="relative bg-main rounded-lg border border-dim/60 shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group overflow-hidden select-none"
-        :class="isTablet ? 'h-12 flex items-center justify-center' : 'p-3 flex items-center gap-3'"
-        @click="router.push('/notice')"
-      >
-        <div class="relative w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-500 shrink-0 group-hover:scale-105 transition-transform">
-          <div class="i-ri-notification-3-fill text-lg" />
-          <div v-if="noticeCount > 0 && !isTablet" class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-main animate-pulse" />
-        </div>
-        <div v-if="isTablet && noticeCount > 0" class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-main" />
-        <template v-if="!isTablet">
-          <div class="flex-1 font-bold text-main text-sm">系统通知</div>
-          <div class="flex items-center gap-2">
-            <span v-if="noticeCount > 0" class="text-xs text-white bg-red-500 px-1.5 py-0.5 rounded-full shadow-sm">{{ noticeCount }}</span>
-            <div class="i-ri-arrow-right-s-line text-sub group-hover:translate-x-0.5 transition-transform" />
+      <div v-if="!keyword">
+        <!-- Tablet 模式 -->
+        <div
+          v-if="isTablet"
+          title="系统通知"
+          class="h-12 w-full flex items-center justify-center rounded-xl cursor-pointer transition-all duration-200 relative group border"
+          :class="[
+            route.path === '/notice'
+              ? '!bg-primary !text-white shadow-md border-transparent'
+              : 'bg-dim/30 border-dim/20 text-sub hover:bg-main hover:text-main hover:shadow-sm'
+          ]"
+          @click="router.push('/notice')"
+        >
+          <div
+            class="text-2xl transition-colors"
+            :class="[
+              noticeCount > 0 ? 'i-ri-notification-3-fill' : 'i-ri-notification-3-line',
+              route.path === '/notice' ? '' : (noticeCount > 0 ? 'text-primary' : 'text-current')
+            ]"
+          />
+          <div
+            v-if="noticeCount > 0"
+            class="absolute top-2 right-3 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 leading-none z-10"
+            :class="route.path === '/notice' ? 'border-primary' : 'border-sub'"
+          >
+            {{ noticeCount > 99 ? '99+' : noticeCount }}
           </div>
-        </template>
+        </div>
+        <!-- Desktop/Mobile 模式 -->
+        <div
+          v-else
+          class="h-12 flex items-center px-3 gap-3 rounded-xl cursor-pointer border transition-all duration-200 group"
+          :class="[
+            route.path === '/notice'
+              ? '!bg-primary !text-white shadow-md border-transparent'
+              : 'bg-dim/30 border-dim/20 text-sub hover:bg-main hover:text-main hover:shadow-sm'
+          ]"
+          @click="router.push('/notice')"
+        >
+          <div
+            class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-colors"
+            :class="[
+              route.path === '/notice'
+                ? 'bg-white/20 text-white'
+                : 'bg-white/50 dark:bg-black/10 text-primary'
+            ]"
+          >
+            <div class="i-ri-notification-3-fill text-lg" />
+          </div>
+          <div class="flex-1 font-bold text-sm transition-colors">系统通知</div>
+          <div v-if="noticeCount > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full shadow-sm">
+            {{ noticeCount }}
+          </div>
+          <div
+            class="i-ri-arrow-right-s-line transition-all"
+            :class="route.path === '/notice' ? 'text-white/70' : 'text-sub/50 group-hover:text-main/70'"
+          />
+        </div>
       </div>
       <!-- 列表切换 -->
       <div
-        class="flex select-none bg-dim/50 p-1 rounded-lg transition-all"
+        class="flex select-none bg-dim/30 p-1 rounded-xl transition-all border border-dim/20"
         :class="isTablet ? 'flex-col gap-1' : 'flex-row'"
       >
         <div
           v-for="tab in tabs"
           :key="tab.key"
-          class="flex-1 text-center text-sm font-medium rounded-md cursor-pointer transition-all duration-200 flex items-center justify-center hover:text-main"
+          class="flex-1 text-center text-sm font-bold rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center"
           :class="[
-            currentTab === tab.key ? 'text-primary bg-main shadow-sm' : 'text-sub',
+            currentTab === tab.key
+              ? '!bg-primary !text-white shadow-md'
+              : 'text-sub hover:text-main hover:bg-main/50',
             isTablet ? 'py-2 text-xs' : 'py-1.5'
           ]"
           @click="currentTab = tab.key"
@@ -42,48 +84,56 @@
       </div>
     </div>
     <!-- 滚动列表区域 -->
-    <div class="flex-1 min-h-0 px-2 pb-2">
-      <div class="h-full bg-sub rounded-lg border border-dim/60 shadow-sm overflow-hidden flex flex-col">
-        <div class="flex-1 overflow-y-auto my-scrollbar relative scroll-smooth">
+    <div class="flex-1 min-h-0 px-3 pb-3 flex flex-col">
+      <!-- Card 容器 -->
+      <div class="w-full max-h-full flex flex-col bg-sub/85 backdrop-blur-md rounded-2xl border border-dim/60 shadow-sm overflow-hidden transition-all duration-300">
+        <!-- 内部滚动区域 -->
+        <div class="overflow-y-auto my-scrollbar relative scroll-smooth p-1">
           <!-- 好友列表 -->
           <template v-if="currentTab === 'friend'">
             <!-- A: 分组展示 -->
             <template v-if="friendCategories.length > 0">
-              <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none">
+              <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
                 <!-- 分组标题 -->
                 <div
-                  class="sticky top-0 z-10 flex items-center gap-2 bg-dim/95 backdrop-blur-sm border-y border-dim/50 cursor-pointer hover:bg-dim transition-colors"
-                  :class="isTablet ? 'justify-center py-2' : 'px-3 py-2'"
+                  class="sticky top-0 z-10 flex items-center px-2 py-2 cursor-pointer hover:bg-dim/50 rounded-lg transition-colors group"
+                  :class="isTablet ? 'flex-col justify-center gap-0.5' : 'gap-2'"
                   @click="toggleCategory(cat.categoryId)"
                 >
                   <div
-                    class="i-ri-arrow-right-s-fill text-sub transition-transform duration-200 shrink-0"
+                    class="i-ri-arrow-right-s-fill text-sub transition-transform duration-200 shrink-0 group-hover:text-primary"
                     :class="{ 'rotate-90': expandedCats.includes(cat.categoryId) || keyword }"
                   />
-                  <span v-if="!isTablet" class="text-xs font-bold text-main truncate flex-1">{{ cat.categoryName }}</span>
-                  <span class="text-[10px] text-sub font-mono opacity-80">
+                  <span v-if="!isTablet" class="text-xs font-bold text-sub group-hover:text-main flex-1 truncate">
+                    {{ cat.categoryName }}
+                  </span>
+                  <span
+                    class="text-[10px] text-dim font-mono group-hover:text-sub transition-colors"
+                    :class="isTablet ? '' : ''"
+                  >
                     {{ isTablet ? cat.categoryMbCount : `${cat.onlineCount}/${cat.categoryMbCount}` }}
                   </span>
                 </div>
                 <!-- 分组内容 -->
-                <div v-show="expandedCats.includes(cat.categoryId) || keyword">
+                <div v-show="expandedCats.includes(cat.categoryId) || keyword" class="pl-1 pr-1" :class="isTablet ? 'pt-1' : 'pl-2'">
                   <div
                     v-for="friend in cat.buddyList"
                     :key="friend.user_id"
-                    class="flex items-center gap-3 cursor-pointer hover:bg-dim/50 transition-colors border-b border-dim/30 last:border-none group"
-                    :class="isTablet ? 'justify-center py-2' : 'px-3 py-2.5'"
+                    class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative overflow-hidden"
+                    :class="isTablet ? 'justify-center' : ''"
                     @click="router.push(`/${friend.user_id}`)"
                   >
+                     <div class="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                     <Avatar
                       shape="circle"
                       :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
-                      class="w-9 h-9 shrink-0 bg-dim border border-dim/50"
+                      class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                     />
                     <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
                       <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                         {{ friend.remark || friend.nickname }}
                       </div>
-                      <div class="text-[11px] text-sub truncate mt-0.5 font-mono opacity-70">
+                      <div class="text-[11px] text-sub truncate font-mono opacity-60">
                         {{ friend.nickname }} ({{ friend.user_id }})
                       </div>
                     </div>
@@ -96,20 +146,21 @@
                <div
                 v-for="friend in filteredFlatFriends"
                 :key="friend.user_id"
-                class="flex items-center gap-3 cursor-pointer hover:bg-dim/50 transition-colors border-b border-dim/30 last:border-none group"
-                :class="isTablet ? 'justify-center py-2' : 'px-3 py-2.5'"
+                class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative"
+                :class="isTablet ? 'justify-center' : ''"
                 @click="router.push(`/${friend.user_id}`)"
               >
+                <div class="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Avatar
                   shape="circle"
                   :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
-                  class="w-9 h-9 shrink-0 bg-dim border border-dim/50"
+                  class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                 />
                 <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
                   <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                     {{ friend.remark || friend.nickname }}
                   </div>
-                  <div class="text-[11px] text-sub truncate mt-0.5 font-mono opacity-70">
+                  <div class="text-[11px] text-sub truncate font-mono opacity-60">
                     {{ friend.nickname }} ({{ friend.user_id }})
                   </div>
                 </div>
@@ -121,20 +172,21 @@
             <div
               v-for="group in filteredGroups"
               :key="group.group_id"
-              class="flex items-center gap-3 cursor-pointer hover:bg-dim/50 transition-colors border-b border-dim/30 last:border-none group"
-              :class="isTablet ? 'justify-center py-2' : 'px-3 py-2.5'"
+              class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative"
+              :class="isTablet ? 'justify-center' : ''"
               @click="router.push(`/${group.group_id}`)"
             >
+              <div class="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               <Avatar
                 shape="circle"
                 :image="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`"
-                class="w-9 h-9 shrink-0 bg-dim border border-dim/50"
+                class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
               />
               <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
                 <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                   {{ group.group_remark ? `${group.group_remark} (${group.group_name})` : group.group_name }}
                 </div>
-                <div class="text-[11px] text-sub truncate mt-0.5 font-mono opacity-70">
+                <div class="text-[11px] text-sub truncate font-mono opacity-60">
                   {{ group.group_id }} ({{ group.member_count }}/{{ group.max_member_count }})
                 </div>
               </div>
@@ -148,7 +200,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import Avatar from 'primevue/avatar'
 import { dataStore } from '@/utils/storage'
@@ -157,8 +209,9 @@ import type { FriendCategory } from '@/types'
 
 defineOptions({ name: 'ContactView' })
 
-const props = defineProps<{ keyword?: string }>()
 const router = useRouter()
+const route = useRoute()
+const props = defineProps<{ keyword?: string }>()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isTablet = breakpoints.between('md', 'xl')
 

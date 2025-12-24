@@ -91,7 +91,7 @@ const form = reactive({
 // 处理登录逻辑
 const handleLogin = async (isAuto = false) => {
   if (!form.address) {
-    return !isAuto && toast.add({ severity: 'warn', summary: '请输入地址', life: 2000 })
+    return !isAuto && toast.add({ severity: 'warn', summary: '请输入地址', life: 3000 })
   }
 
   try {
@@ -102,11 +102,11 @@ const handleLogin = async (isAuto = false) => {
 
     await settingsStore.login(form.address, form.token)
 
-    if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 2000 })
+    if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 3000 })
     router.replace((route.query.redirect as string) || '/')
   } catch (e) {
     if (!isAuto || isAutoConnecting.value) {
-      if (!isAuto) toast.add({ severity: 'error', summary: '连接失败', detail: e, life: 2000 })
+      if (!isAuto) toast.add({ severity: 'error', summary: '连接失败', detail: e, life: 3000 })
     }
   } finally {
     if (isAuto) isAutoConnecting.value = false
