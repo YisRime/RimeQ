@@ -13,7 +13,7 @@
         <div
           v-if="bgStyle"
           class="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-0 pointer-events-none"
-          :style="`backdrop-filter: blur(${settingsStore.config.value.bgBlur}px);`"
+          :style="`backdrop-filter: blur(${settingsStore.config.value.backgroundBlur}px);`"
         />
 
         <!-- 头部 -->
@@ -164,8 +164,8 @@ const toggleSelect = (msgId: number) => {
 
 // --- Appearance ---
 const bgStyle = computed(() =>
-  settingsStore.config.value.bgImage
-    ? `background-image: url(${settingsStore.config.value.bgImage}); background-size: cover; background-position: center;`
+  settingsStore.config.value.backgroundImg
+    ? `background-image: url(${settingsStore.config.value.backgroundImg}); background-size: cover; background-position: center;`
     : ''
 )
 

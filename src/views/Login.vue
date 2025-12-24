@@ -17,7 +17,7 @@
         <IconField>
           <InputIcon class="i-ri-server-line z-10" />
           <InputText
-            v-model="form.address"
+            v-model="form.connectAddress"
             placeholder="ws://"
             :disabled="isAutoConnecting"
             class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none"
@@ -27,7 +27,7 @@
         <IconField>
           <InputIcon class="i-ri-key-2-line z-10" />
           <Password
-            v-model="form.token"
+            v-model="form.accessToken"
             placeholder="Token"
             :feedback="false"
             toggle-mask
@@ -41,7 +41,7 @@
         <!-- 选项配置行 -->
         <div class="flex-between px-1">
           <div class="flex-x gap-2">
-            <Checkbox v-model="form.remember" binary input-id="remember" size="small" :disabled="isAutoConnecting" />
+            <Checkbox v-model="form.rememberToken" binary input-id="remember" size="small" :disabled="isAutoConnecting" />
             <label for="remember" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">记住密码</label>
           </div>
           <div class="flex-x gap-2">
@@ -82,25 +82,25 @@ const toast = useToast()
 // 自动登录状态
 const isAutoConnecting = ref(false)
 const form = reactive({
-  address: '',
-  token: '',
-  remember: false,
+  connectAddress: '',
+  accessToken: '',
+  rememberToken: false,
   autoConnect: false
 })
 
 // 处理登录逻辑
 const handleLogin = async (isAuto = false) => {
-  if (!form.address) {
+  if (!form.connectAddress) {
     return !isAuto && toast.add({ severity: 'warn', summary: '请输入地址', life: 3000 })
   }
 
   try {
     Object.assign(settingsStore.config.value, {
-      remember: form.remember,
+      rememberToken: form.rememberToken,
       autoConnect: form.autoConnect
     })
 
-    await settingsStore.login(form.address, form.token)
+    await settingsStore.login(form.connectAddress, form.accessToken)
 
     if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 3000 })
     router.replace((route.query.redirect as string) || '/')
@@ -122,15 +122,15 @@ const cancelAuto = () => {
 // 初始化
 onMounted(() => {
   const cfg = settingsStore.config.value
-  if (cfg.remember) {
+  if (cfg.rememberToken) {
     Object.assign(form, {
-      address: cfg.address,
-      token: cfg.token,
-      remember: true,
+      connectAddress: cfg.connectAddress,
+      accessToken: cfg.accessToken,
+      rememberToken: true,
       autoConnect: cfg.autoConnect
     })
   }
-  if (form.autoConnect && form.address && form.token && !settingsStore.isLogged) {
+  if (form.autoConnect && form.connectAddress && form.accessToken && !settingsStore.isLogged) {
     isAutoConnecting.value = true
     handleLogin(true)
   }

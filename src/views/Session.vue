@@ -3,14 +3,13 @@
     <!-- 滚动区域 -->
     <div class="flex-1 overflow-y-auto my-scrollbar">
       <div class="px-2 py-1 lg:py-2 flex flex-col gap-0.5 lg:gap-1">
-
         <!-- 会话项 -->
         <div
           v-for="session in filteredSessions"
           :key="session.id"
           class="group relative flex items-center gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all duration-200 select-none"
           :class="[
-            isActive(session.id) ? 'bg-primary/10' : 'hover:bg-dim',
+            isActive(session.id) ? '!bg-primary shadow-md' : 'hover:bg-dim',
             'justify-start md:justify-center lg:justify-start'
           ]"
           @click="onSelect(session.id)"
@@ -23,10 +22,9 @@
               :image="session.avatar"
               class="bg-white dark:bg-gray-700 shadow-sm border border-dim w-full h-full"
             />
-
             <div
               v-if="session.unread > 0"
-              class="absolute -top-1 -right-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900 z-10"
+              class="absolute -top-1 -right-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-sub z-10"
               :class="[
                 'min-w-[16px] h-[16px] px-0.5',
                 'md:w-2.5 md:h-2.5 md:min-w-0 md:p-0',
@@ -44,13 +42,13 @@
             <div class="flex items-center justify-between">
               <span
                 class="font-medium truncate text-[14px] lg:text-[15px] leading-tight transition-colors"
-                :class="isActive(session.id) ? 'text-primary' : 'text-main'"
+                :class="isActive(session.id) ? 'text-primary-content' : 'text-main'"
               >
                 {{ session.name }}
               </span>
               <span
                 class="text-[10px] flex-shrink-0 ml-2 transition-colors"
-                :class="isActive(session.id) ? 'text-primary/70' : 'text-dim group-hover:text-sub'"
+                :class="isActive(session.id) ? 'text-primary-content/70' : 'text-dim group-hover:text-sub'"
               >
                 {{ formatTime(session.time) }}
               </span>
@@ -59,7 +57,7 @@
             <div
               class="truncate text-[12px] lg:text-[13px] transition-colors"
               :class="[
-                isActive(session.id) ? 'text-primary/80' : 'text-dim group-hover:text-sub',
+                isActive(session.id) ? 'text-primary-content/80' : 'text-dim group-hover:text-sub',
                 { 'font-medium text-sub': session.unread > 0 }
               ]"
             >
@@ -72,7 +70,6 @@
         <div v-if="filteredSessions.length === 0" class="py-20 text-center text-dim text-sm block md:hidden lg:block">
           暂无聊天会话
         </div>
-
       </div>
     </div>
 

@@ -1,7 +1,7 @@
 <template>
-  <div class="flex-col-full bg-sub">
+  <div class="flex-col-full bg-main">
     <!-- 顶部导航栏 -->
-    <header class="h-14 border-b border-dim bg-main/90 backdrop-blur flex-x px-3 shrink-0 z-10 gap-2">
+    <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-x px-3 shrink-0 z-10 gap-2">
       <div class="p-1 -ml-1 rounded-full hover:bg-dim cursor-pointer md:hidden transition-colors" @click="router.back()">
         <div class="i-ri-arrow-left-s-line text-2xl text-sub" />
       </div>
@@ -14,7 +14,7 @@
         <div
           v-for="(item, idx) in list"
           :key="item.flag || idx"
-          class="bg-main rounded-lg p-3 border border-dim shadow-sm hover:shadow-md my-trans relative overflow-hidden group"
+          class="bg-sub rounded-lg p-3 border border-dim/70 shadow-sm hover:border-dim hover:shadow-md my-trans relative overflow-hidden group"
         >
           <!-- 侧边状态指示条 -->
           <div class="absolute left-0 top-0 bottom-0 w-1" :class="getBorderColor(item)" />

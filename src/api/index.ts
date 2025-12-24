@@ -18,7 +18,6 @@ export class ExtendedClient extends BaseClient {
   }
 
   setBackend(type: BackendType) {
-    console.log(`[API] 客户端类型: ${type}`)
     this.backend = type
   }
 

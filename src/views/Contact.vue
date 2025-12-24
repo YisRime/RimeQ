@@ -25,7 +25,7 @@
           />
           <div
             v-if="noticeCount > 0"
-            class="absolute top-2 right-3 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex-center border-2 leading-none z-10"
+            class="absolute top-2 right-3 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex-center border-2 leading-none z-10 dark:bg-red-400 dark:text-black"
             :class="route.path === '/notice' ? 'border-primary' : 'border-sub'"
           >
             {{ noticeCount > 99 ? '99+' : noticeCount }}
@@ -53,7 +53,7 @@
             <div class="i-ri-notification-3-fill text-lg" />
           </div>
           <div class="flex-1 font-bold text-sm transition-colors">系统通知</div>
-          <div v-if="noticeCount > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full shadow-sm">
+          <div v-if="noticeCount > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full shadow-sm dark:bg-red-400 dark:text-black">
             {{ noticeCount }}
           </div>
           <div
@@ -86,7 +86,7 @@
     <!-- 滚动列表区域 -->
     <div class="flex-1 min-h-0 px-3 pb-3 flex flex-col">
       <!-- Card 容器 -->
-      <div class="w-full max-h-full flex flex-col bg-sub/85 backdrop-blur-md rounded-2xl border border-dim/60 shadow-sm overflow-hidden my-trans">
+      <div class="w-full h-full flex flex-col bg-sub rounded-2xl border border-dim/60 shadow-lg overflow-hidden my-trans">
         <!-- 内部滚动区域 -->
         <div class="overflow-y-auto my-scrollbar relative scroll-smooth p-1">
           <!-- 好友列表 -->
@@ -96,7 +96,7 @@
               <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
                 <!-- 分组标题 -->
                 <div
-                  class="sticky top-0 z-10 flex-x px-2 py-2 cursor-pointer hover:bg-dim/50 rounded-lg transition-colors group"
+                  class="sticky top-0 z-10 flex-x px-2 py-2 cursor-pointer bg-sub hover:bg-dim/50 rounded-lg transition-colors group"
                   :class="isTablet ? 'flex-col justify-center gap-0.5' : 'gap-2'"
                   @click="toggleCategory(cat.categoryId)"
                 >
@@ -107,9 +107,7 @@
                   <span v-if="!isTablet" class="text-xs font-bold text-sub group-hover:text-main flex-1 truncate">
                     {{ cat.categoryName }}
                   </span>
-                  <span
-                    class="text-[10px] text-dim font-mono group-hover:text-sub transition-colors"
-                  >
+                  <span class="text-[10px] text-dim font-mono group-hover:text-sub transition-colors">
                     {{ isTablet ? cat.categoryMbCount : `${cat.onlineCount}/${cat.categoryMbCount}` }}
                   </span>
                 </div>
@@ -118,21 +116,21 @@
                   <div
                     v-for="friend in cat.buddyList"
                     :key="friend.user_id"
-                    class="flex-x gap-3 p-2 rounded-xl group relative overflow-hidden my-hover"
+                    class="flex-x gap-3 p-2 rounded-xl group relative overflow-hidden hover:!bg-primary hover:shadow-md cursor-pointer my-trans"
                     :class="isTablet ? 'justify-center' : ''"
                     @click="router.push(`/${friend.user_id}`)"
                   >
-                     <div class="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div class="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                     <Avatar
                       shape="circle"
                       :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
                       class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                     />
                     <div v-if="!isTablet" class="flex-truncate">
-                      <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
+                      <div class="text-sm font-medium text-main truncate group-hover:text-primary-content transition-colors">
                         {{ friend.remark || friend.nickname }}
                       </div>
-                      <div class="text-[11px] text-sub truncate font-mono opacity-60">
+                      <div class="text-[11px] text-sub truncate font-mono opacity-60 group-hover:text-primary-content/70">
                         {{ friend.nickname }} ({{ friend.user_id }})
                       </div>
                     </div>
@@ -142,10 +140,10 @@
             </template>
             <!-- B: 平铺展示 -->
             <template v-else>
-               <div
+              <div
                 v-for="friend in filteredFlatFriends"
                 :key="friend.user_id"
-                class="flex-x gap-3 p-2 rounded-xl group relative my-hover"
+                class="flex-x gap-3 p-2 rounded-xl group relative hover:!bg-primary hover:shadow-md cursor-pointer my-trans"
                 :class="isTablet ? 'justify-center' : ''"
                 @click="router.push(`/${friend.user_id}`)"
               >
@@ -156,10 +154,10 @@
                   class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                 />
                 <div v-if="!isTablet" class="flex-truncate">
-                  <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
+                  <div class="text-sm font-medium text-main truncate group-hover:text-primary-content transition-colors">
                     {{ friend.remark || friend.nickname }}
                   </div>
-                  <div class="text-[11px] text-sub truncate font-mono opacity-60">
+                  <div class="text-[11px] text-sub truncate font-mono opacity-60 group-hover:text-primary-content/70">
                     {{ friend.nickname }} ({{ friend.user_id }})
                   </div>
                 </div>
@@ -171,7 +169,7 @@
             <div
               v-for="group in filteredGroups"
               :key="group.group_id"
-              class="flex-x gap-3 p-2 rounded-xl group relative my-hover"
+              class="flex-x gap-3 p-2 rounded-xl group relative hover:!bg-primary hover:shadow-md cursor-pointer my-trans"
               :class="isTablet ? 'justify-center' : ''"
               @click="router.push(`/${group.group_id}`)"
             >
@@ -182,10 +180,10 @@
                 class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
               />
               <div v-if="!isTablet" class="flex-truncate">
-                <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
+                <div class="text-sm font-medium text-main truncate group-hover:text-primary-content transition-colors">
                   {{ group.group_remark ? `${group.group_remark} (${group.group_name})` : group.group_name }}
                 </div>
-                <div class="text-[11px] text-sub truncate font-mono opacity-60">
+                <div class="text-[11px] text-sub truncate font-mono opacity-60 group-hover:text-primary-content/70">
                   {{ group.group_id }} ({{ group.member_count }}/{{ group.max_member_count }})
                 </div>
               </div>

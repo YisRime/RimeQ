@@ -72,7 +72,6 @@ export class Socket {
         this.ws = ws
 
         ws.onopen = () => {
-          console.log('[API] Websocket 已连接')
           this.resetWatchdog()
           resolve()
         }

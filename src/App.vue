@@ -21,7 +21,7 @@
               <!-- 状态指示点 -->
               <div
                 class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
-                :class="settingsStore.isLogged ? 'bg-green-500' : 'bg-gray-500'"
+                :class="settingsStore.isLogged ? 'bg-green-500' : 'bg-dim'"
               />
             </div>
           </div>
