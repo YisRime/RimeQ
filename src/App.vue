@@ -6,18 +6,18 @@
       <!-- 左侧侧边栏 (Aside) -->
       <aside
         v-show="!isMobile || !isContentMode"
-        class="flex-col shrink-0 bg-sub border-r border-dim my-trans z-30 overflow-hidden"
+        class="flex flex-col shrink-0 bg-sub border-r border-dim my-trans z-30 overflow-hidden"
         :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
       >
         <!-- 顶部交互区 -->
-        <header class="h-16 shrink-0 relative flex-x px-4 border-b border-dim">
+        <header class="h-16 shrink-0 relative flex items-center px-3 border-b border-dim gap-3">
           <!-- 用户头像容器 -->
-          <div class="shrink-0 flex-center w-10 xl:w-auto my-trans">
+          <div class="shrink-0 flex-center my-trans">
             <div class="relative group cursor-pointer shrink-0" @click="toggleMenu">
               <Avatar
                 :image="userAvatar"
                 shape="circle"
-                class="bg-dim shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-10 h-10"
+                class="shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-9 h-9 bg-dim"
               />
               <!-- 状态指示点 -->
               <div
@@ -26,57 +26,62 @@
               />
             </div>
           </div>
-          <!-- 交互区域 -->
-          <div v-if="!isTablet" class="flex-1 h-10 ml-3 flex items-center overflow-hidden">
+          <!-- 交互区域 (Tablet 隐藏) -->
+          <div v-if="!isTablet" class="flex-1 flex items-center overflow-hidden gap-2">
             <!-- 导航按钮组 -->
             <div
-              class="my-squeeze flex items-center justify-start gap-2 shrink-0"
-              :class="showMenu ? 'w-[144px] mr-2 opacity-100' : 'w-0 mr-0 opacity-0'"
+              class="my-squeeze flex items-center justify-start gap-1 shrink-0"
+              :class="showMenu ? 'w-[140px] opacity-100' : 'w-0 opacity-0'"
             >
-              <div
+              <Button
                 v-for="btn in navButtons"
                 :key="btn.path"
-                class="w-10 h-10 rounded-lg flex-center my-trans text-xl shrink-0"
-                :class="
-                  route.path === btn.path ? 'bg-primary-soft text-primary' : 'text-sub hover:bg-dim hover:text-main'
-                "
-                :title="btn.label"
+                v-tooltip.bottom="btn.label"
+                :icon="btn.icon"
+                text
+                rounded
+                size="large"
+                severity="secondary"
+                :class="route.path === btn.path ? '!text-primary !bg-primary/10' : '!text-sub'"
+                class="!w-10 !h-10 !p-0 transition-all duration-200"
                 @click="navigate(btn.path)"
-              >
-                <div :class="btn.icon" />
-              </div>
+              />
             </div>
             <!-- 搜索框 -->
-            <div
-              class="h-full bg-dim rounded-lg flex-x px-3 text-dim focus-within:text-primary focus-within:ring-1 ring-primary/50 transition-all duration-300 ease-in-out flex-1 min-w-0"
-            >
-              <div class="i-ri-search-line mr-2 shrink-0" />
-              <input
-                v-model="searchKeyword"
-                class="bg-transparent border-none outline-none text-sm text-main size-full placeholder-dim/70 min-w-0"
-                placeholder="搜索..."
-              />
+            <div class="flex-1 min-w-0">
+              <IconField class="w-full">
+                <InputIcon class="i-ri-search-line text-sub" />
+                <InputText
+                  v-model="searchKeyword"
+                  placeholder="搜索"
+                  class="w-full !h-9 !text-sm !bg-dim/50 focus:!bg-dim !border-transparent focus:!border-primary/50 !rounded-lg !pl-9"
+                  :pt="{ root: { class: 'transition-all duration-200' } }"
+                />
+              </IconField>
             </div>
           </div>
         </header>
         <!-- 垂直菜单 (仅 Tablet 模式) -->
         <div
           v-if="isTablet"
-          class="my-squeeze flex flex-col items-center"
+          class="my-squeeze flex flex-col items-center gap-2"
           :class="
-            showMenu ? 'max-h-[200px] opacity-100 py-2 border-b border-dim' : 'max-h-0 opacity-0 py-0 border-none'
+            showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim' : 'max-h-0 opacity-0 py-0 border-none'
           "
         >
-          <div
+          <Button
             v-for="btn in navButtons"
             :key="btn.path"
-            class="w-10 h-10 rounded-lg flex-center transition-colors duration-200 text-xl mb-1 last:mb-0 cursor-pointer"
-            :class="route.path === btn.path ? 'text-primary bg-primary-soft' : 'text-sub hover:bg-dim hover:text-main'"
-            :title="btn.label"
+            v-tooltip.right="btn.label"
+            :icon="btn.icon"
+            text
+            rounded
+            size="large"
+            severity="secondary"
+            :class="route.path === btn.path ? '!text-primary !bg-primary/10' : '!text-sub'"
+            class="!w-10 !h-10 !p-0 transition-all duration-200"
             @click="navigate(btn.path)"
-          >
-            <div :class="btn.icon" />
-          </div>
+          />
         </div>
         <!-- 列表内容区 -->
         <div class="flex-1 overflow-hidden relative w-full">
@@ -138,6 +143,14 @@ import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import { settingsStore } from '@/utils/settings'
 import MediaViewer from '@/components/MediaViewer.vue'
 import Avatar from 'primevue/avatar'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
+import Tooltip from 'primevue/tooltip'
+
+// 局部指令
+const vTooltip = Tooltip
 
 // 路由实例
 const router = useRouter()
@@ -147,7 +160,6 @@ const route = useRoute()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
 const isTablet = breakpoints.between('md', 'xl')
-// const isDesktop = breakpoints.greaterOrEqual('xl') // 备用
 
 // 状态
 const searchKeyword = ref('')
@@ -161,9 +173,9 @@ const userAvatar = computed(() => {
 const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
 
 const navButtons = [
-  { label: '会话', path: '/', icon: 'i-ri-message-3-line' },
-  { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line' },
-  { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line' }
+  { label: '会话', path: '/', icon: 'i-ri-message-3-line text-xl' },
+  { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line text-xl' },
+  { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line text-xl' }
 ]
 
 const toggleMenu = () => (showMenu.value = !showMenu.value)

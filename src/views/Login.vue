@@ -14,47 +14,39 @@
       <!-- 表单区域 -->
       <div class="flex flex-col gap-6">
         <!-- 地址输入框 -->
-        <div class="relative group">
-          <div
-            class="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-dim group-focus-within:text-primary my-trans flex-center"
-          >
-            <div class="i-ri-server-line text-lg" />
-          </div>
+        <IconField>
+          <InputIcon class="i-ri-server-line z-10" />
           <InputText
             v-model="form.address"
-            placeholder="后端地址"
+            placeholder="ws://"
             :disabled="isAutoConnecting"
-            class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none border"
+            class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none"
           />
-        </div>
+        </IconField>
         <!-- 密钥输入框 -->
-        <div class="relative group w-full">
-          <div
-            class="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-dim group-focus-within:text-primary my-trans flex-center"
-          >
-            <div class="i-ri-key-2-line text-lg" />
-          </div>
+        <IconField>
+          <InputIcon class="i-ri-key-2-line z-10" />
           <Password
             v-model="form.token"
-            placeholder="登录密钥"
+            placeholder="Token"
             :feedback="false"
             toggle-mask
             fluid
             :disabled="isAutoConnecting"
             class="w-full"
-            input-class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none border"
+            input-class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none"
             @keydown.enter="!isAutoConnecting && handleLogin(false)"
           />
-        </div>
+        </IconField>
         <!-- 选项配置行 -->
         <div class="flex-between px-1">
-          <div class="flex-x gap-2">
+          <div class="flex items-center gap-2">
             <Checkbox v-model="form.remember" binary input-id="remember" size="small" :disabled="isAutoConnecting" />
-            <label for="remember" class="text-xs text-sub cursor-pointer hover:text-primary my-trans">记住密码</label>
+            <label for="remember" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">记住密码</label>
           </div>
-          <div class="flex-x gap-2">
+          <div class="flex items-center gap-2">
             <Checkbox v-model="form.autoConnect" binary input-id="auto" size="small" :disabled="isAutoConnecting" />
-            <label for="auto" class="text-xs text-sub cursor-pointer hover:text-primary my-trans">自动连接</label>
+            <label for="auto" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">自动连接</label>
           </div>
         </div>
         <!-- 登录按钮 -->
@@ -75,6 +67,12 @@ import { reactive, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { settingsStore } from '@/utils/settings'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import Checkbox from 'primevue/checkbox'
+import Button from 'primevue/button'
 
 // 路由实例
 const router = useRouter()
@@ -106,9 +104,9 @@ const handleLogin = async (isAuto = false) => {
 
     if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 2000 })
     router.replace((route.query.redirect as string) || '/')
-  } catch (e: any) {
+  } catch (e) {
     if (!isAuto || isAutoConnecting.value) {
-      if (!isAuto) toast.add({ severity: 'error', summary: '连接失败', detail: e.message, life: 2000 })
+      if (!isAuto) toast.add({ severity: 'error', summary: '连接失败', detail: e, life: 2000 })
     }
   } finally {
     if (isAuto) isAutoConnecting.value = false

@@ -1,19 +1,22 @@
 <template>
   <div class="flex-col-full bg-sub">
+    <!-- 滚动区域 -->
     <div class="flex-1 overflow-y-auto my-scrollbar">
       <div class="px-2 py-1 lg:py-2 flex flex-col gap-0.5 lg:gap-1">
+
+        <!-- 会话项 -->
         <div
           v-for="session in filteredSessions"
           :key="session.id"
-          class="group relative flex-x gap-3 p-2 lg:p-3 rounded-xl cursor-pointer my-trans select-none"
+          class="group relative flex items-center gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all duration-200 select-none"
           :class="[
-            isActive(session.id) ? 'bg-primary/10' : 'my-hover',
+            isActive(session.id) ? 'bg-primary/10' : 'hover:bg-dim',
             'justify-start md:justify-center lg:justify-start'
           ]"
           @click="onSelect(session.id)"
           @contextmenu.prevent="onContextMenu($event, session)"
         >
-          <!-- 头像容器：全平台统一 40px -->
+          <!-- 头像与未读数 -->
           <div class="relative flex-shrink-0 w-10 h-10">
             <Avatar
               shape="circle"
@@ -21,35 +24,32 @@
               class="bg-white dark:bg-gray-700 shadow-sm border border-dim w-full h-full"
             />
 
-            <!-- 未读数 -->
             <div
               v-if="session.unread > 0"
-              class="abs-center -top-1 -right-1 bg-red-500 rounded-full flex-center border-2 border-white dark:border-gray-900 z-10"
+              class="absolute -top-1 -right-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900 z-10"
               :class="[
                 'min-w-[16px] h-[16px] px-0.5',
-                'md:w-2.5 md:h-2.5 md:min-w-0 md:p-0', // Narrow Desktop (Dot only)
+                'md:w-2.5 md:h-2.5 md:min-w-0 md:p-0',
                 'lg:min-w-[16px] lg:h-[16px] lg:px-0.5'
               ]"
             >
-              <span
-                class="text-[10px] text-white font-bold leading-none transform translate-y-[0.5px] block md:hidden lg:block"
-              >
+              <span class="text-[10px] text-white font-bold leading-none transform translate-y-[0.5px] block md:hidden lg:block">
                 {{ session.unread > 99 ? '99+' : session.unread }}
               </span>
             </div>
           </div>
 
-          <!-- 文本信息 -->
-          <div class="flex-truncate flex flex-col justify-center gap-0.5 block md:hidden lg:block">
-            <div class="flex-between">
+          <!-- 文本信息 (中屏隐藏) -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5 block md:hidden lg:block">
+            <div class="flex items-center justify-between">
               <span
-                class="font-medium truncate text-[14px] lg:text-[15px] leading-tight"
+                class="font-medium truncate text-[14px] lg:text-[15px] leading-tight transition-colors"
                 :class="isActive(session.id) ? 'text-primary' : 'text-main'"
               >
                 {{ session.name }}
               </span>
               <span
-                class="text-[10px] flex-shrink-0 ml-2"
+                class="text-[10px] flex-shrink-0 ml-2 transition-colors"
                 :class="isActive(session.id) ? 'text-primary/70' : 'text-dim group-hover:text-sub'"
               >
                 {{ formatTime(session.time) }}
@@ -57,7 +57,7 @@
             </div>
 
             <div
-              class="truncate text-[12px] lg:text-[13px]"
+              class="truncate text-[12px] lg:text-[13px] transition-colors"
               :class="[
                 isActive(session.id) ? 'text-primary/80' : 'text-dim group-hover:text-sub',
                 { 'font-medium text-sub': session.unread > 0 }
@@ -68,11 +68,15 @@
           </div>
         </div>
 
+        <!-- 空状态 -->
         <div v-if="filteredSessions.length === 0" class="py-20 text-center text-dim text-sm block md:hidden lg:block">
           暂无聊天会话
         </div>
+
       </div>
     </div>
+
+    <!-- 右键菜单 -->
     <ContextMenu v-model:show="showMenu" :x="menuX" :y="menuY" :options="menuOpts" @select="onMenuSelect" />
   </div>
 </template>

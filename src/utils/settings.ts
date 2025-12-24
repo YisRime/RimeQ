@@ -5,7 +5,6 @@ import { colord, extend } from 'colord'
 import mixPlugin from 'colord/plugins/mix'
 import namesPlugin from 'colord/plugins/names'
 import type { LoginInfo } from '@/types'
-import { dataStore } from './storage'
 
 // Extend colord plugins
 extend([mixPlugin, namesPlugin])
@@ -78,17 +77,16 @@ export class SettingsStore {
 
   /**
    * 登录连接
-   * 优化：并行处理，非关键数据后台加载，加快 UI 响应速度
    * @param addr 服务器地址
    * @param tk Access Token
    */
   async login(addr: string, tk: string) {
     this.isConnecting.value = true
     try {
-      // 1. 建立 WS 连接 (必须等待)
+      // 1. 建立 WS 连接
       await bot.connect(addr, tk)
 
-      // 2. 获取登录号信息 (必须等待，用于确认身份)
+      // 2. 获取登录号信息
       const info = await bot.getLoginInfo()
 
       if (info) {
@@ -97,12 +95,7 @@ export class SettingsStore {
         this.config.value.address = addr
         if (this.config.value.remember) this.config.value.token = tk
 
-        // 3. [优化] 异步同步通讯录，不阻塞 UI 跳转
-        // 这里不使用 await，让它在后台静默加载
-        // 注意：dataStore 需要在此时已准备好
-        dataStore.syncData().catch(e => {
-          console.warn('[Settings] Background sync failed:', e)
-        })
+        console.log(`[Settings] 登录成功: ${info.nickname} (${info.user_id})`)
       } else {
         throw new Error('无法获取用户信息')
       }

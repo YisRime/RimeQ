@@ -47,7 +47,18 @@ export class Socket {
    * @returns Promise - 连接成功时 resolve，失败时 reject
    */
   public connect(url: string, token: string): Promise<void> {
-    this.disconnect(false)
+    if (this.ws?.readyState === WebSocket.OPEN && this.url === url && this.token === token) {
+      return Promise.resolve()
+    }
+
+    clearTimeout(this.reconnectTimer)
+
+    if (this.ws) {
+      this.ws.onclose = null
+      this.ws.close()
+      this.cleanup()
+    }
+
     this.isManualClose = false
     this.url = url
     this.token = token
@@ -72,7 +83,9 @@ export class Socket {
           console.warn(`[API] Websocket 连接中断: ${e.code}`)
           this.cleanup()
           if (!this.isManualClose && this.url) {
+            clearTimeout(this.reconnectTimer)
             this.reconnectTimer = window.setTimeout(() => {
+              console.log('[API] 正在重连...')
               this.connect(this.url, this.token).catch(() => { })
             }, 3000)
           }
@@ -99,7 +112,11 @@ export class Socket {
       this.token = ''
       clearTimeout(this.reconnectTimer)
     }
-    this.ws?.close()
+
+    if (this.ws) {
+      if (isManual) this.ws.onclose = null
+      this.ws.close()
+    }
     this.cleanup()
   }
 
@@ -167,7 +184,7 @@ export class Socket {
   private resetWatchdog(): void {
     clearTimeout(this.watchdogTimer)
     this.watchdogTimer = window.setTimeout(() => {
-      console.warn('[API] Websocket 已断开')
+      console.warn('[API] Websocket 心跳超时')
       this.ws?.close()
     }, 60000)
   }

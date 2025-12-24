@@ -43,6 +43,7 @@
     "eslint-plugin-vue": "~10.5.1",
     "npm-run-all2": "^8.0.4",
     "prettier": "3.6.2",
+    "sass-embedded": "^1.97.1",
     "typescript": "~5.9.0",
     "unplugin-auto-import": "^20.3.0",
     "unplugin-vue-components": "^30.0.0",
