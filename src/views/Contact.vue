@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full w-full overflow-hidden">
+  <div class="flex-col-full overflow-hidden">
     <!-- 顶部固定区域 -->
     <div class="flex-none px-3 pt-3 pb-2 flex flex-col gap-2 z-20">
       <!-- 系统通知 -->
@@ -8,7 +8,7 @@
         <div
           v-if="isTablet"
           title="系统通知"
-          class="h-12 w-full flex items-center justify-center rounded-xl cursor-pointer transition-all duration-200 relative group border"
+          class="h-12 w-full flex-center rounded-xl cursor-pointer my-trans relative group border"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -25,7 +25,7 @@
           />
           <div
             v-if="noticeCount > 0"
-            class="absolute top-2 right-3 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 leading-none z-10"
+            class="absolute top-2 right-3 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex-center border-2 leading-none z-10"
             :class="route.path === '/notice' ? 'border-primary' : 'border-sub'"
           >
             {{ noticeCount > 99 ? '99+' : noticeCount }}
@@ -34,7 +34,7 @@
         <!-- Desktop/Mobile 模式 -->
         <div
           v-else
-          class="h-12 flex items-center px-3 gap-3 rounded-xl cursor-pointer border transition-all duration-200 group"
+          class="h-12 flex-x px-3 gap-3 rounded-xl cursor-pointer border my-trans group"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -43,7 +43,7 @@
           @click="router.push('/notice')"
         >
           <div
-            class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-colors"
+            class="w-9 h-9 rounded-full flex-center shrink-0 shadow-sm transition-colors"
             :class="[
               route.path === '/notice'
                 ? 'bg-white/20 text-white'
@@ -70,7 +70,7 @@
         <div
           v-for="tab in tabs"
           :key="tab.key"
-          class="flex-1 text-center text-sm font-bold rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center"
+          class="flex-1 flex-center text-sm font-bold rounded-lg cursor-pointer my-trans"
           :class="[
             currentTab === tab.key
               ? '!bg-primary !text-white shadow-md'
@@ -86,7 +86,7 @@
     <!-- 滚动列表区域 -->
     <div class="flex-1 min-h-0 px-3 pb-3 flex flex-col">
       <!-- Card 容器 -->
-      <div class="w-full max-h-full flex flex-col bg-sub/85 backdrop-blur-md rounded-2xl border border-dim/60 shadow-sm overflow-hidden transition-all duration-300">
+      <div class="w-full max-h-full flex flex-col bg-sub/85 backdrop-blur-md rounded-2xl border border-dim/60 shadow-sm overflow-hidden my-trans">
         <!-- 内部滚动区域 -->
         <div class="overflow-y-auto my-scrollbar relative scroll-smooth p-1">
           <!-- 好友列表 -->
@@ -96,7 +96,7 @@
               <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
                 <!-- 分组标题 -->
                 <div
-                  class="sticky top-0 z-10 flex items-center px-2 py-2 cursor-pointer hover:bg-dim/50 rounded-lg transition-colors group"
+                  class="sticky top-0 z-10 flex-x px-2 py-2 cursor-pointer hover:bg-dim/50 rounded-lg transition-colors group"
                   :class="isTablet ? 'flex-col justify-center gap-0.5' : 'gap-2'"
                   @click="toggleCategory(cat.categoryId)"
                 >
@@ -109,7 +109,6 @@
                   </span>
                   <span
                     class="text-[10px] text-dim font-mono group-hover:text-sub transition-colors"
-                    :class="isTablet ? '' : ''"
                   >
                     {{ isTablet ? cat.categoryMbCount : `${cat.onlineCount}/${cat.categoryMbCount}` }}
                   </span>
@@ -119,7 +118,7 @@
                   <div
                     v-for="friend in cat.buddyList"
                     :key="friend.user_id"
-                    class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative overflow-hidden"
+                    class="flex-x gap-3 p-2 rounded-xl group relative overflow-hidden my-hover"
                     :class="isTablet ? 'justify-center' : ''"
                     @click="router.push(`/${friend.user_id}`)"
                   >
@@ -129,7 +128,7 @@
                       :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
                       class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                     />
-                    <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
+                    <div v-if="!isTablet" class="flex-truncate">
                       <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                         {{ friend.remark || friend.nickname }}
                       </div>
@@ -146,7 +145,7 @@
                <div
                 v-for="friend in filteredFlatFriends"
                 :key="friend.user_id"
-                class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative"
+                class="flex-x gap-3 p-2 rounded-xl group relative my-hover"
                 :class="isTablet ? 'justify-center' : ''"
                 @click="router.push(`/${friend.user_id}`)"
               >
@@ -156,7 +155,7 @@
                   :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
                   class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
                 />
-                <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
+                <div v-if="!isTablet" class="flex-truncate">
                   <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                     {{ friend.remark || friend.nickname }}
                   </div>
@@ -172,7 +171,7 @@
             <div
               v-for="group in filteredGroups"
               :key="group.group_id"
-              class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-dim/50 transition-colors group relative"
+              class="flex-x gap-3 p-2 rounded-xl group relative my-hover"
               :class="isTablet ? 'justify-center' : ''"
               @click="router.push(`/${group.group_id}`)"
             >
@@ -182,7 +181,7 @@
                 :image="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`"
                 class="w-9 h-9 shrink-0 bg-dim border border-dim/50 shadow-sm"
               />
-              <div v-if="!isTablet" class="flex-1 min-w-0 overflow-hidden">
+              <div v-if="!isTablet" class="flex-truncate">
                 <div class="text-sm font-medium text-main truncate group-hover:text-primary transition-colors">
                   {{ group.group_remark ? `${group.group_remark} (${group.group_name})` : group.group_name }}
                 </div>

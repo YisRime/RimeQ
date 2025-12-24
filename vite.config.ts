@@ -33,6 +33,9 @@ export default defineConfig({
 
     VitePWA({
       disable: process.env.NODE_ENV === 'development',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       devOptions: {
         enabled: true

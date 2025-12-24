@@ -3,7 +3,7 @@
     <!-- 登录卡片容器 -->
     <div class="w-full max-w-md bg-main rounded-2xl shadow-xl overflow-hidden p-8 md:p-10 my-trans border border-dim">
       <!-- 顶部 Logo 区域 -->
-      <div class="flex-col flex-center mb-8">
+      <div class="flex-center flex-col mb-8">
         <div
           class="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 flex-center shadow-lg mb-4 text-white"
         >
@@ -40,11 +40,11 @@
         </IconField>
         <!-- 选项配置行 -->
         <div class="flex-between px-1">
-          <div class="flex items-center gap-2">
+          <div class="flex-x gap-2">
             <Checkbox v-model="form.remember" binary input-id="remember" size="small" :disabled="isAutoConnecting" />
             <label for="remember" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">记住密码</label>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex-x gap-2">
             <Checkbox v-model="form.autoConnect" binary input-id="auto" size="small" :disabled="isAutoConnecting" />
             <label for="auto" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">自动连接</label>
           </div>

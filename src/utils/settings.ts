@@ -46,7 +46,7 @@ export class SettingsStore {
   user = ref<LoginInfo | null>(null)
 
   /** 应用配置 (持久化) */
-  config = useStorage<AppConfig>('app_settings_v2', {
+  config = useStorage<AppConfig>('rimeq_settings', {
     autoConnect: false,
     address: '',
     token: '',

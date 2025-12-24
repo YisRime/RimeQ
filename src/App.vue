@@ -1,8 +1,8 @@
 <template>
   <!-- 根容器 -->
-  <div class="size-full overflow-hidden select-none text-main bg-main font-sans transition-colors duration-300">
+  <div class="flex-col-full overflow-hidden select-none text-main bg-main font-sans my-trans">
     <!-- 主布局容器 -->
-    <div class="size-full flex overflow-hidden relative">
+    <div class="flex-col-full md:flex-row overflow-hidden relative">
       <!-- 左侧侧边栏 (Aside) -->
       <aside
         v-show="!isMobile || !isContentMode"
@@ -10,10 +10,9 @@
         :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
       >
         <!-- 顶部交互区 -->
-        <header class="h-16 shrink-0 relative flex items-center px-3 border-b border-dim gap-3">
-          <!-- 用户头像容器 -->
-          <div class="shrink-0 flex-center my-trans">
-            <div class="relative group cursor-pointer shrink-0" @click="toggleMenu">
+        <header class="h-16 shrink-0 relative flex border-b border-dim">
+          <div class="w-[72px] h-full shrink-0 flex-center">
+            <div class="relative group cursor-pointer" @click="toggleMenu">
               <Avatar
                 :image="userAvatar"
                 shape="circle"
@@ -27,10 +26,10 @@
             </div>
           </div>
           <!-- 交互区域 (Tablet 隐藏) -->
-          <div v-if="!isTablet" class="flex-1 flex items-center overflow-hidden gap-2">
+          <div v-if="!isTablet" class="flex-truncate flex-x gap-2 pr-3">
             <!-- 导航按钮组 -->
             <div
-              class="my-squeeze flex items-center justify-start gap-1 shrink-0"
+              class="my-squeeze flex-x justify-start gap-1 shrink-0"
               :class="showMenu ? 'w-[108px] opacity-100' : 'w-0 opacity-0'"
             >
               <Button
@@ -46,19 +45,19 @@
                     ? '!bg-primary !text-primary-content shadow-sm'
                     : '!text-sub hover:!bg-primary/10 hover:!text-primary'
                 ]"
-                class="!w-8 !h-8 !p-0 transition-all duration-200"
+                class="!w-8 !h-8 !p-0 my-trans"
                 @click="navigate(btn.path)"
               />
             </div>
             <!-- 搜索框 -->
-            <div class="flex-1 min-w-0">
+            <div class="flex-truncate">
               <IconField class="w-full">
                 <InputIcon class="i-ri-search-line text-sub" />
                 <InputText
                   v-model="searchKeyword"
                   placeholder="搜索"
                   class="w-full !h-9 !text-sm !bg-dim/50 focus:!bg-dim !border-transparent focus:!border-primary/50 !rounded-lg !pl-9"
-                  :pt="{ root: { class: 'transition-all duration-200' } }"
+                  :pt="{ root: { class: 'my-trans' } }"
                 />
               </IconField>
             </div>
@@ -67,7 +66,7 @@
         <!-- 垂直菜单 (仅 Tablet 模式) -->
         <div
           v-if="isTablet"
-          class="my-squeeze flex flex-col items-center gap-2"
+          class="my-squeeze flex-y gap-2"
           :class="
             showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim' : 'max-h-0 opacity-0 py-0 border-none'
           "
@@ -85,7 +84,7 @@
                 ? '!bg-primary !text-primary-content shadow-sm'
                 : '!text-sub hover:!bg-primary/10 hover:!text-primary'
             ]"
-            class="!w-8 !h-8 !p-0 transition-all duration-200"
+            class="!w-8 !h-8 !p-0 my-trans"
             @click="navigate(btn.path)"
           />
         </div>
@@ -99,8 +98,8 @@
         </div>
       </aside>
       <!-- 右侧主内容区 (Main) -->
-      <main v-show="!isMobile || isContentMode" class="flex-1 h-full overflow-hidden bg-main relative z-20 flex w-full">
-        <div class="flex-1 h-full relative overflow-hidden flex flex-col min-w-0">
+      <main v-show="!isMobile || isContentMode" class="flex-col-full overflow-hidden bg-main relative z-20 flex-row">
+        <div class="flex-col-full relative overflow-hidden flex-truncate">
           <!-- 核心路由视图 -->
           <router-view v-slot="{ Component }">
             <keep-alive :include="['ChatView', 'SettingsView', 'ContactView']">

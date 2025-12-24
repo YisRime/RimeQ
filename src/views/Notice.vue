@@ -20,7 +20,7 @@
           <div class="absolute left-0 top-0 bottom-0 w-1" :class="getBorderColor(item)" />
           <div class="flex-x gap-3 pl-2 text-sm">
             <Avatar :image="getAvatar(item)" shape="circle" class="border border-dim bg-sub shrink-0 !w-9 !h-9" />
-            <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 leading-tight">
+            <div class="flex-truncate flex flex-wrap items-center gap-1.5 leading-tight">
               <!-- 用户名称 -->
               <span class="font-bold text-main">{{ getName((item.user_id as number), (item as any).requester_nick) }}</span>
               <span class="text-xs text-dim font-mono">({{ item.user_id }})</span>
@@ -40,7 +40,7 @@
           <!-- 分割线 -->
           <div class="h-px bg-dim/50 ml-2 my-2" />
           <div class="flex-between pl-2 gap-4">
-            <div class="flex-1 min-w-0 text-xs text-sub break-words">
+            <div class="flex-truncate text-xs text-sub break-words">
               <span v-if="item.comment" class="opacity-80">附加信息: {{ item.comment }}</span>
               <span v-else class="italic opacity-50">无附加信息</span>
             </div>

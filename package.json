@@ -21,6 +21,7 @@
     "@vueuse/core": "^14.1.0",
     "@vueuse/motion": "^3.0.3",
     "colord": "^2.9.3",
+    "dexie": "^4.2.1",
     "lottie-web": "^5.13.0",
     "markdown-it": "^14.1.0",
     "primevue": "^4.5.4",
@@ -50,6 +51,12 @@
     "vite": "^7.2.4",
     "vite-plugin-pwa": "^1.2.0",
     "vite-plugin-vue-devtools": "^8.0.5",
-    "vue-tsc": "^3.1.5"
+    "vue-tsc": "^3.1.5",
+    "workbox-cacheable-response": "^7.4.0",
+    "workbox-core": "^7.4.0",
+    "workbox-expiration": "^7.4.0",
+    "workbox-precaching": "^7.4.0",
+    "workbox-routing": "^7.4.0",
+    "workbox-strategies": "^7.4.0"
   }
 }
