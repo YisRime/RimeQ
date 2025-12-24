@@ -219,36 +219,41 @@ const toggleCategory = (id: number) => {
   else expandedCats.value.push(id)
 }
 
+// 初始化
 onMounted(async () => {
-  if (dataStore.groups.value.length === 0) {
-    bot.getGroupList().then(list => dataStore.groups.value = list).catch(console.error)
-  }
-
-  try {
-    const res = await bot.getFriendsWithCategory()
-    if (Array.isArray(res) && res.length > 0) {
-      friendCategories.value = res
-    } else {
-      throw new Error('Empty Category List')
-    }
-  } catch (e) {
-    console.debug('[Contact] 加载好友分组失败:', e)
-    friendCategories.value = []
-    if (dataStore.friends.value.length === 0) {
-      try {
-        const flatList = await bot.getFriendList()
-        dataStore.friends.value = flatList
-      } catch (err) {
-        console.error('[Contact] 加载好友列表失败:', err)
+  // 获取分组
+  if (friendCategories.value.length === 0) {
+    try {
+      const res = await bot.getFriendsWithCategory()
+      if (Array.isArray(res) && res.length > 0) {
+        friendCategories.value = res
+      } else {
+        throw new Error('Empty Category List')
+      }
+    } catch (e) {
+      console.error('[Contact] 加载分组列表失败:', e)
+      // 获取好友
+      if (dataStore.friends.value.length === 0) {
+        try {
+          const flatList = await bot.getFriendList()
+          dataStore.friends.value = flatList
+        } catch (err) {
+          console.error('[Contact] 加载好友列表失败:', err)
+        }
       }
     }
   }
 })
 
 // 监听 Tab 切换
-watch(currentTab, (val) => {
+watch(currentTab, async (val) => {
   if (val === 'group' && dataStore.groups.value.length === 0) {
-    bot.getGroupList().then(list => dataStore.groups.value = list).catch(console.error)
+    try {
+      const list = await bot.getGroupList()
+      dataStore.groups.value = list
+    } catch (e) {
+      console.error('[Contact] 加载群组列表失败', e)
+    }
   }
 })
 </script>

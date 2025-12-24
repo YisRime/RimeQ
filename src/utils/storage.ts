@@ -58,41 +58,6 @@ export class DataStore {
   historyFinished = ref<Record<string, boolean>>({})
 
   /**
-   * 同步基础数据 (好友与群列表)
-   */
-  async syncData() {
-    try {
-      // 并行请求以加快速度
-      const [fList, gList] = await Promise.all([
-        bot.getFriendList(),
-        bot.getGroupList()
-      ])
-      this.friends.value = fList
-      this.groups.value = gList
-    } catch (e) {
-      console.error('[DataStore] 通讯录同步失败', e)
-    }
-  }
-
-  /**
-   * 获取群成员列表
-   * @param gid 群号
-   * @param force 是否强制刷新
-   */
-  async getMembers(gid: number, force = false) {
-    if (!force && this.members.value.has(gid)) {
-      return this.members.value.get(gid)!
-    }
-    try {
-      const list = await bot.getGroupMemberList(gid)
-      this.members.value.set(gid, list)
-      return list
-    } catch {
-      return []
-    }
-  }
-
-  /**
    * 更新或创建会话
    * @param id Peer ID
    * @param data 补全数据

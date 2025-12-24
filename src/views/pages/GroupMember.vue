@@ -3,7 +3,11 @@
     <!-- Header -->
     <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-x px-4 flex-shrink-0 z-10 gap-3">
       <div class="i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary my-trans" @click="router.back()" />
-      <span class="font-bold text-lg text-main">群成员 ({{ members.length }})</span>
+      <span class="font-bold text-lg text-main">
+        群成员
+        <span v-if="loading" class="text-xs font-normal text-sub ml-1">(加载中...)</span>
+        <span v-else class="text-xs font-normal text-sub ml-1">({{ members.length }})</span>
+      </span>
     </header>
 
     <!-- Search -->
@@ -43,7 +47,9 @@
           <div class="i-ri-arrow-right-s-line text-dim opacity-0 group-hover:opacity-100 my-trans" />
         </div>
 
-        <div v-if="filteredMembers.length === 0" class="py-20 text-center text-dim">未找到匹配的成员</div>
+        <div v-if="!loading && filteredMembers.length === 0" class="py-20 text-center text-dim">
+          {{ members.length === 0 ? '暂无群成员' : '未找到匹配的成员' }}
+        </div>
       </div>
     </div>
   </div>
@@ -54,14 +60,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import InputText from 'primevue/inputtext'
-import { dataStore } from '@/utils/storage'
+import { bot } from '@/api'
+import type { GroupMemberInfo } from '@/types'
 
 defineOptions({ name: 'GroupMember' })
 
 const router = useRouter()
 const route = useRoute()
 const keyword = ref('')
-const members = ref<any[]>([])
+const members = ref<GroupMemberInfo[]>([])
+const loading = ref(false)
 
 const id = computed(() => (route.params.id as string) || '')
 
@@ -77,8 +85,16 @@ const filteredMembers = computed(() => {
 })
 
 onMounted(async () => {
-  if (id.value) {
-    members.value = await dataStore.getMembers(Number(id.value))
+  if (!id.value) return
+  loading.value = true
+  try {
+    const list = await bot.getGroupMemberList(Number(id.value))
+    members.value = list
+  } catch (e) {
+    console.error('[GroupMember] 获取成员列表失败', e)
+    members.value = []
+  } finally {
+    loading.value = false
   }
 })
 </script>

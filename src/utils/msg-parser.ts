@@ -317,11 +317,11 @@ class OneBotHandler {
       // 群成员变动
       case 'group_increase':
         dataStore.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`)
-        dataStore.getMembers(Number(pid), true)
+        // 已移除 getMembers 调用，DataStore 不再缓存群成员
         break
       case 'group_decrease':
         dataStore.addSystemMsg(pid, `${evt.user_id} 退群`)
-        dataStore.getMembers(Number(pid), true)
+        // 已移除 getMembers 调用，DataStore 不再缓存群成员
         break
     }
   }
@@ -337,9 +337,9 @@ class OneBotHandler {
   }
 
   private onMeta(evt: MetaEvent) {
-    // 连接成功后同步数据
+    // 连接成功后
     if (evt.meta_event_type === 'lifecycle' && evt.sub_type === 'connect') {
-      dataStore.syncData()
+      // 已移除 syncData 调用，数据由各组件按需加载
     }
   }
 }

@@ -31,7 +31,7 @@
             <!-- 导航按钮组 -->
             <div
               class="my-squeeze flex items-center justify-start gap-1 shrink-0"
-              :class="showMenu ? 'w-[140px] opacity-100' : 'w-0 opacity-0'"
+              :class="showMenu ? 'w-[108px] opacity-100' : 'w-0 opacity-0'"
             >
               <Button
                 v-for="btn in navButtons"
@@ -40,10 +40,13 @@
                 :icon="btn.icon"
                 text
                 rounded
-                size="large"
                 severity="secondary"
-                :class="route.path === btn.path ? '!text-primary !bg-primary/10' : '!text-sub'"
-                class="!w-10 !h-10 !p-0 transition-all duration-200"
+                :class="[
+                  route.path === btn.path
+                    ? '!bg-primary !text-primary-content shadow-sm'
+                    : '!text-sub hover:!bg-primary/10 hover:!text-primary'
+                ]"
+                class="!w-8 !h-8 !p-0 transition-all duration-200"
                 @click="navigate(btn.path)"
               />
             </div>
@@ -76,10 +79,13 @@
             :icon="btn.icon"
             text
             rounded
-            size="large"
             severity="secondary"
-            :class="route.path === btn.path ? '!text-primary !bg-primary/10' : '!text-sub'"
-            class="!w-10 !h-10 !p-0 transition-all duration-200"
+            :class="[
+              route.path === btn.path
+                ? '!bg-primary !text-primary-content shadow-sm'
+                : '!text-sub hover:!bg-primary/10 hover:!text-primary'
+            ]"
+            class="!w-8 !h-8 !p-0 transition-all duration-200"
             @click="navigate(btn.path)"
           />
         </div>
