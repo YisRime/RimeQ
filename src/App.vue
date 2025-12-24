@@ -1,6 +1,12 @@
 <template>
   <!-- 根容器 -->
-  <div class="flex-col-full overflow-hidden select-none text-main bg-main font-sans my-trans">
+  <div class="flex-col-full overflow-hidden select-none text-main font-sans my-trans" :style="rootStyle">
+    <!-- 全局背景覆盖 -->
+    <div
+      v-if="settingsStore.config.value.backgroundImg"
+      class="absolute inset-0 bg-main/90 dark:bg-main/80 backdrop-blur-sm -z-10"
+      :style="`backdrop-filter: blur(${settingsStore.config.value.backgroundBlur}px);`"
+    />
     <!-- 主布局容器 -->
     <div class="flex-col-full md:flex-row overflow-hidden relative">
       <!-- 左侧侧边栏 (Aside) -->
@@ -98,7 +104,7 @@
         </div>
       </aside>
       <!-- 右侧主内容区 (Main) -->
-      <main v-show="!isMobile || isContentMode" class="flex-col-full overflow-hidden bg-main relative z-20 flex-row">
+      <main v-show="!isMobile || isContentMode" class="flex-col-full overflow-hidden bg-transparent relative z-20 flex-row">
         <div class="flex-col-full relative overflow-hidden flex-truncate">
           <!-- 核心路由视图 -->
           <router-view v-slot="{ Component }">
@@ -170,6 +176,21 @@ const isTablet = breakpoints.between('md', 'xl')
 const searchKeyword = ref('')
 const showMenu = ref(false)
 
+// 计算背景样式
+const rootStyle = computed(() => {
+  const bg = settingsStore.config.value.backgroundImg
+  return bg
+    ? {
+        backgroundImage: `url(${bg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }
+    : {
+        backgroundColor: 'var(--color-main)'
+      }
+})
+
 const userAvatar = computed(() => {
   const uid = settingsStore.user.value?.user_id
   return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
@@ -204,7 +225,6 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: var(--color-main);
   color: var(--text-main);
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;

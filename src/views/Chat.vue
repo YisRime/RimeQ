@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full w-full relative overflow-hidden bg-main">
+  <div class="flex h-full w-full relative overflow-hidden bg-transparent">
     <!-- === 主聊天窗口 === -->
     <main class="flex-1 h-full min-w-0 relative flex flex-col">
       <!-- 空状态 -->
@@ -9,13 +9,7 @@
       </div>
 
       <!-- 会话区域 -->
-      <div v-else class="flex flex-col h-full bg-main relative my-trans" :style="bgStyle">
-        <div
-          v-if="bgStyle"
-          class="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm z-0 pointer-events-none"
-          :style="`backdrop-filter: blur(${settingsStore.config.value.backgroundBlur}px);`"
-        />
-
+      <div v-else class="flex flex-col h-full relative my-trans">
         <!-- 头部 -->
         <header
           class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 z-10 flex-shrink-0 cursor-default"
@@ -122,7 +116,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
-import { settingsStore } from '@/utils/settings'
 import { dataStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
 import { determineMsgType } from '@/utils/msg-parser'
@@ -161,13 +154,6 @@ const toggleSelect = (msgId: number) => {
   if (idx > -1) selectedIds.value.splice(idx, 1)
   else selectedIds.value.push(msgId)
 }
-
-// --- Appearance ---
-const bgStyle = computed(() =>
-  settingsStore.config.value.backgroundImg
-    ? `background-image: url(${settingsStore.config.value.backgroundImg}); background-size: cover; background-position: center;`
-    : ''
-)
 
 // --- Actions ---
 /** 滚动消息列表到底部 */

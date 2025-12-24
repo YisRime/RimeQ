@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-col-full bg-main">
+  <div class="flex-col-full">
     <!-- 顶部导航 -->
     <header
       class="sticky top-0 h-14 border-b border-dim bg-sub/90 backdrop-blur-md flex-x px-4 shrink-0 z-10 gap-4"
@@ -169,7 +169,14 @@
                   <div class="i-ri-image-line text-xl text-sub" />
                   <div class="text-sm font-medium text-main">聊天背景</div>
                 </div>
-                <InputText v-model="config.backgroundImg" placeholder="https://" class="!w-64 !text-xs !bg-dim/50 focus:!bg-dim !border-transparent focus:!border-primary/50 !rounded-lg" />
+                <div class="w-full max-w-xs">
+                  <InputGroup>
+                    <Button as="label" for="bg-upload" icon="i-ri-upload-2-line" class="cursor-pointer" />
+                    <InputText v-model="config.backgroundImg" placeholder="https://" class="!text-xs !bg-dim/50 focus:!bg-dim" />
+                    <Button v-if="config.backgroundImg" icon="i-ri-delete-bin-line" severity="danger" @click="config.backgroundImg = ''" />
+                  </InputGroup>
+                  <input id="bg-upload" type="file" accept="image/*" class="hidden" @change="handleImageUpload">
+                </div>
               </div>
               <div class="p-4 flex flex-col gap-3">
                 <div class="flex-between">
@@ -250,6 +257,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { settingsStore } from '@/utils/settings'
 import { bot } from '@/api'
 import ToggleSwitch from 'primevue/toggleswitch'
+import InputGroup from 'primevue/inputgroup'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Slider from 'primevue/slider'
@@ -278,6 +286,27 @@ const tabs = [
   { key: 'advanced', label: '高级', icon: 'i-ri-flask-line' }
 ]
 const presetColors = ['#7abb7e', '#4f80ff', '#ff6666', '#ffc107', '#9c27b0', '#607d8b']
+
+const handleImageUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const result = e.target?.result as string
+    if (result) {
+      config.value.backgroundImg = result
+      toast.add({ severity: 'success', summary: '背景更新成功', life: 3000 })
+    } else {
+      toast.add({ severity: 'error', summary: '图片读取失败', life: 3000 })
+    }
+  }
+  reader.onerror = () => {
+    toast.add({ severity: 'error', summary: '图片读取失败', life: 3000 })
+  }
+  reader.readAsDataURL(file)
+}
 
 // 保存用户昵称
 const saveProfile = async () => {
