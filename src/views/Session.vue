@@ -1,22 +1,22 @@
 <template>
-  <div class="flex-col-full bg-sub">
+  <div class="flex-col-full bg-transparent">
     <!-- 滚动区域 -->
-    <div class="flex-1 overflow-y-auto my-scrollbar">
-      <div class="px-2 py-1 lg:py-2 flex flex-col gap-0.5 lg:gap-1">
+    <div class="flex-1 overflow-y-auto my-scrollbar p-2">
+      <div class="flex flex-col gap-1">
         <!-- 会话项 -->
         <div
           v-for="session in filteredSessions"
           :key="session.id"
           class="group relative flex items-center gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all duration-200 select-none"
           :class="[
-            isActive(session.id) ? '!bg-primary shadow-md' : 'hover:bg-dim',
+            isActive(session.id) ? '!bg-primary shadow-md shadow-primary/20' : 'hover:bg-dim/50',
             'justify-start md:justify-center lg:justify-start'
           ]"
           @click="onSelect(session.id)"
           @contextmenu.prevent="onContextMenu($event, session)"
         >
           <!-- 头像与未读数 -->
-          <div class="relative flex-shrink-0 w-10 h-10">
+          <div class="relative flex-shrink-0 w-10 h-10 lg:w-11 lg:h-11">
             <Avatar
               shape="circle"
               :image="session.avatar"
@@ -24,11 +24,11 @@
             />
             <div
               v-if="session.unread > 0"
-              class="absolute -top-1 -right-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-sub z-10"
+              class="absolute -top-1 -right-1 bg-red-500 rounded-full flex items-center justify-center border-2 border-sub z-10 scale-90 lg:scale-100"
               :class="[
                 'min-w-[16px] h-[16px] px-0.5',
-                'md:w-2.5 md:h-2.5 md:min-w-0 md:p-0',
-                'lg:min-w-[16px] lg:h-[16px] lg:px-0.5'
+                'md:min-w-[10px] md:h-[10px] md:p-0 md:text-[0px]',
+                'lg:min-w-[16px] lg:h-[16px] lg:px-0.5 lg:text-[10px]'
               ]"
             >
               <span class="text-[10px] text-white font-bold leading-none transform translate-y-[0.5px] block md:hidden lg:block">
@@ -68,7 +68,8 @@
 
         <!-- 空状态 -->
         <div v-if="filteredSessions.length === 0" class="py-20 text-center text-dim text-sm block md:hidden lg:block">
-          暂无聊天会话
+          <div class="i-ri-chat-1-line text-4xl mb-2 opacity-50" />
+          <div>暂无会话</div>
         </div>
       </div>
     </div>

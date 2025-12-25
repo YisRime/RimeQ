@@ -1,6 +1,9 @@
 <template>
   <!-- 根容器 -->
-  <div class="flex-col-full overflow-hidden select-none text-main font-sans my-trans" :style="rootStyle">
+  <div
+    class="flex-col-full overflow-hidden select-none text-main font-sans my-trans bg-main p-2 md:p-3 gap-2 md:gap-3"
+    :style="rootStyle"
+  >
     <!-- 全局背景覆盖 -->
     <div
       v-if="settingsStore.config.value.backgroundImg"
@@ -8,25 +11,24 @@
       :style="`backdrop-filter: blur(${settingsStore.config.value.backgroundBlur}px);`"
     />
     <!-- 主布局容器 -->
-    <div class="flex-col-full md:flex-row overflow-hidden relative">
+    <div class="flex-col-full md:flex-row overflow-hidden relative gap-2 md:gap-3">
       <!-- 左侧侧边栏 (Aside) -->
       <aside
         v-show="!isMobile || !isContentMode"
-        class="flex flex-col shrink-0 bg-sub border-r border-dim my-trans z-30 overflow-hidden"
+        class="flex flex-col shrink-0 bg-sub rounded-2xl md:rounded-3xl shadow-sm border border-dim/50 my-trans z-30 overflow-hidden relative"
         :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
       >
         <!-- 顶部交互区 -->
-        <header class="h-16 shrink-0 relative flex border-b border-dim">
+        <header class="h-16 shrink-0 relative flex border-b border-dim/30 transition-colors">
           <div class="w-[72px] h-full shrink-0 flex-center">
             <div class="relative group cursor-pointer" @click="toggleMenu">
               <Avatar
                 :image="userAvatar"
                 shape="circle"
-                class="shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-9 h-9 bg-dim"
+                class="shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-10 h-10 bg-dim"
               />
-              <!-- 状态指示点 -->
               <div
-                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
+                class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
                 :class="settingsStore.isLogged ? 'bg-green-500' : 'bg-dim'"
               />
             </div>
@@ -72,9 +74,9 @@
         <!-- 垂直菜单 (仅 Tablet 模式) -->
         <div
           v-if="isTablet"
-          class="my-squeeze flex-y gap-2"
+          class="my-squeeze flex-y gap-2 bg-sub/50 backdrop-blur-sm z-20 w-full"
           :class="
-            showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim' : 'max-h-0 opacity-0 py-0 border-none'
+            showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim/30' : 'max-h-0 opacity-0 py-0 border-none'
           "
         >
           <Button
@@ -90,12 +92,12 @@
                 ? '!bg-primary !text-primary-content shadow-sm'
                 : '!text-sub hover:!bg-primary/10 hover:!text-primary'
             ]"
-            class="!w-8 !h-8 !p-0 my-trans"
+            class="!w-9 !h-9 !p-0 my-trans"
             @click="navigate(btn.path)"
           />
         </div>
         <!-- 列表内容区 -->
-        <div class="flex-1 overflow-hidden relative w-full">
+        <div class="flex-1 overflow-hidden relative w-full bg-sub">
           <router-view v-slot="{ Component }" name="nav">
             <keep-alive>
               <component :is="Component" :keyword="searchKeyword" />
@@ -104,7 +106,10 @@
         </div>
       </aside>
       <!-- 右侧主内容区 (Main) -->
-      <main v-show="!isMobile || isContentMode" class="flex-col-full overflow-hidden bg-transparent relative z-20 flex-row">
+      <main
+        v-show="!isMobile || isContentMode"
+        class="flex-col-full overflow-hidden bg-sub rounded-2xl md:rounded-3xl shadow-sm border border-dim/50 relative z-20"
+      >
         <div class="flex-col-full relative overflow-hidden flex-truncate">
           <!-- 核心路由视图 -->
           <router-view v-slot="{ Component }">
@@ -130,12 +135,7 @@
             <component
               :is="Component"
               v-if="Component"
-              class="z-[60] border-l border-dim bg-sub shadow-2xl fixed inset-0"
-              :class="
-                isMobile
-                  ? ''
-                  : 'md:absolute md:inset-y-0 md:right-0 md:w-[360px] xl:static xl:w-[320px] xl:shadow-none xl:z-auto'
-              "
+              class="z-[60] border-l border-dim bg-sub shadow-none absolute inset-y-0 right-0 w-full md:w-[360px] xl:static xl:w-[320px] xl:z-auto"
             />
           </Transition>
         </router-view>

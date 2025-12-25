@@ -3,41 +3,81 @@
     <!-- === 主聊天窗口 === -->
     <main class="flex-1 h-full min-w-0 relative flex flex-col">
       <!-- 空状态 -->
-      <div v-if="!id" class="flex-center flex-col h-full text-dim opacity-50">
-        <div class="i-ri-message-3-line text-6xl mb-4" />
-        <span class="text-lg">选择一个聊天开始对话</span>
+      <div v-if="!id" class="flex-center flex-col h-full text-dim opacity-50 select-none">
+        <div class="w-24 h-24 bg-dim/30 rounded-full flex-center mb-6">
+          <div class="i-ri-message-3-line text-5xl" />
+        </div>
+        <span class="text-lg font-medium">RimeQ</span>
+        <span class="text-xs mt-2">选择一个聊天开始对话</span>
       </div>
 
       <!-- 会话区域 -->
       <div v-else class="flex flex-col h-full relative my-trans">
         <!-- 头部 -->
         <header
-          class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-between px-4 z-10 flex-shrink-0 cursor-default"
+          class="h-16 border-b border-dim/50 bg-sub/95 backdrop-blur flex-between px-5 z-20 flex-shrink-0 cursor-default select-none"
           @contextmenu.prevent="onHeaderContext"
         >
           <div class="flex-x gap-3 overflow-hidden">
+            <!-- 移动端返回按钮 -->
             <div
-              class="md:hidden i-ri-arrow-left-s-line text-xl cursor-pointer hover:text-primary text-main"
+              class="md:hidden w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 active:scale-95 transition-all text-main"
               @click="router.push('/')"
-            />
+            >
+              <div class="i-ri-arrow-left-s-line text-xl" />
+            </div>
+
+            <!-- 标题区域 -->
             <div class="flex flex-col overflow-hidden">
-              <span class="font-bold text-lg text-main truncate">{{ session?.name || id }}</span>
-              <span v-if="session?.type === 'group'" class="text-[10px] text-dim truncate">{{ id }}</span>
+              <div class="flex-x gap-2">
+                <span class="font-bold text-base text-main truncate">{{ session?.name || id }}</span>
+                <!-- 群标签 -->
+                <span v-if="isGroup" class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-mono">
+                  Group
+                </span>
+              </div>
+
+              <!-- 副标题 / 状态栏 -->
+              <div class="flex-x gap-2 text-xs text-sub/80 h-4">
+                <template v-if="isGroup">
+                  <span class="font-mono opacity-80">{{ id }}</span>
+                </template>
+                <template v-else>
+                   <!-- 模拟的在线状态展示 -->
+                   <div class="flex-x gap-1 text-green-500">
+                     <div class="w-1.5 h-1.5 rounded-full bg-green-500" />
+                     <span>在线</span>
+                   </div>
+                </template>
+              </div>
             </div>
           </div>
-          <!-- 移除更多按钮 -->
+
+          <!-- 头部右侧操作区 (预留) -->
+          <div class="flex-x gap-1 text-dim">
+             <div
+               class="w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 hover:text-main transition-colors"
+               v-tooltip.bottom="'更多信息'"
+               @click="onHeaderContext"
+             >
+               <div class="i-ri-more-fill text-xl" />
+             </div>
+          </div>
         </header>
 
         <!-- 消息列表 -->
         <div
           id="msgPan"
           ref="scrollRef"
-          class="flex-1 overflow-y-auto p-4 my-scrollbar scroll-smooth z-0"
+          class="flex-1 overflow-y-auto p-4 md:p-6 my-scrollbar scroll-smooth z-0"
           @scroll="onScroll"
         >
-          <div v-if="dataStore.historyLoading.value[id]" class="flex-center py-4">
-            <div class="i-ri-loader-4-line animate-spin text-dim" />
+          <!-- 加载中 -->
+          <div v-if="dataStore.historyLoading.value[id]" class="flex-center py-6">
+            <div class="i-ri-loader-4-line animate-spin text-primary text-2xl" />
           </div>
+
+          <!-- 消息气泡 -->
           <MsgBubble
             v-for="(msg, index) in list"
             :key="msg.message_id || index"
@@ -50,43 +90,65 @@
           />
         </div>
 
-        <!-- 多选工具栏 -->
-        <transition name="slide-up">
+        <!-- 多选悬浮栏 -->
+        <transition name="my-fade">
           <div
             v-if="isMultiSelect"
-            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-sub shadow-2xl rounded-full px-6 py-3 flex-x gap-6 border border-dim z-50 select-none"
+            class="absolute bottom-24 left-1/2 -translate-x-1/2 bg-main/90 backdrop-blur shadow-xl rounded-full px-6 py-2.5 flex-x gap-6 border border-dim z-50 select-none"
           >
             <div class="text-sm font-bold border-r pr-6 border-dim text-main">已选 {{ selectedIds.length }} 项</div>
             <div
-              class="i-ri-share-forward-line text-xl cursor-pointer hover:text-primary my-trans"
+              class="flex-center gap-1 cursor-pointer hover:text-primary transition-colors"
               @click="goToForward"
-            />
+            >
+               <div class="i-ri-share-forward-line text-lg" />
+               <span class="text-xs">转发</span>
+            </div>
             <div
-              class="i-ri-close-line text-xl cursor-pointer hover:text-sub my-trans"
+              class="flex-center gap-1 cursor-pointer hover:text-red-500 transition-colors"
               @click="isMultiSelect = false"
-            />
+            >
+              <div class="i-ri-close-circle-line text-lg" />
+              <span class="text-xs">取消</span>
+            </div>
           </div>
         </transition>
 
         <!-- 输入区 -->
-        <div v-if="!isMultiSelect" class="flex flex-col h-auto bg-sub border-t border-dim z-10 relative">
-          <div v-if="replyTarget" class="px-4 py-2 bg-dim flex-between text-xs text-sub border-b border-dim">
-            <div class="truncate max-w-[80%]">
-              回复 <span class="font-bold">@{{ replyTarget.sender.nickname }}</span> : {{ getSummary(replyTarget) }}
+        <div v-if="!isMultiSelect" class="flex flex-col h-auto bg-sub border-t border-dim/50 z-20 relative">
+          <!-- 引用回复展示 -->
+          <div v-if="replyTarget" class="px-4 py-2 bg-dim/20 flex-between text-xs text-sub border-b border-dim/50">
+            <div class="truncate max-w-[85%] flex-x gap-2">
+              <div class="w-0.5 h-3 bg-primary rounded-full" />
+              <span>回复 <span class="font-bold text-main">@{{ replyTarget.sender.nickname }}</span> : {{ getSummary(replyTarget) }}</span>
             </div>
-            <div class="i-ri-close-circle-fill cursor-pointer hover:text-red-500" @click="replyTarget = null" />
+            <div
+              class="i-ri-close-line cursor-pointer hover:text-red-500 text-base p-0.5 rounded hover:bg-dim/50"
+              @click="replyTarget = null"
+            />
           </div>
-          <InputTool :session-id="id" @insert="onInsert" />
-          <div class="flex-1 px-4 pb-2 flex flex-col min-h-[120px]">
+
+          <!-- 工具栏 -->
+          <InputTool :session-id="id" @insert="onInsert" @history="showHistory = true" />
+
+          <!-- 输入框 -->
+          <div class="flex-1 px-4 pb-3 flex flex-col min-h-[120px] relative">
             <textarea
               ref="inputRef"
               v-model="inputText"
-              class="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-6 my-scrollbar placeholder-dim text-main py-2"
+              class="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-6 my-scrollbar placeholder-dim text-main py-2 font-sans"
               placeholder="发送消息 (Ctrl+Enter 发送)"
               @keydown.enter.ctrl.prevent="doSend"
             />
             <div class="flex justify-end pb-1">
-              <Button size="small" :disabled="!inputText.trim()" @click="doSend">发送</Button>
+               <Button
+                 size="small"
+                 :disabled="!inputText.trim()"
+                 @click="doSend"
+                 class="!px-4 !py-1.5 !text-xs !font-bold"
+               >
+                 发送
+               </Button>
             </div>
           </div>
         </div>
@@ -96,10 +158,11 @@
       </div>
     </main>
 
-    <!-- === 右侧面板 (子路由) === -->
+    <!-- === 右侧面板 (子路由: 群成员/公告/文件等) === -->
+    <!-- 保持在卡片内，使用左边框分割 -->
     <aside
       v-if="hasSidebar"
-      class="border-l border-dim bg-sub fixed inset-0 z-50 md:static md:w-[360px] md:z-auto md:flex-shrink-0"
+      class="border-l border-dim/50 bg-sub fixed inset-0 z-50 md:static md:w-[320px] md:z-auto md:flex-shrink-0 flex flex-col"
     >
       <router-view name="sidebar" />
     </aside>
@@ -116,10 +179,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
+import Tooltip from 'primevue/tooltip'
+
 import { dataStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
 import { determineMsgType } from '@/utils/msg-parser'
 import { MsgType } from '@/types'
+import { settingsStore } from '@/utils/settings'
 
 // Components
 import MsgBubble from '@/components/MsgBubble.vue'
@@ -127,6 +193,9 @@ import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
 import InputTool from '@/components/InputHelper.vue'
 
 defineOptions({ name: 'ChatView' })
+
+// Directive
+const vTooltip = Tooltip
 
 const router = useRouter()
 const route = useRoute()
@@ -148,6 +217,7 @@ const inputRef = ref<HTMLTextAreaElement>()
 const isMultiSelect = ref(false)
 const selectedIds = ref<number[]>([])
 const replyTarget = ref<ChatMsg | null>(null)
+const showHistory = ref(false) // 暂未使用，保留扩展
 
 const toggleSelect = (msgId: number) => {
   const idx = selectedIds.value.indexOf(msgId)
@@ -159,7 +229,10 @@ const toggleSelect = (msgId: number) => {
 /** 滚动消息列表到底部 */
 const scrollToBottom = async () => {
   await nextTick()
-  if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+  if (scrollRef.value) {
+    // 使用 smooth 滚动可能在大量消息时体验不佳，视情况调整
+    scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+  }
 }
 
 /** 监听滚动事件，触发历史消息拉取 */
@@ -241,8 +314,11 @@ const onContextMenu = (e: MouseEvent, msg: ChatMsg) => {
 /** 处理头部右键菜单 */
 const onHeaderContext = (e: MouseEvent) => {
   menuType.value = 'header'
-  menuX.value = e.clientX
-  menuY.value = e.clientY
+  // 确保菜单位置不溢出屏幕
+  const x = e.clientX
+  const y = e.clientY
+  menuX.value = x
+  menuY.value = y
   showMenu.value = true
 }
 
@@ -310,7 +386,12 @@ watch(
       dataStore.clearUnread(newId)
       isMultiSelect.value = false
       replyTarget.value = null
-      dataStore.fetchHistory(newId).then(scrollToBottom)
+      inputText.value = ''
+      // 切换会话时，先滚动到底部，然后拉取历史
+      nextTick(() => {
+        if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+        dataStore.fetchHistory(newId).then(scrollToBottom)
+      })
     }
   }
 )
