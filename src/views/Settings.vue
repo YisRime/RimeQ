@@ -1,42 +1,23 @@
 <template>
   <div class="flex-col-full">
-    <!-- 顶部导航 -->
-    <header
-      class="sticky top-0 h-14 border-b border-dim bg-sub/90 backdrop-blur-md flex-x px-4 shrink-0 z-10 gap-4"
-    >
-      <div class="flex-x gap-3">
-        <div
-          class="p-1 -ml-1 rounded-full my-hover cursor-pointer md-hidden my-trans"
-          @click="router.back()"
-        >
-          <div class="i-ri-arrow-left-s-line text-2xl text-sub" />
-        </div>
-        <div class="i-ri-settings-3-line text-lg text-primary" />
-        <span class="font-bold text-base text-main">设置</span>
-      </div>
-      <!-- 导航菜单 -->
-      <nav class="ml-auto h-full flex-x gap-6">
-        <div
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="h-full flex-x gap-2 cursor-pointer border-b-2 my-trans"
-          :class="
-            activeTab === tab.key
-              ? 'border-primary text-primary font-semibold'
-              : 'border-transparent text-sub hover:text-main'
-          "
-          @click="activeTab = tab.key"
-        >
-          <div :class="tab.icon" class="text-base" />
-          <span class="text-sm">{{ tab.label }}</span>
-        </div>
-      </nav>
-    </header>
     <!-- 主体滚动区域 -->
     <div class="flex-1 overflow-y-auto my-scrollbar">
-      <div class="max-w-2xl mx-auto p-4 md:p-6">
+      <div class="max-w-2xl mx-auto p-4 md:p-6 flex flex-col gap-6">
+        <!-- 导航 Tab -->
+        <div class="flex p-1 bg-dim/30 rounded-xl self-center">
+           <div
+             v-for="tab in tabs"
+             :key="tab.key"
+             class="px-6 py-1.5 rounded-lg text-sm font-bold cursor-pointer transition-all select-none flex-x gap-2"
+             :class="activeTab === tab.key ? 'bg-sub text-primary shadow-sm' : 'text-sub hover:text-main'"
+             @click="activeTab = tab.key"
+           >
+              <div :class="tab.icon" />
+              <span>{{ tab.label }}</span>
+           </div>
+        </div>
         <!-- 用户设置 -->
-        <section v-show="activeTab === 'user'" class="flex flex-col gap-6">
+        <section v-show="activeTab === 'user'" class="flex flex-col gap-6 my-fade-enter-active">
           <div>
             <h2 class="text-sm font-semibold text-sub mb-2 px-1">后端状态</h2>
             <div class="bg-sub rounded-xl shadow-sm border border-dim overflow-hidden">
@@ -102,7 +83,7 @@
           </div>
         </section>
         <!-- 外观设置 -->
-        <section v-show="activeTab === 'appearance'" class="flex flex-col gap-6">
+        <section v-show="activeTab === 'appearance'" class="flex flex-col gap-6 my-fade-enter-active">
            <div>
             <h2 class="text-sm font-semibold text-sub mb-2 px-1">明暗</h2>
             <div class="bg-sub rounded-xl shadow-sm border border-dim overflow-hidden divide-y divide-dim">
@@ -192,7 +173,7 @@
           </div>
         </section>
         <!-- 高级设置 -->
-        <section v-show="activeTab === 'advanced'" class="flex flex-col gap-6">
+        <section v-show="activeTab === 'advanced'" class="flex flex-col gap-6 my-fade-enter-active">
           <div>
             <h2 class="text-sm font-semibold text-sub mb-2 px-1">功能</h2>
             <div class="bg-sub rounded-xl shadow-sm border border-dim overflow-hidden divide-y divide-dim">

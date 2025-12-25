@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full w-full relative overflow-hidden bg-transparent">
+  <div class="flex h-full w-full relative overflow-hidden">
     <!-- === 主聊天窗口 === -->
     <main class="flex-1 h-full min-w-0 relative flex flex-col">
       <!-- 空状态 -->
@@ -13,58 +13,6 @@
 
       <!-- 会话区域 -->
       <div v-else class="flex flex-col h-full relative my-trans">
-        <!-- 头部 -->
-        <header
-          class="h-16 border-b border-dim/50 bg-sub/95 backdrop-blur flex-between px-5 z-20 flex-shrink-0 cursor-default select-none"
-          @contextmenu.prevent="onHeaderContext"
-        >
-          <div class="flex-x gap-3 overflow-hidden">
-            <!-- 移动端返回按钮 -->
-            <div
-              class="md:hidden w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 active:scale-95 transition-all text-main"
-              @click="router.push('/')"
-            >
-              <div class="i-ri-arrow-left-s-line text-xl" />
-            </div>
-
-            <!-- 标题区域 -->
-            <div class="flex flex-col overflow-hidden">
-              <div class="flex-x gap-2">
-                <span class="font-bold text-base text-main truncate">{{ session?.name || id }}</span>
-                <!-- 群标签 -->
-                <span v-if="isGroup" class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-mono">
-                  Group
-                </span>
-              </div>
-
-              <!-- 副标题 / 状态栏 -->
-              <div class="flex-x gap-2 text-xs text-sub/80 h-4">
-                <template v-if="isGroup">
-                  <span class="font-mono opacity-80">{{ id }}</span>
-                </template>
-                <template v-else>
-                   <!-- 模拟的在线状态展示 -->
-                   <div class="flex-x gap-1 text-green-500">
-                     <div class="w-1.5 h-1.5 rounded-full bg-green-500" />
-                     <span>在线</span>
-                   </div>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <!-- 头部右侧操作区 (预留) -->
-          <div class="flex-x gap-1 text-dim">
-             <div
-               class="w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 hover:text-main transition-colors"
-               v-tooltip.bottom="'更多信息'"
-               @click="onHeaderContext"
-             >
-               <div class="i-ri-more-fill text-xl" />
-             </div>
-          </div>
-        </header>
-
         <!-- 消息列表 -->
         <div
           id="msgPan"
@@ -153,19 +101,10 @@
           </div>
         </div>
 
-        <!-- 通用右键菜单 -->
+        <!-- 消息右键菜单 -->
         <ContextMenu v-model:show="showMenu" :x="menuX" :y="menuY" :options="menuOpts" @select="onMenuSelect" />
       </div>
     </main>
-
-    <!-- === 右侧面板 (子路由: 群成员/公告/文件等) === -->
-    <!-- 保持在卡片内，使用左边框分割 -->
-    <aside
-      v-if="hasSidebar"
-      class="border-l border-dim/50 bg-sub fixed inset-0 z-50 md:static md:w-[320px] md:z-auto md:flex-shrink-0 flex flex-col"
-    >
-      <router-view name="sidebar" />
-    </aside>
   </div>
 </template>
 
@@ -177,15 +116,12 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
-import Tooltip from 'primevue/tooltip'
 
 import { dataStore, type ChatMsg } from '@/utils/storage'
 import { bot } from '@/api'
 import { determineMsgType } from '@/utils/msg-parser'
 import { MsgType } from '@/types'
-import { settingsStore } from '@/utils/settings'
 
 // Components
 import MsgBubble from '@/components/MsgBubble.vue'
@@ -194,19 +130,14 @@ import InputTool from '@/components/InputHelper.vue'
 
 defineOptions({ name: 'ChatView' })
 
-// Directive
-const vTooltip = Tooltip
-
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const confirm = useConfirm()
 
 // --- State ---
 const id = computed(() => (route.params.id as string) || '')
 const session = computed(() => dataStore.getSession(id.value))
 const list = computed(() => dataStore.getMsgList(id.value))
-const hasSidebar = computed(() => route.matched.some((r) => r.components?.sidebar))
 const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
 
 const inputText = ref('')
@@ -275,23 +206,9 @@ const goToForward = () => {
 const showMenu = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
-const menuType = ref<'msg' | 'header'>('msg')
 const contextMsg = ref<ChatMsg | null>(null)
 
 const menuOpts = computed<MenuItem[]>(() => {
-  if (menuType.value === 'header') {
-    if (isGroup.value) {
-      return [
-        { label: '群成员', key: 'member', icon: 'i-ri-group-line' },
-        { label: '群文件', key: 'file', icon: 'i-ri-folder-open-line' },
-        { label: '群公告', key: 'notice', icon: 'i-ri-megaphone-line' },
-        { label: '精华消息', key: 'essence', icon: 'i-ri-star-line' }
-      ]
-    } else {
-      return [{ label: '删除好友', key: 'delete_friend', icon: 'i-ri-delete-bin-line', danger: true }]
-    }
-  }
-
   // Msg Menu
   return [
     { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
@@ -304,46 +221,14 @@ const menuOpts = computed<MenuItem[]>(() => {
 /** 处理消息右键菜单 */
 const onContextMenu = (e: MouseEvent, msg: ChatMsg) => {
   if (isMultiSelect.value) return
-  menuType.value = 'msg'
   contextMsg.value = msg
   menuX.value = e.clientX
   menuY.value = e.clientY
   showMenu.value = true
 }
 
-/** 处理头部右键菜单 */
-const onHeaderContext = (e: MouseEvent) => {
-  menuType.value = 'header'
-  // 确保菜单位置不溢出屏幕
-  const x = e.clientX
-  const y = e.clientY
-  menuX.value = x
-  menuY.value = y
-  showMenu.value = true
-}
-
 /** 处理菜单项点击事件 */
 const onMenuSelect = (key: string) => {
-  // Header Actions
-  if (menuType.value === 'header') {
-    if (key === 'delete_friend') {
-      confirm.require({
-        message: '确定要删除该好友吗？',
-        header: '删除好友',
-        icon: 'i-ri-error-warning-line',
-        accept: async () => {
-          await bot.deleteFriend(Number(id.value))
-          dataStore.removeSession(id.value)
-          router.push('/')
-        }
-      })
-    } else {
-      router.push(`/${id.value}/${key}`)
-    }
-    return
-  }
-
-  // Msg Actions
   if (!contextMsg.value) return
   const msg = contextMsg.value
   switch (key) {

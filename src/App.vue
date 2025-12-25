@@ -19,7 +19,7 @@
         :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
       >
         <!-- 顶部交互区 -->
-        <header class="h-16 shrink-0 relative flex border-b border-dim/30 transition-colors">
+        <header class="h-16 shrink-0 relative flex items-center border-b border-dim/30 transition-colors">
           <div class="w-[72px] h-full shrink-0 flex-center">
             <div class="relative group cursor-pointer" @click="toggleMenu">
               <Avatar
@@ -75,9 +75,7 @@
         <div
           v-if="isTablet"
           class="my-squeeze flex-y gap-2 bg-sub/50 backdrop-blur-sm z-20 w-full"
-          :class="
-            showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim/30' : 'max-h-0 opacity-0 py-0 border-none'
-          "
+          :class="showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim/30' : 'max-h-0 opacity-0 py-0 border-none'"
         >
           <Button
             v-for="btn in navButtons"
@@ -110,6 +108,30 @@
         v-show="!isMobile || isContentMode"
         class="flex-col-full overflow-hidden bg-sub rounded-2xl md:rounded-3xl shadow-sm border border-dim/50 relative z-20"
       >
+        <!-- 右侧 Header 栏 -->
+        <header
+          v-if="pageTitle"
+          class="h-16 shrink-0 border-b border-dim/50 bg-sub/95 backdrop-blur flex items-center justify-between px-4 z-20 select-none transition-all"
+        >
+          <div class="flex items-center gap-3 h-full overflow-hidden">
+            <div
+              v-if="showBackButton"
+              class="w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 active:scale-95 transition-all text-main bg-dim/30 shrink-0"
+              @click="handleBack"
+            >
+              <div class="i-ri-arrow-left-s-line text-lg" />
+            </div>
+            <div class="flex items-center gap-2 overflow-hidden">
+               <span class="font-bold text-lg text-main truncate">{{ pageTitle }}</span>
+            </div>
+          </div>
+          <div v-if="isGroup" class="flex items-center gap-1 text-dim">
+             <Button v-tooltip.bottom="'群精华'" icon="i-ri-star-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/essence`)" />
+             <Button v-tooltip.bottom="'群公告'" icon="i-ri-megaphone-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/notice`)" />
+             <Button v-tooltip.bottom="'群文件'" icon="i-ri-folder-open-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/file`)" />
+             <Button v-tooltip.bottom="'群成员'" icon="i-ri-group-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/member`)" />
+          </div>
+        </header>
         <div class="flex-col-full relative overflow-hidden flex-truncate">
           <!-- 核心路由视图 -->
           <router-view v-slot="{ Component }">
@@ -152,6 +174,7 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import { settingsStore } from '@/utils/settings'
+import { dataStore } from '@/utils/storage'
 import MediaViewer from '@/components/MediaViewer.vue'
 import Avatar from 'primevue/avatar'
 import IconField from 'primevue/iconfield'
@@ -180,15 +203,8 @@ const showMenu = ref(false)
 const rootStyle = computed(() => {
   const bg = settingsStore.config.value.backgroundImg
   return bg
-    ? {
-        backgroundImage: `url(${bg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }
-    : {
-        backgroundColor: 'var(--color-main)'
-      }
+    ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
+    : { backgroundColor: 'var(--color-main)' }
 })
 
 const userAvatar = computed(() => {
@@ -204,8 +220,32 @@ const navButtons = [
   { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line text-xl' }
 ]
 
+const chatId = computed(() => route.params.id as string)
+const session = computed(() => dataStore.getSession(chatId.value))
+
+const pageTitle = computed(() => {
+  if (route.name === 'Login') return ''
+  if (route.name === 'Chat' && chatId.value) {
+    const group = dataStore.groups.value.find(g => String(g.group_id) === chatId.value)
+    if (group) return group.group_name
+    const friend = dataStore.friends.value.find(f => String(f.user_id) === chatId.value)
+    if (friend) return friend.remark || friend.nickname
+    if (session.value) return session.value.name
+    return chatId.value
+  }
+  return (route.meta.title as string) || ''
+})
+
+const isGroup = computed(() => session.value?.type === 'group' || chatId.value?.length > 5)
+const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
+
 const toggleMenu = () => (showMenu.value = !showMenu.value)
 const navigate = (path: string) => router.push(path)
+
+const handleBack = () => {
+  if (window.history.length > 1) router.back()
+  else router.push('/')
+}
 
 const closeViewer = (show: boolean) => {
   if (!show) {
@@ -218,9 +258,7 @@ const closeViewer = (show: boolean) => {
 
 <style lang="scss">
 /* 基础样式 */
-html,
-body,
-#app {
+html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;

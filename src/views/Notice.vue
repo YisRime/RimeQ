@@ -1,13 +1,5 @@
 <template>
-  <div class="flex-col-full bg-main">
-    <!-- 顶部导航栏 -->
-    <header class="h-14 border-b border-dim bg-sub/90 backdrop-blur flex-x px-3 shrink-0 z-10 gap-2">
-      <div class="p-1 -ml-1 rounded-full hover:bg-dim cursor-pointer md:hidden transition-colors" @click="router.back()">
-        <div class="i-ri-arrow-left-s-line text-2xl text-sub" />
-      </div>
-      <div class="i-ri-notification-3-line text-lg text-primary" />
-      <span class="font-bold text-base text-main">系统通知</span>
-    </header>
+  <div class="flex-col-full">
     <!-- 通知列表区域 -->
     <div class="flex-1 overflow-y-auto my-scrollbar p-2 md:p-3">
       <TransitionGroup name="list" tag="div" class="flex flex-col gap-2">
@@ -70,7 +62,6 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
-import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Avatar from 'primevue/avatar'
 import SplitButton from 'primevue/splitbutton'
@@ -80,7 +71,6 @@ import type { SystemNotice } from '@/types'
 
 defineOptions({ name: 'NoticeView' })
 
-const router = useRouter()
 const toast = useToast()
 
 const processing = ref<Record<string, boolean>>({})
