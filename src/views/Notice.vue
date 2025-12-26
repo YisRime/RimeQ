@@ -65,18 +65,18 @@ import { ref, computed, reactive } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Avatar from 'primevue/avatar'
 import SplitButton from 'primevue/splitbutton'
-import { dataStore } from '@/utils/storage'
+import { useContactStore } from '@/stores/contact'
 import { bot } from '@/api'
 import type { SystemNotice } from '@/types'
 
 defineOptions({ name: 'NoticeView' })
 
 const toast = useToast()
+const contactStore = useContactStore()
 
 const processing = ref<Record<string, boolean>>({})
 const nameCache = reactive({ user: {} as Record<number, string>, group: {} as Record<number, string> })
-
-const list = computed(() => dataStore.notices.value.filter(i => i.post_type === 'request'))
+const list = computed(() => contactStore.notices.filter(i => i.post_type === 'request'))
 
 // 时间格式化
 const formatTime = (ts: number) => {
@@ -124,8 +124,8 @@ const getActionModel = (item: SystemNotice) => [
 
 // 移除通知项
 const remove = (item: SystemNotice) => {
-  const idx = dataStore.notices.value.indexOf(item)
-  if (idx > -1) dataStore.notices.value.splice(idx, 1)
+  const idx = contactStore.notices.indexOf(item)
+  if (idx > -1) contactStore.notices.splice(idx, 1)
 }
 
 // 提交处理请求

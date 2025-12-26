@@ -191,7 +191,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import Avatar from 'primevue/avatar'
-import { dataStore } from '@/utils/storage'
+import { useContactStore } from '@/stores/contact'
 import { bot } from '@/api'
 import type { FriendCategory } from '@/types'
 
@@ -199,6 +199,8 @@ defineOptions({ name: 'ContactView' })
 
 const router = useRouter()
 const route = useRoute()
+const contactStore = useContactStore()
+
 const props = defineProps<{ keyword?: string }>()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isTablet = breakpoints.between('md', 'xl')
@@ -212,7 +214,7 @@ const currentTab = ref<'friend' | 'group'>('friend')
 const friendCategories = ref<FriendCategory[]>([])
 const expandedCats = ref<number[]>([])
 
-const noticeCount = computed(() => dataStore.notices.value.length)
+const noticeCount = computed(() => contactStore.notices.length)
 
 // 过滤分组
 const filteredCategories = computed(() => {
@@ -233,7 +235,7 @@ const filteredCategories = computed(() => {
 // 过滤好友
 const filteredFlatFriends = computed(() => {
   const k = (props.keyword || '').toLowerCase().trim()
-  const list = dataStore.friends.value
+  const list = contactStore.friends
   if (!k) return list
   return list.filter(f =>
     (f.remark || '').toLowerCase().includes(k) ||
@@ -245,7 +247,7 @@ const filteredFlatFriends = computed(() => {
 // 过滤群组
 const filteredGroups = computed(() => {
   const k = (props.keyword || '').toLowerCase().trim()
-  const list = dataStore.groups.value
+  const list = contactStore.groups
   if (!k) return list
   return list.filter(g =>
     g.group_name.toLowerCase().includes(k) ||
@@ -274,10 +276,10 @@ onMounted(async () => {
     } catch (e) {
       console.error('[Contact] 加载分组列表失败:', e)
       // 获取好友
-      if (dataStore.friends.value.length === 0) {
+      if (contactStore.friends.length === 0) {
         try {
           const flatList = await bot.getFriendList()
-          dataStore.friends.value = flatList
+          contactStore.friends = flatList
         } catch (err) {
           console.error('[Contact] 加载好友列表失败:', err)
         }
@@ -288,10 +290,10 @@ onMounted(async () => {
 
 // 监听 Tab 切换
 watch(currentTab, async (val) => {
-  if (val === 'group' && dataStore.groups.value.length === 0) {
+  if (val === 'group' && contactStore.groups.length === 0) {
     try {
       const list = await bot.getGroupList()
-      dataStore.groups.value = list
+      contactStore.groups = list
     } catch (e) {
       console.error('[Contact] 加载群组列表失败', e)
     }

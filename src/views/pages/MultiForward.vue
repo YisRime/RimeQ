@@ -61,7 +61,8 @@ import InputText from 'primevue/inputtext'
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import { dataStore, type ChatMsg } from '@/utils/storage'
+import { useMessageStore } from '@/stores/message'
+import { useSessionStore } from '@/stores/session'
 import { bot } from '@/api'
 import type { ForwardNode } from '@/types'
 
@@ -70,6 +71,9 @@ defineOptions({ name: 'MultiForward' })
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+
+const messageStore = useMessageStore()
+const sessionStore = useSessionStore()
 
 const keyword = ref('')
 const selectedId = ref('')
@@ -85,7 +89,7 @@ const messageIds = computed(() =>
 const count = computed(() => messageIds.value.length)
 
 const filteredSessions = computed(() => {
-  let list = dataStore.sessions.value
+  let list = sessionStore.sessions
   if (keyword.value) {
     const k = keyword.value.toLowerCase()
     list = list.filter((s) => s.name.toLowerCase().includes(k) || s.id.includes(k))
@@ -98,7 +102,7 @@ const handleSend = async () => {
   sending.value = true
 
   try {
-    const allMsgs = dataStore.getMsgList(id.value)
+    const allMsgs = messageStore.messages
     const targetMsgs = allMsgs.filter((m) => messageIds.value.includes(m.message_id))
 
     if (targetMsgs.length === 0) throw new Error('未找到有效消息')
@@ -113,7 +117,7 @@ const handleSend = async () => {
     }))
 
     const targetId = Number(selectedId.value)
-    const session = dataStore.getSession(selectedId.value)
+    const session = sessionStore.getSession(selectedId.value)
     const isGroup = session?.type === 'group' || selectedId.value.length > 5
 
     if (isGroup) await bot.sendGroupForwardMsg(targetId, nodes)

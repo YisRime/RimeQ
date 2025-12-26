@@ -67,7 +67,7 @@
                     <span class="text-xs text-dim">在应用内保存连接配置</span>
                   </div>
                 </div>
-                <ToggleSwitch v-model="config.rememberToken" />
+                <ToggleSwitch v-model="settingStore.config.rememberToken" />
               </div>
               <div class="flex-between p-4 min-h-[72px]">
                 <div class="flex-x gap-4">
@@ -77,7 +77,7 @@
                     <span class="text-xs text-dim">打开应用时自动连接</span>
                   </div>
                 </div>
-                <ToggleSwitch v-model="config.autoConnect" />
+                <ToggleSwitch v-model="settingStore.config.autoConnect" />
               </div>
             </div>
           </div>
@@ -95,19 +95,19 @@
                     <span class="text-xs text-dim">跟随系统切换</span>
                   </div>
                 </div>
-                <ToggleSwitch v-model="config.followSystemTheme" />
+                <ToggleSwitch v-model="settingStore.config.followSystemTheme" />
               </div>
               <div class="flex-between p-4 min-h-[72px]">
                 <div class="flex-x gap-4">
                   <div class="i-ri-moon-line text-xl text-sub" />
                   <div class="flex flex-col gap-0.5">
-                    <label class="text-sm font-medium text-main" :class="{ 'opacity-50': config.followSystemTheme }">
+                    <label class="text-sm font-medium text-main" :class="{ 'opacity-50': settingStore.config.followSystemTheme }">
                       强制深色
                     </label>
                     <span class="text-xs text-dim">手动切换为深色</span>
                   </div>
                 </div>
-                <ToggleSwitch v-model="config.forceDarkMode" :disabled="config.followSystemTheme" />
+                <ToggleSwitch v-model="settingStore.config.forceDarkMode" :disabled="settingStore.config.followSystemTheme" />
               </div>
             </div>
           </div>
@@ -124,21 +124,21 @@
                     v-for="color in presetColors"
                     :key="color"
                     class="relative w-8 h-8 rounded-full cursor-pointer border-2 border-sub my-trans"
-                    :class="config.themeColor === color ? 'border-primary scale-110' : ''"
+                    :class="settingStore.config.themeColor === color ? 'border-primary scale-110' : ''"
                     :style="{ backgroundColor: String(color) }"
-                    @click="config.themeColor = color"
+                    @click="settingStore.config.themeColor = color"
                   />
                   <!-- 自定义颜色选择器 -->
                   <div
                     class="relative w-8 h-8 rounded-full cursor-pointer border-2 border-sub my-trans"
-                    :class="!presetColors.includes(String(config.themeColor)) ? 'border-primary scale-110' : ''"
+                    :class="!presetColors.includes(String(settingStore.config.themeColor)) ? 'border-primary scale-110' : ''"
                   >
-                    <div class="size-full rounded-full ring-1 ring-inset ring-dim/50" :style="{ backgroundColor: String(config.themeColor) }" />
+                    <div class="size-full rounded-full ring-1 ring-inset ring-dim/50" :style="{ backgroundColor: String(settingStore.config.themeColor) }" />
                     <div class="absolute inset-0 flex-center text-white/80 drop-shadow">
                       <div class="i-ri-palette-line" />
                     </div>
                     <input
-                      v-model="config.themeColor"
+                      v-model="settingStore.config.themeColor"
                       type="color"
                       class="absolute inset-0 size-full opacity-0 cursor-pointer"
                     />
@@ -153,8 +153,8 @@
                 <div class="w-full max-w-xs">
                   <InputGroup>
                     <Button as="label" for="bg-upload" icon="i-ri-upload-2-line" class="cursor-pointer" />
-                    <InputText v-model="config.backgroundImg" placeholder="https://" class="!text-xs !bg-dim/50 focus:!bg-dim" />
-                    <Button v-if="config.backgroundImg" icon="i-ri-delete-bin-line" severity="danger" @click="config.backgroundImg = ''" />
+                    <InputText v-model="settingStore.config.backgroundImg" placeholder="https://" class="!text-xs !bg-dim/50 focus:!bg-dim" />
+                    <Button v-if="settingStore.config.backgroundImg" icon="i-ri-delete-bin-line" severity="danger" @click="settingStore.config.backgroundImg = ''" />
                   </InputGroup>
                   <input id="bg-upload" type="file" accept="image/*" class="hidden" @change="handleImageUpload">
                 </div>
@@ -165,9 +165,9 @@
                     <div class="i-ri-blur-on-line text-xl text-sub" />
                     <div class="text-sm font-medium text-main">背景模糊</div>
                   </div>
-                  <span class="w-8 text-right text-sm font-mono text-dim">{{ config.backgroundBlur }}px</span>
+                  <span class="w-8 text-right text-sm font-mono text-dim">{{ settingStore.config.backgroundBlur }}px</span>
                 </div>
-                <Slider v-model="config.backgroundBlur" :min="0" :max="20" class="w-full" />
+                <Slider v-model="settingStore.config.backgroundBlur" :min="0" :max="20" class="w-full" />
               </div>
              </div>
           </div>
@@ -185,7 +185,7 @@
                     <span class="text-xs text-dim">本地保留已经撤回的消息</span>
                   </div>
                 </div>
-                <ToggleSwitch v-model="config.enableAntiRecall" />
+                <ToggleSwitch v-model="settingStore.config.enableAntiRecall" />
               </div>
             </div>
           </div>
@@ -201,7 +201,7 @@
                   </div>
                 </div>
                 <Textarea
-                  v-model="config.customCSS"
+                  v-model="settingStore.config.customCSS"
                   rows="6"
                   class="font-mono text-xs w-full p-2 !bg-dim/50 focus:!bg-dim !border-transparent focus:!border-primary/50 rounded-lg"
                 />
@@ -235,7 +235,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
-import { settingsStore } from '@/utils/settings'
+import { useSettingStore } from '@/stores/setting'
 import { bot } from '@/api'
 import ToggleSwitch from 'primevue/toggleswitch'
 import InputGroup from 'primevue/inputgroup'
@@ -249,11 +249,11 @@ defineOptions({ name: 'SettingsView' })
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
+const settingStore = useSettingStore()
 
-const config = settingsStore.config
 const activeTab = ref('user')
 const isSaving = ref(false)
-const profile = reactive({ nickname: settingsStore.user.value?.nickname || '' })
+const profile = reactive({ nickname: settingStore.user?.nickname || '' })
 const robotStatus = reactive({
   online: false,
   appName: '未连接',
@@ -277,7 +277,7 @@ const handleImageUpload = (event: Event) => {
   reader.onload = (e) => {
     const result = e.target?.result as string
     if (result) {
-      config.value.backgroundImg = result
+      settingStore.config.backgroundImg = result
       toast.add({ severity: 'success', summary: '背景更新成功', life: 3000 })
     } else {
       toast.add({ severity: 'error', summary: '图片读取失败', life: 3000 })
@@ -294,8 +294,8 @@ const saveProfile = async () => {
   isSaving.value = true
   try {
     await bot.setQqProfile({ nickname: profile.nickname })
-    if (settingsStore.user.value) {
-      settingsStore.user.value.nickname = profile.nickname
+    if (settingStore.user) {
+      settingStore.user.nickname = profile.nickname
     }
     toast.add({ severity: 'success', summary: '保存成功', life: 3000 })
   } catch (e) {
@@ -312,7 +312,7 @@ const handleLogout = () => {
     header: '确定',
     icon: 'i-ri-error-warning-line',
     accept: () => {
-      settingsStore.logout()
+      settingStore.logout()
       router.push('/login')
     }
   })
@@ -339,7 +339,7 @@ const resetApp = () => {
 
 // 加载初始数据
 onMounted(async () => {
-  if (!settingsStore.isConnected.value) {
+  if (!settingStore.isConnected) {
     Object.assign(robotStatus, { online: false, appName: '未连接', appVersion: 'N/A', protocolVersion: 'N/A' });
     return;
   }

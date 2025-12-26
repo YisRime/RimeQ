@@ -21,7 +21,7 @@
           @scroll="onScroll"
         >
           <!-- 加载中 -->
-          <div v-if="dataStore.historyLoading.value[id]" class="flex-center py-6">
+          <div v-if="messageStore.isLoading.value[id]" class="flex-center py-6">
             <div class="i-ri-loader-4-line animate-spin text-primary text-2xl" />
           </div>
 
@@ -117,8 +117,8 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
-
-import { dataStore, type ChatMsg } from '@/utils/storage'
+import { useMessageStore } from '@/stores/message'
+import { useSessionStore } from '@/stores/session'
 import { bot } from '@/api'
 import { determineMsgType } from '@/utils/msg-parser'
 import { MsgType } from '@/types'
@@ -134,10 +134,13 @@ const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 
+const messageStore = useMessageStore()
+const sessionStore = useSessionStore()
+
 // --- State ---
 const id = computed(() => (route.params.id as string) || '')
-const session = computed(() => dataStore.getSession(id.value))
-const list = computed(() => dataStore.getMsgList(id.value))
+const session = computed(() => sessionStore.getSession(id.value))
+const list = computed(() => messageStore.messages)
 const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
 
 const inputText = ref('')
@@ -169,13 +172,13 @@ const scrollToBottom = async () => {
 /** 监听滚动事件，触发历史消息拉取 */
 const onScroll = (e: Event) => {
   const el = e.target as HTMLElement
-  if (el.scrollTop < 50 && id.value) dataStore.fetchHistory(id.value)
+  if (el.scrollTop < 50 && id.value) messageStore.fetchCloudHistory(id.value)
 }
 
 /** 执行消息发送 */
 const doSend = () => {
   if (!inputText.value.trim()) return
-  dataStore.sendMsg(id.value, inputText.value, replyTarget.value?.message_id)
+  messageStore.sendMessage(id.value, inputText.value, replyTarget.value?.message_id)
   inputText.value = ''
   replyTarget.value = null
 }
@@ -190,7 +193,16 @@ const onInsert = (str: string) => {
 const onPoke = (uid: number) => {
   if (isGroup.value) bot.groupPoke(Number(id.value), uid)
   else bot.friendPoke(uid)
-  dataStore.addSystemMsg(id.value, `你戳了戳 ${uid}`)
+  messageStore.receiveMessage(id.value, {
+    post_type: 'message',
+    message_id: -Math.random(), // 临时ID
+    time: Date.now() / 1000,
+    message_type: isGroup.value ? 'group' : 'private',
+    sender: { user_id: 0, nickname: '我' }, // 简单构造
+    message: [{ type: 'text', data: { text: `你戳了戳 ${uid}` } }],
+    status: 'success',
+    isSystem: true
+  } as any)
 }
 
 /** 跳转至合并转发页面 */
@@ -244,7 +256,7 @@ const onMenuSelect = (key: string) => {
       selectedIds.value = [msg.message_id]
       break
     case 'recall':
-      dataStore.recallMsg(id.value, msg.message_id)
+      messageStore.recallMessage(msg.message_id)
       bot.deleteMsg(msg.message_id).catch(() => toast.add({ severity: 'error', summary: '撤回失败', life: 3000 }))
       break
   }
@@ -266,19 +278,21 @@ const getSummary = (msg: ChatMsg) => {
 // --- Watchers ---
 watch(
   () => id.value,
-  (newId) => {
+  async (newId) => {
     if (newId) {
-      dataStore.clearUnread(newId)
+      // 切换会话状态
       isMultiSelect.value = false
       replyTarget.value = null
       inputText.value = ''
-      // 切换会话时，先滚动到底部，然后拉取历史
-      nextTick(() => {
-        if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-        dataStore.fetchHistory(newId).then(scrollToBottom)
-      })
+      
+      // 加载会话数据
+      await messageStore.openSession(newId)
+      
+      // 滚动到底部
+      scrollToBottom()
     }
-  }
+  },
+  { immediate: true }
 )
 
 watch(
@@ -288,3 +302,4 @@ watch(
   }
 )
 </script>
+

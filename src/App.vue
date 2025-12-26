@@ -6,9 +6,9 @@
   >
     <!-- 全局背景覆盖 -->
     <div
-      v-if="settingsStore.config.value.backgroundImg"
+      v-if="settingStore.config.backgroundImg"
       class="absolute inset-0 bg-main/90 dark:bg-main/80 backdrop-blur-sm -z-10"
-      :style="`backdrop-filter: blur(${settingsStore.config.value.backgroundBlur}px);`"
+      :style="`backdrop-filter: blur(${settingStore.config.backgroundBlur}px);`"
     />
     <!-- 主布局容器 -->
     <div class="flex-col-full md:flex-row overflow-hidden relative gap-2 md:gap-3">
@@ -29,7 +29,7 @@
               />
               <div
                 class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
-                :class="settingsStore.isLogged ? 'bg-green-500' : 'bg-dim'"
+                :class="settingStore.isLogged ? 'bg-green-500' : 'bg-dim'"
               />
             </div>
           </div>
@@ -173,8 +173,9 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
-import { settingsStore } from '@/utils/settings'
-import { dataStore } from '@/utils/storage'
+import { useSettingStore } from '@/stores/setting'
+import { useSessionStore } from '@/stores/session'
+import { useContactStore } from '@/stores/contact'
 import MediaViewer from '@/components/MediaViewer.vue'
 import Avatar from 'primevue/avatar'
 import IconField from 'primevue/iconfield'
@@ -189,6 +190,9 @@ const vTooltip = Tooltip
 // 路由实例
 const router = useRouter()
 const route = useRoute()
+const settingStore = useSettingStore()
+const sessionStore = useSessionStore()
+const contactStore = useContactStore()
 
 // 响应式断点
 const breakpoints = useBreakpoints(breakpointsTailwind)
@@ -201,14 +205,14 @@ const showMenu = ref(false)
 
 // 计算背景样式
 const rootStyle = computed(() => {
-  const bg = settingsStore.config.value.backgroundImg
+  const bg = settingStore.config.backgroundImg
   return bg
     ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
     : { backgroundColor: 'var(--color-main)' }
 })
 
 const userAvatar = computed(() => {
-  const uid = settingsStore.user.value?.user_id
+  const uid = settingStore.user?.user_id
   return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
 })
 
@@ -221,14 +225,14 @@ const navButtons = [
 ]
 
 const chatId = computed(() => route.params.id as string)
-const session = computed(() => dataStore.getSession(chatId.value))
+const session = computed(() => sessionStore.getSession(chatId.value))
 
 const pageTitle = computed(() => {
   if (route.name === 'Login') return ''
   if (route.name === 'Chat' && chatId.value) {
-    const group = dataStore.groups.value.find(g => String(g.group_id) === chatId.value)
+    const group = contactStore.groups.find(g => String(g.group_id) === chatId.value)
     if (group) return group.group_name
-    const friend = dataStore.friends.value.find(f => String(f.user_id) === chatId.value)
+    const friend = contactStore.friends.find(f => String(f.user_id) === chatId.value)
     if (friend) return friend.remark || friend.nickname
     if (session.value) return session.value.name
     return chatId.value

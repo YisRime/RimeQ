@@ -1,15 +1,31 @@
 import { socket } from '@/api/socket'
-import { dataStore } from '@/utils/storage'
+import { useMessageStore } from '@/stores/message'
+import { useContactStore } from '@/stores/contact' // 新增引用
 import { MsgType } from '@/types'
 import type { MessageSegment, FileInfo, OneBotEvent, Message, SystemNotice, MetaEvent } from '@/types'
 
 // ============================================================================
-// 消息解析逻辑 (Parser Functions)
+// 1. 类型定义 (ChatMsg)
 // ============================================================================
 
 /**
- * HTML 转义
+ * 本地聊天消息结构 (扩展自基础 Message)
  */
+export interface ChatMsg extends Message {
+  /** 消息发送状态 */
+  status?: 'sending' | 'success' | 'fail'
+  /** 消息是否已被撤回 (用于本地防撤回) */
+  recalled?: boolean
+  /** 是否为本地生成的系统提示消息 */
+  isSystem?: boolean
+  /** 数据库索引字段 (IndexedDB用) */
+  sessionId?: string
+}
+
+// ============================================================================
+// 2. 消息解析逻辑 (Parser Functions)
+// ============================================================================
+
 export function escapeHtml(str: string): string {
   if (!str) return ''
   return str
@@ -20,9 +36,6 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;")
 }
 
-/**
- * 文本处理：转义 HTML + 自动链接
- */
 export function formatText(text: string): string {
   if (!text) return ''
   let result = escapeHtml(text)
@@ -34,15 +47,11 @@ export function formatText(text: string): string {
   return result
 }
 
-/** CQ 码解析相关类型 */
 export interface CQSegment {
   type: string
   data: Record<string, string>
 }
 
-/**
- * 解析 CQ 码消息为 Segment 数组
- */
 export function parseCQ(msg: string): CQSegment[] {
   if (typeof msg !== 'string') return msg as unknown as CQSegment[]
   const segments: CQSegment[] = []
@@ -110,9 +119,6 @@ export interface ParsedMessage {
   raw: MessageSegment[]
 }
 
-/**
- * 解析多种格式的消息为统一结构
- */
 export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): ParsedMessage {
   const result: ParsedMessage = {
     text: '',
@@ -129,12 +135,13 @@ export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): 
     if (message.includes('[CQ:')) chain = parseCQ(message)
     else {
       result.text = message
+      result.raw = [{ type: 'text', data: { text: message } }]
       return result
     }
   }
 
   if (!Array.isArray(chain)) return result
-  result.raw = chain
+  result.raw = chain as MessageSegment[]
 
   for (const seg of chain) {
     const data = seg.data || {}
@@ -224,9 +231,6 @@ function extractCardInfo(rawData: string | Record<string, unknown>): ParsedMessa
   }
 }
 
-/**
- * 根据解析后的消息内容判定消息的主体类型
- */
 export function determineMsgType(message: string | MessageSegment[] | ParsedMessage): MsgType {
   if (typeof message === 'object' && 'text' in message && 'images' in message && 'raw' in message) {
     const parsed = message as ParsedMessage
@@ -252,83 +256,97 @@ export function determineMsgType(message: string | MessageSegment[] | ParsedMess
 }
 
 // ============================================================================
-// 业务事件处理逻辑 (Event Business Logic)
+// 3. 业务事件处理逻辑 (OneBotHandler)
 // ============================================================================
 
-/**
- * 集中处理 OneBot 事件并更新 ChatStore
- */
 class OneBotHandler {
   constructor() {
-    // 监听 Socket 转发的原始数据包
     socket.onReceive(this.dispatch.bind(this))
   }
 
-  /** 事件分发入口 */
   public dispatch(evt: OneBotEvent) {
+    // 动态获取 Store
+    const messageStore = useMessageStore()
+
     switch (evt.post_type) {
-      case 'message': return this.onMessage(evt as Message)
-      case 'notice': return this.onNotice(evt as SystemNotice)
+      case 'message': return this.onMessage(evt as Message, messageStore)
+      case 'notice': return this.onNotice(evt as SystemNotice, messageStore)
       case 'request': return this.onRequest(evt as SystemNotice)
       case 'meta_event': return this.onMeta(evt as MetaEvent)
     }
   }
 
-  private onMessage(msg: Message) {
+  private onMessage(msg: Message, store: ReturnType<typeof useMessageStore>) {
     const isGroup = msg.message_type === 'group'
     const id = isGroup ? msg.group_id : msg.user_id
     if (!id) return
 
-    dataStore.addMsg(String(id), {
+    const chatMsg: ChatMsg = {
       ...msg,
-      // 统一解析消息内容
       message: parseMsgList(msg.message).raw,
-      // 确保 Sender 字段完整
       sender: { ...msg.sender, nickname: msg.sender.card || msg.sender.nickname || 'Unknown' },
       status: 'success'
-    })
+    }
+
+    store.receiveMessage(String(id), chatMsg)
   }
 
-  private onNotice(evt: SystemNotice) {
+  private onNotice(evt: SystemNotice, store: ReturnType<typeof useMessageStore>) {
     const pid = String(evt.group_id || evt.user_id || '')
     if (!pid) return
 
     switch (evt.notice_type) {
-      // 消息撤回
       case 'group_recall':
       case 'friend_recall':
-        if (evt.message_id) dataStore.recallMsg(pid, evt.message_id)
+        if (evt.message_id) store.recallMessage(evt.message_id)
         break
-      // 戳一戳
+
       case 'notify':
         if (evt.sub_type === 'poke') {
           const actor = evt.user_id === evt.self_id ? '你' : evt.user_id
           const target = evt.target_id === evt.self_id ? '你' : evt.target_id
-          dataStore.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`)
+          this.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`, store)
         }
         break
-      // 群禁言
+
       case 'group_ban':
         {
           const action = evt.sub_type === 'ban' ? `禁言 ${evt.duration}秒` : '解除禁言'
-          dataStore.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`)
+          this.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`, store)
         }
         break
-      // 群成员变动
+
       case 'group_increase':
-        dataStore.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`)
-        // 已移除 getMembers 调用，DataStore 不再缓存群成员
+        this.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`, store)
         break
+
       case 'group_decrease':
-        dataStore.addSystemMsg(pid, `${evt.user_id} 退群`)
-        // 已移除 getMembers 调用，DataStore 不再缓存群成员
+        this.addSystemMsg(pid, `${evt.user_id} 退群`, store)
         break
     }
   }
 
+  private addSystemMsg(id: string, text: string, store: ReturnType<typeof useMessageStore>) {
+    const sysMsg: ChatMsg = {
+      post_type: 'message',
+      message_id: -Math.random(),
+      time: Date.now() / 1000,
+      message_type: id.length > 5 ? 'group' : 'private',
+      sender: { user_id: 0, nickname: 'System' },
+      message: [{ type: 'text', data: { text } }],
+      isSystem: true,
+      status: 'success'
+    }
+    store.receiveMessage(id, sysMsg)
+  }
+
   private onRequest(evt: SystemNotice) {
-    dataStore.notices.value.unshift(evt)
-    // 浏览器通知
+    const contactStore = useContactStore()
+
+    // 1. 将请求存入 Contact Store
+    contactStore.addNotice(evt)
+
+    // 2. 发送浏览器系统通知
     if (Notification.permission === 'granted') {
       new Notification(evt.request_type === 'friend' ? '好友请求' : '入群请求', {
         body: `${evt.user_id}: ${evt.comment || ''}`
@@ -337,12 +355,10 @@ class OneBotHandler {
   }
 
   private onMeta(evt: MetaEvent) {
-    // 连接成功后
     if (evt.meta_event_type === 'lifecycle' && evt.sub_type === 'connect') {
-      // 已移除 syncData 调用，数据由各组件按需加载
+       console.log('[OneBot] Lifecycle Connected')
     }
   }
 }
 
-// 导出单例，实例化时会自动注册到 Socket
 export const oneBotHandler = new OneBotHandler()
