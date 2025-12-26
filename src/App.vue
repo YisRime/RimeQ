@@ -1,43 +1,58 @@
 <template>
-  <!-- 根容器 -->
+  <!-- 根容器：统一内边距，处理背景与字体 -->
   <div
-    class="flex-col-full overflow-hidden select-none text-main font-sans my-trans bg-main p-2 md:p-3 gap-2 md:gap-3"
+    class="ui-flex-col-full overflow-hidden select-none text-foreground-main font-sans ui-trans ui-dur-normal bg-background-main p-3 gap-3"
     :style="rootStyle"
   >
-    <!-- 全局背景覆盖 -->
+    <!-- 背景遮罩：处理图片模糊与透明度 -->
     <div
       v-if="settingStore.config.backgroundImg"
-      class="absolute inset-0 bg-main/90 dark:bg-main/80 backdrop-blur-sm -z-10"
+      class="ui-abs-full bg-background-main/90 dark:bg-background-main/80 backdrop-blur-sm -z-10"
       :style="`backdrop-filter: blur(${settingStore.config.backgroundBlur}px);`"
     />
-    <!-- 主布局容器 -->
-    <div class="flex-col-full md:flex-row overflow-hidden relative gap-2 md:gap-3">
-      <!-- 左侧侧边栏 (Aside) -->
+
+    <!-- 布局容器：处理三栏排版 -->
+    <!-- 移动端设为 gap-0 以消除侧边栏隐藏时的多余间隙，实现完美对称 -->
+    <div
+      class="flex flex-1 overflow-hidden relative"
+      :class="isMobile ? 'gap-0' : 'gap-3'"
+    >
+
+      <!-- 1. 左侧导航栏 (Aside) -->
       <aside
-        v-show="!isMobile || !isContentMode"
-        class="flex flex-col shrink-0 bg-sub rounded-2xl md:rounded-3xl shadow-sm border border-dim/50 my-trans z-30 overflow-hidden relative"
-        :class="isTablet ? 'w-[72px]' : 'w-full xl:w-80'"
+        class="flex flex-col shrink-0 bg-background-sub shadow-sm border border-background-dim/50 ui-trans ui-dur-normal z-30 overflow-hidden relative"
+        :class="[
+          radiusClass,
+          /* 宽度响应：移动端全宽 / 平板窄栏 / 桌面宽栏 */
+          isMobile ? 'w-full' : (isTablet ? 'w-[72px]' : 'w-80'),
+          /* 移动端逻辑：进入聊天内容时隐藏自身 */
+          isMobile && isContentMode ? '!w-0 !opacity-0 !border-none' : ''
+        ]"
       >
-        <!-- 顶部交互区 -->
-        <header class="h-16 shrink-0 relative flex items-center border-b border-dim/30 transition-colors">
-          <div class="w-[72px] h-full shrink-0 flex-center">
-            <div class="relative group cursor-pointer" @click="toggleMenu">
+        <!-- 侧边栏头部 -->
+        <header
+          class="h-16 shrink-0 relative flex items-center border-b border-background-dim/30 transition-colors"
+          :class="isTablet ? 'w-[72px]' : 'w-full'"
+        >
+          <!-- 头像与状态 -->
+          <div class="w-[72px] h-full shrink-0 ui-flex-center">
+            <div class="relative group cursor-pointer" @click="showMenu = !showMenu">
               <Avatar
                 :image="userAvatar"
                 shape="circle"
-                class="shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 my-trans w-10 h-10 bg-dim"
+                class="shrink-0 ring-2 ring-transparent group-hover:ring-primary/50 ui-trans ui-dur-fast w-10 h-10 bg-background-dim"
               />
               <div
-                class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sub my-trans transition-colors"
-                :class="settingStore.isLogged ? 'bg-green-500' : 'bg-dim'"
+                class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background-sub ui-trans ui-dur-fast"
+                :class="settingStore.isLogged ? 'bg-green-500' : 'bg-background-dim'"
               />
             </div>
           </div>
-          <!-- 交互区域 (Tablet 隐藏) -->
-          <div v-if="!isTablet" class="flex-truncate flex-x gap-2 pr-3">
-            <!-- 导航按钮组 -->
+
+          <!-- 顶部导航与搜索 (平板模式隐藏) -->
+          <div v-if="!isTablet" class="ui-flex-truncate ui-flex-x gap-2 pr-3">
             <div
-              class="my-squeeze flex-x justify-start gap-1 shrink-0"
+              class="ui-flex-x justify-start gap-1 shrink-0 ui-trans ui-dur-normal overflow-hidden"
               :class="showMenu ? 'w-[108px] opacity-100' : 'w-0 opacity-0'"
             >
               <Button
@@ -45,125 +60,131 @@
                 :key="btn.path"
                 v-tooltip.bottom="btn.label"
                 :icon="btn.icon"
-                text
-                rounded
-                severity="secondary"
-                :class="[
-                  route.path === btn.path
-                    ? '!bg-primary !text-primary-content shadow-sm'
-                    : '!text-sub hover:!bg-primary/10 hover:!text-primary'
-                ]"
-                class="!w-8 !h-8 !p-0 my-trans"
-                @click="navigate(btn.path)"
+                text rounded severity="secondary"
+                class="!w-8 !h-8 !p-0 ui-trans ui-dur-fast"
+                :class="route.path === btn.path ? '!bg-primary !text-primary-content shadow-sm' : '!text-foreground-sub hover:!bg-primary/10 hover:!text-primary'"
+                @click="router.push(btn.path)"
               />
             </div>
-            <!-- 搜索框 -->
-            <div class="flex-truncate">
-              <IconField class="w-full">
-                <InputIcon class="i-ri-search-line text-sub" />
-                <InputText
-                  v-model="searchKeyword"
-                  placeholder="搜索"
-                  class="w-full !h-9 !text-sm !bg-dim/50 focus:!bg-dim !border-transparent focus:!border-primary/50 !rounded-lg !pl-9"
-                  :pt="{ root: { class: 'my-trans' } }"
-                />
-              </IconField>
-            </div>
+            <IconField class="w-full">
+              <InputIcon class="i-ri-search-line text-foreground-sub" />
+              <InputText
+                v-model="searchKeyword"
+                placeholder="搜索"
+                class="w-full !h-9 !text-sm !bg-background-dim/50 focus:!bg-background-dim !border-transparent focus:!border-primary/50 !rounded-lg !pl-9"
+                :pt="{ root: { class: 'ui-trans ui-dur-fast' } }"
+              />
+            </IconField>
           </div>
         </header>
-        <!-- 垂直菜单 (仅 Tablet 模式) -->
+
+        <!-- 垂直菜单 (仅平板模式显示) -->
         <div
           v-if="isTablet"
-          class="my-squeeze flex-y gap-2 bg-sub/50 backdrop-blur-sm z-20 w-full"
-          :class="showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-dim/30' : 'max-h-0 opacity-0 py-0 border-none'"
+          class="flex flex-col items-center gap-2 bg-background-sub/50 backdrop-blur-sm z-20 w-full ui-trans ui-dur-normal overflow-hidden"
+          :class="showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-background-dim/30' : 'max-h-0 opacity-0 py-0 border-none'"
         >
           <Button
             v-for="btn in navButtons"
             :key="btn.path"
             v-tooltip.right="btn.label"
             :icon="btn.icon"
-            text
-            rounded
-            severity="secondary"
-            :class="[
-              route.path === btn.path
-                ? '!bg-primary !text-primary-content shadow-sm'
-                : '!text-sub hover:!bg-primary/10 hover:!text-primary'
-            ]"
-            class="!w-9 !h-9 !p-0 my-trans"
-            @click="navigate(btn.path)"
+            text rounded severity="secondary"
+            class="!w-9 !h-9 !p-0 ui-trans ui-dur-fast"
+            :class="route.path === btn.path ? '!bg-primary !text-primary-content shadow-sm' : '!text-foreground-sub hover:!bg-primary/10 hover:!text-primary'"
+            @click="router.push(btn.path)"
           />
         </div>
-        <!-- 列表内容区 -->
-        <div class="flex-1 overflow-hidden relative w-full bg-sub">
-          <router-view v-slot="{ Component }" name="nav">
-            <keep-alive>
-              <component :is="Component" :keyword="searchKeyword" />
-            </keep-alive>
-          </router-view>
+
+        <!-- 导航列表视图 -->
+        <div class="flex-1 overflow-hidden relative bg-background-sub w-full">
+          <!-- 内部定宽容器防止压缩 -->
+          <div class="size-full relative" :class="isTablet ? 'min-w-[72px]' : 'min-w-[320px]'">
+            <router-view v-slot="{ Component }" name="nav">
+              <keep-alive>
+                <component :is="Component" :keyword="searchKeyword" />
+              </keep-alive>
+            </router-view>
+          </div>
         </div>
       </aside>
-      <!-- 右侧主内容区 (Main) -->
+
+      <!-- 2. 中间主内容区 (Main) -->
       <main
-        v-show="!isMobile || isContentMode"
-        class="flex-col-full overflow-hidden bg-sub rounded-2xl md:rounded-3xl shadow-sm border border-dim/50 relative z-20"
+        class="flex-1 min-w-0 flex flex-col overflow-hidden bg-background-sub shadow-sm border border-background-dim/50 relative z-20 ui-trans ui-dur-normal"
+        :class="[
+          radiusClass,
+          /* 移动端逻辑：在列表模式下隐藏自身，让位于 Aside */
+          isMobile && !isContentMode ? '!w-0 !min-w-0 !flex-none !opacity-0 !border-none' : ''
+        ]"
       >
-        <!-- 右侧 Header 栏 -->
+        <!-- 标题栏 -->
         <header
           v-if="pageTitle"
-          class="h-16 shrink-0 border-b border-dim/50 bg-sub/95 backdrop-blur flex items-center justify-between px-4 z-20 select-none transition-all"
+          class="h-16 shrink-0 border-b border-background-dim/50 bg-background-sub/95 backdrop-blur ui-flex-between px-4 z-20 select-none transition-all"
         >
           <div class="flex items-center gap-3 h-full overflow-hidden">
             <div
               v-if="showBackButton"
-              class="w-8 h-8 rounded-full flex-center cursor-pointer hover:bg-dim/50 active:scale-95 transition-all text-main bg-dim/30 shrink-0"
+              class="w-8 h-8 rounded-full ui-flex-center ui-ia hover:bg-background-dim/50 text-foreground-main bg-background-dim/30 shrink-0"
               @click="handleBack"
             >
               <div class="i-ri-arrow-left-s-line text-lg" />
             </div>
-            <div class="flex items-center gap-2 overflow-hidden">
-               <span class="font-bold text-lg text-main truncate">{{ pageTitle }}</span>
-            </div>
+            <span class="font-bold text-lg text-foreground-main truncate">{{ pageTitle }}</span>
           </div>
-          <div v-if="isGroup" class="flex items-center gap-1 text-dim">
-             <Button v-tooltip.bottom="'群精华'" icon="i-ri-star-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/essence`)" />
-             <Button v-tooltip.bottom="'群公告'" icon="i-ri-megaphone-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/notice`)" />
-             <Button v-tooltip.bottom="'群文件'" icon="i-ri-folder-open-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/file`)" />
-             <Button v-tooltip.bottom="'群成员'" icon="i-ri-group-line" text rounded class="!w-9 !h-9 !text-sub hover:!text-primary" @click="router.push(`/${chatId}/member`)" />
+          <!-- 群组快捷入口 -->
+          <div v-if="isGroup" class="flex items-center gap-1 text-foreground-dim">
+             <Button v-tooltip.bottom="'群精华'" icon="i-ri-star-line" text rounded class="!w-9 !h-9 !text-foreground-sub hover:!text-primary" @click="router.push(`/${chatId}/essence`)" />
+             <Button v-tooltip.bottom="'群公告'" icon="i-ri-megaphone-line" text rounded class="!w-9 !h-9 !text-foreground-sub hover:!text-primary" @click="router.push(`/${chatId}/notice`)" />
+             <Button v-tooltip.bottom="'群文件'" icon="i-ri-folder-open-line" text rounded class="!w-9 !h-9 !text-foreground-sub hover:!text-primary" @click="router.push(`/${chatId}/file`)" />
+             <Button v-tooltip.bottom="'群成员'" icon="i-ri-group-line" text rounded class="!w-9 !h-9 !text-foreground-sub hover:!text-primary" @click="router.push(`/${chatId}/member`)" />
           </div>
         </header>
-        <div class="flex-col-full relative overflow-hidden flex-truncate">
-          <!-- 核心路由视图 -->
+
+        <!-- 内容路由视图 -->
+        <div class="ui-flex-col-full relative overflow-hidden ui-flex-truncate">
           <router-view v-slot="{ Component }">
             <keep-alive :include="['ChatView', 'SettingsView', 'ContactView']">
               <component :is="Component" :key="route.path" class="size-full" />
             </keep-alive>
           </router-view>
-          <!-- 媒体查看器 -->
           <MediaViewer
             :model-value="!!route.query.view"
             :src="String(route.query.view || '')"
-            @update:model-value="closeViewer"
+            @update:model-value="(v) => !v && router.replace({ query: { ...route.query, view: undefined } })"
           />
         </div>
-        <!-- 扩展侧边栏 (二级路由) -->
-        <router-view v-slot="{ Component }" name="sidebar">
-          <Transition
-            enter-active-class="my-slide-active"
-            leave-active-class="my-slide-active"
-            enter-from-class="my-slide-hidden"
-            leave-to-class="my-slide-hidden"
-          >
-            <component
-              :is="Component"
-              v-if="Component"
-              class="z-[60] border-l border-dim bg-sub shadow-none absolute inset-y-0 right-0 w-full md:w-[360px] xl:static xl:w-[320px] xl:z-auto"
-            />
-          </Transition>
-        </router-view>
       </main>
+
+      <!-- 3. 右侧扩展侧边栏 (Sidebar Card) -->
+      <router-view v-slot="{ Component }" name="sidebar">
+        <Transition
+          enter-active-class="transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.5,1)]"
+          leave-active-class="transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.5,1)]"
+          :enter-from-class="isMobile ? 'translate-x-full' : 'translate-x-0 w-0 opacity-0'"
+          :leave-to-class="isMobile ? 'translate-x-full' : 'translate-x-0 w-0 opacity-0'"
+        >
+          <aside
+            v-if="Component"
+            class="bg-background-sub z-[60] overflow-hidden flex flex-col border border-background-dim/50 shadow-xl ui-trans ui-dur-normal"
+            :class="[
+              radiusClass,
+              /* 移动端覆盖，桌面端挤压 */
+              isMobile ? 'absolute inset-y-0 right-0 w-full' : 'static w-[320px] shadow-sm z-0'
+            ]"
+          >
+            <!-- 内部定宽容器 -->
+            <div class="size-full md:w-[320px] flex-shrink-0 ui-trans ui-dur-normal">
+              <component :is="Component" class="size-full" />
+            </div>
+          </aside>
+        </Transition>
+      </router-view>
+
     </div>
-    <!-- 全局交互组件 -->
+
+    <!-- 全局组件 -->
     <Toast position="top-left" />
     <ConfirmDialog />
   </div>
@@ -182,12 +203,7 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import Tooltip from 'primevue/tooltip'
 
-// 局部指令
-const vTooltip = Tooltip
-
-// 路由实例
 const router = useRouter()
 const route = useRoute()
 const settingStore = useSettingStore()
@@ -199,11 +215,14 @@ const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
 const isTablet = breakpoints.between('md', 'xl')
 
-// 状态
+// 界面状态
 const searchKeyword = ref('')
 const showMenu = ref(false)
 
-// 计算背景样式
+// 样式计算：统一管理圆角大小
+const radiusClass = computed(() => isMobile.value ? 'rounded-2xl' : 'rounded-3xl')
+
+// 样式计算：根背景
 const rootStyle = computed(() => {
   const bg = settingStore.config.backgroundImg
   return bg
@@ -211,25 +230,23 @@ const rootStyle = computed(() => {
     : { backgroundColor: 'var(--color-main)' }
 })
 
+// 数据计算：当前用户信息
 const userAvatar = computed(() => {
   const uid = settingStore.user?.user_id
   return uid ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${uid}` : ''
 })
 
-const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
-
-const navButtons = [
-  { label: '会话', path: '/', icon: 'i-ri-message-3-line text-xl' },
-  { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line text-xl' },
-  { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line text-xl' }
-]
-
+// 数据计算：当前上下文
 const chatId = computed(() => route.params.id as string)
 const session = computed(() => sessionStore.getSession(chatId.value))
+const isGroup = computed(() => session.value?.type === 'group' || chatId.value?.length > 5)
+const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
+const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
 
+// 数据计算：页面标题
 const pageTitle = computed(() => {
   if (route.name === 'Login') return ''
-  if (route.name === 'Chat' && chatId.value) {
+  if (chatId.value) {
     const group = contactStore.groups.find(g => String(g.group_id) === chatId.value)
     if (group) return group.group_name
     const friend = contactStore.friends.find(f => String(f.user_id) === chatId.value)
@@ -240,28 +257,22 @@ const pageTitle = computed(() => {
   return (route.meta.title as string) || ''
 })
 
-const isGroup = computed(() => session.value?.type === 'group' || chatId.value?.length > 5)
-const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
+// 静态配置：导航菜单
+const navButtons = [
+  { label: '会话', path: '/', icon: 'i-ri-message-3-line text-xl' },
+  { label: '好友', path: '/contact', icon: 'i-ri-contacts-book-line text-xl' },
+  { label: '设置', path: '/settings', icon: 'i-ri-settings-3-line text-xl' }
+]
 
-const toggleMenu = () => (showMenu.value = !showMenu.value)
-const navigate = (path: string) => router.push(path)
-
+// 交互方法：返回处理
 const handleBack = () => {
   if (window.history.length > 1) router.back()
   else router.push('/')
 }
-
-const closeViewer = (show: boolean) => {
-  if (!show) {
-    const query = { ...route.query }
-    delete query.view
-    router.replace({ query })
-  }
-}
 </script>
 
 <style lang="scss">
-/* 基础样式 */
+/* 全局基础重置 */
 html, body, #app {
   height: 100%;
   margin: 0;
@@ -272,7 +283,7 @@ html, body, #app {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 禁止图片拖拽 */
+/* 交互优化：防止拖拽图片 */
 img {
   -webkit-user-drag: none;
   user-select: none;

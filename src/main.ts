@@ -3,13 +3,14 @@ import { router } from './router'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
+// CSS
 import 'virtual:uno.css'
-
+// PrimeVue
 import PrimeVue from 'primevue/config'
 import Aura from '@primevue/themes/aura'
 import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
-
+// 插件
 import { MotionPlugin } from '@vueuse/motion'
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 
@@ -21,6 +22,7 @@ pinia.use(piniaPluginPersistedstate)
 
 app.use(pinia)
 app.use(router)
+
 app.use(MotionPlugin)
 app.use(autoAnimatePlugin)
 app.use(ToastService)

@@ -1,31 +1,32 @@
 <template>
-  <div class="min-h-screen w-full flex-center p-4 bg-sub my-trans">
-    <!-- 登录卡片容器 -->
-    <div class="w-full max-w-md bg-main rounded-2xl shadow-xl overflow-hidden p-8 md:p-10 my-trans border border-dim">
+  <!-- 登录页容器：全屏居中，使用语义化背景色 -->
+  <div class="min-h-screen w-full ui-flex-center p-4 bg-background-sub ui-trans ui-dur-normal">
+    <!-- 登录卡片：添加阴影、圆角和过渡效果 -->
+    <div class="w-full max-w-md bg-background-main rounded-2xl shadow-xl overflow-hidden p-8 md:p-10 border border-background-dim ui-trans ui-dur-normal">
       <!-- 顶部 Logo 区域 -->
-      <div class="flex-center flex-col mb-8">
-        <div
-          class="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 flex-center shadow-lg mb-4 text-white"
-        >
+      <div class="ui-flex-y mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 ui-flex-center shadow-lg mb-4 text-white">
           <div class="i-ri-chat-smile-2-fill text-4xl drop-shadow-md" />
         </div>
-        <h1 class="text-2xl font-bold text-main tracking-wide">RimeQ</h1>
+        <h1 class="text-2xl font-bold text-foreground-main tracking-wide">RimeQ</h1>
       </div>
+
       <!-- 表单区域 -->
       <div class="flex flex-col gap-6">
         <!-- 地址输入框 -->
         <IconField>
-          <InputIcon class="i-ri-server-line z-10" />
+          <InputIcon class="i-ri-server-line z-10 text-foreground-dim" />
           <InputText
             v-model="form.connectAddress"
             placeholder="ws://"
             :disabled="isAutoConnecting"
-            class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none"
+            class="w-full !pl-10 h-10 !bg-background-sub !border-background-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-foreground-main text-sm rounded-lg ui-trans ui-dur-fast focus:outline-none"
           />
         </IconField>
+
         <!-- 密钥输入框 -->
         <IconField>
-          <InputIcon class="i-ri-key-2-line z-10" />
+          <InputIcon class="i-ri-key-2-line z-10 text-foreground-dim" />
           <Password
             v-model="form.accessToken"
             placeholder="Token"
@@ -34,28 +35,30 @@
             fluid
             :disabled="isAutoConnecting"
             class="w-full"
-            input-class="w-full !pl-10 h-10 !bg-sub !border-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-main text-sm rounded-lg my-trans focus:outline-none"
+            input-class="w-full !pl-10 h-10 !bg-background-sub !border-background-dim focus:!border-primary focus:!ring-1 focus:!ring-primary/20 text-foreground-main text-sm rounded-lg ui-trans ui-dur-fast focus:outline-none"
             @keydown.enter="!isAutoConnecting && handleLogin(false)"
           />
         </IconField>
+
         <!-- 选项配置行 -->
-        <div class="flex-between px-1">
-          <div class="flex-x gap-2">
+        <div class="ui-flex-between px-1">
+          <div class="ui-flex-x gap-2">
             <Checkbox v-model="form.rememberToken" binary input-id="remember" size="small" :disabled="isAutoConnecting" />
-            <label for="remember" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">记住密码</label>
+            <label for="remember" class="text-xs text-foreground-sub ui-ia-hover">记住密码</label>
           </div>
-          <div class="flex-x gap-2">
+          <div class="ui-flex-x gap-2">
             <Checkbox v-model="form.autoConnect" binary input-id="auto" size="small" :disabled="isAutoConnecting" />
-            <label for="auto" class="text-xs text-sub cursor-pointer hover:text-primary my-trans select-none">自动连接</label>
+            <label for="auto" class="text-xs text-foreground-sub ui-ia-hover">自动连接</label>
           </div>
         </div>
-        <!-- 登录按钮 -->
+
+        <!-- 登录按钮：状态切换时显示 loading 图标 -->
         <Button
           :label="isAutoConnecting ? '登录中...' : '登录'"
           :loading="settingStore.isConnecting && !isAutoConnecting"
           :icon="isAutoConnecting ? 'i-ri-loader-4-line animate-spin' : ''"
-          class="w-full font-bold h-10 shadow-lg shadow-primary/20 hover:shadow-primary/30 my-trans !bg-primary hover:!bg-primary-hover !border-none text-white text-sm"
-          @click="isAutoConnecting ? cancelAuto() : handleLogin(false)"
+          class="w-full font-bold h-10 shadow-lg shadow-primary/20 hover:shadow-primary/30 ui-trans ui-dur-fast !bg-primary hover:!bg-primary-hover !border-none text-white text-sm"
+          @click="isAutoConnecting ? (isAutoConnecting = false, settingStore.isConnecting = false) : handleLogin(false)"
         />
       </div>
     </div>
@@ -74,7 +77,6 @@ import Password from 'primevue/password'
 import Checkbox from 'primevue/checkbox'
 import Button from 'primevue/button'
 
-// 路由实例
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
@@ -89,13 +91,14 @@ const form = reactive({
   autoConnect: false
 })
 
-// 处理登录逻辑
+// 执行登录流程
 const handleLogin = async (isAuto = false) => {
   if (!form.connectAddress) {
     return !isAuto && toast.add({ severity: 'warn', summary: '请输入地址', life: 3000 })
   }
 
   try {
+    // 同步配置到 Store
     Object.assign(settingStore.config, {
       rememberToken: form.rememberToken,
       autoConnect: form.autoConnect
@@ -106,6 +109,7 @@ const handleLogin = async (isAuto = false) => {
     if (!isAuto) toast.add({ severity: 'success', summary: '连接成功', life: 3000 })
     router.replace((route.query.redirect as string) || '/')
   } catch (e) {
+    // 自动登录失败或手动登录失败时的处理
     if (!isAuto || isAutoConnecting.value) {
       if (!isAuto) toast.add({ severity: 'error', summary: '连接失败', detail: e, life: 3000 })
     }
@@ -114,13 +118,7 @@ const handleLogin = async (isAuto = false) => {
   }
 }
 
-// 取消自动登录
-const cancelAuto = () => {
-  isAutoConnecting.value = false
-  settingStore.isConnecting = false
-}
-
-// 初始化
+// 初始化：加载保存的配置并尝试自动登录
 onMounted(() => {
   if (settingStore.config.rememberToken) {
     Object.assign(form, {
@@ -130,6 +128,7 @@ onMounted(() => {
       autoConnect: settingStore.config.autoConnect
     })
   }
+  // 触发自动登录
   if (form.autoConnect && form.connectAddress && form.accessToken && !settingStore.isLogged) {
     isAutoConnecting.value = true
     handleLogin(true)

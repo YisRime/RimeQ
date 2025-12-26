@@ -3,19 +3,16 @@ import { ref, watch, computed } from 'vue'
 import { usePreferredDark } from '@vueuse/core'
 import { colord, extend } from 'colord'
 import mixPlugin from 'colord/plugins/mix'
-import namesPlugin from 'colord/plugins/names'
 import { bot } from '@/api'
 import type { LoginInfo } from '@/types'
 
-extend([mixPlugin, namesPlugin])
+extend([mixPlugin])
 
 export const useSettingStore = defineStore('setting', () => {
   const isConnected = ref(false)
   const isConnecting = ref(false)
   const user = ref<LoginInfo | null>(null)
-  const isLogged = computed(() => isConnected.value && !!user.value)
 
-  // 配置项
   const config = ref({
     connectAddress: '',
     accessToken: '',
@@ -30,21 +27,32 @@ export const useSettingStore = defineStore('setting', () => {
     customCSS: ''
   })
 
+  const isLogged = computed(() => isConnected.value && !!user.value)
+  const systemDark = usePreferredDark()
+
   async function login(addr: string, tk: string) {
+    console.log('[SettingStore] Start Login:', addr)
+    if (isConnecting.value) return
     isConnecting.value = true
+
     try {
       await bot.connect(addr, tk)
+      console.log('[SettingStore] Socket Connected')
+
       const info = await bot.getLoginInfo()
-      if (!info) throw new Error('Unable to fetch user info.')
+      console.log('[SettingStore] User Info Fetched:', info)
+
+      if (!info) throw new Error('无法获取用户信息')
 
       user.value = info
       isConnected.value = true
-      config.value.connectAddress = addr
 
+      config.value.connectAddress = addr
       if (config.value.rememberToken) {
         config.value.accessToken = tk
       }
     } catch (e) {
+      console.error('[SettingStore] Login Failed:', e)
       logout()
       throw e
     } finally {
@@ -52,19 +60,38 @@ export const useSettingStore = defineStore('setting', () => {
     }
   }
 
+  function attemptAutoLogin(): Promise<void> | boolean {
+    console.log('[SettingStore] Attempt Auto Login check...')
+    if (isLogged.value) {
+        console.log('[SettingStore] Already logged in.')
+        return false
+    }
+
+    const { autoConnect, connectAddress, accessToken } = config.value
+    if (autoConnect && connectAddress && accessToken) {
+      console.log('[SettingStore] Auto Login Triggered')
+      return login(connectAddress, accessToken)
+    }
+    console.log('[SettingStore] No Auto Login conditions met')
+    return false
+  }
+
   function logout() {
+    console.log('[SettingStore] Logout')
     bot.disconnect()
     isConnected.value = false
     user.value = null
   }
 
-  const preferredDark = usePreferredDark()
-
   function applyTheme() {
-    const { themeColor, forceDarkMode, customCSS } = config.value
+    const { themeColor, forceDarkMode, followSystemTheme, customCSS } = config.value
+    const isDark = followSystemTheme ? systemDark.value : forceDarkMode
     const root = document.documentElement
 
-    const styleId = 'user-custom-css'
+    if (isDark) root.classList.add('dark')
+    else root.classList.remove('dark')
+
+    const styleId = 'rime-custom-css'
     let styleEl = document.getElementById(styleId)
     if (!styleEl) {
       styleEl = document.createElement('style')
@@ -73,50 +100,61 @@ export const useSettingStore = defineStore('setting', () => {
     }
     styleEl.textContent = customCSS || ''
 
-    const primary = colord(String(themeColor))
-    if (!primary.isValid()) return
+    const primary = colord(themeColor)
+    const bgBase = isDark ? colord('#121212') : colord('#ffffff')
+    const fgBase = isDark ? colord('#ffffff') : colord('#121212')
 
-    root.style.setProperty('--primary-color', primary.toHex())
-    root.style.setProperty('--primary-content', primary.isDark() ? '#ffffff' : '#000000')
+    const vars: Record<string, string> = {
+      '--primary-color': primary.toHex(),
+      '--primary-hover': isDark ? primary.lighten(0.1).toHex() : primary.darken(0.05).toHex(),
+      '--primary-active': isDark ? primary.darken(0.1).toHex() : primary.darken(0.1).toHex(),
+      '--primary-soft': primary.alpha(isDark ? 0.2 : 0.12).toRgbString(),
+      '--primary-content': primary.isDark() ? '#ffffff' : '#000000',
 
-    const isDark = config.value.followSystemTheme ? preferredDark.value : forceDarkMode
-    const darkBase = colord('#121212')
-    const lightBase = colord('#ffffff')
+      '--color-main': bgBase.mix(primary, isDark ? 0.05 : 0.02).toHex(),
+      '--color-sub': isDark
+        ? bgBase.lighten(0.05).mix(primary, 0.05).toHex()
+        : bgBase.darken(0.02).mix(primary, 0.03).toHex(),
+      '--color-dim': isDark
+        ? bgBase.lighten(0.12).mix(primary, 0.05).toHex()
+        : bgBase.darken(0.06).mix(primary, 0.05).toHex(),
 
-    if (isDark) {
-      root.classList.add('dark')
-      root.style.setProperty('--primary-hover', primary.lighten(0.1).toHex())
-      root.style.setProperty('--primary-active', primary.darken(0.1).toHex())
-      root.style.setProperty('--primary-soft', primary.alpha(0.15).toRgbString())
-      root.style.setProperty('--color-main', darkBase.mix(primary, 0.03).toHex())
-      root.style.setProperty('--color-sub', darkBase.lighten(0.05).mix(primary, 0.05).toHex())
-      root.style.setProperty('--color-dim', darkBase.lighten(0.08).mix(primary, 0.08).toHex())
-      root.style.setProperty('--text-main', lightBase.alpha(0.87).toRgbString())
-      root.style.setProperty('--text-sub', lightBase.alpha(0.6).toRgbString())
-      root.style.setProperty('--text-dim', lightBase.alpha(0.38).toRgbString())
-    } else {
-      root.classList.remove('dark')
-      root.style.setProperty('--primary-hover', primary.darken(0.05).toHex())
-      root.style.setProperty('--primary-active', primary.darken(0.1).toHex())
-      root.style.setProperty('--primary-soft', primary.alpha(0.12).toRgbString())
-      root.style.setProperty('--color-main', lightBase.toHex())
-      root.style.setProperty('--color-sub', lightBase.darken(0.02).mix(primary, 0.04).toHex())
-      root.style.setProperty('--color-dim', lightBase.darken(0.05).mix(primary, 0.08).toHex())
-      root.style.setProperty('--text-main', darkBase.lighten(0.1).alpha(0.87).toRgbString())
-      root.style.setProperty('--text-sub', darkBase.lighten(0.1).alpha(0.6).toRgbString())
-      root.style.setProperty('--text-dim', darkBase.lighten(0.1).alpha(0.38).toRgbString())
+      '--text-main': fgBase.alpha(0.9).toRgbString(),
+      '--text-sub': fgBase.alpha(0.6).toRgbString(),
+      '--text-dim': fgBase.alpha(0.35).toRgbString(),
     }
+
+    Object.entries(vars).forEach(([key, val]) => {
+      root.style.setProperty(key, val)
+    })
   }
 
   watch(
-    () => [config.value.themeColor, config.value.forceDarkMode, config.value.followSystemTheme, config.value.customCSS, preferredDark.value],
-    () => applyTheme(),
-    { immediate: true, deep: true }
+    () => [
+      config.value.themeColor,
+      config.value.forceDarkMode,
+      config.value.followSystemTheme,
+      config.value.customCSS,
+      systemDark.value
+    ],
+    applyTheme,
+    { immediate: true }
   )
 
-  return { isConnected, isConnecting, user, config, login, logout, isLogged }
+  return {
+    isConnected,
+    isConnecting,
+    user,
+    config,
+    isLogged,
+    login,
+    logout,
+    attemptAutoLogin,
+    applyTheme
+  }
 }, {
   persist: {
-    paths: ['config']
+    paths: ['config'],
+    storage: localStorage
   } as any
 })
