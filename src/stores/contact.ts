@@ -7,11 +7,11 @@ import type { GroupInfo, SystemNotice, FriendCategory } from '@/types'
 export const useContactStore = defineStore('contact', () => {
 
   // 好友列表
-  const friends = useStorage<FriendCategory[]>('rime-friends', [])
+  const friends = useStorage<FriendCategory[]>('rimeq-friends', [])
   // 群组列表
-  const groups = useStorage<GroupInfo[]>('rime-groups', [])
+  const groups = useStorage<GroupInfo[]>('rimeq-groups', [])
   // 系统通知
-  const notices = useStorage<SystemNotice[]>('rime-notices', [])
+  const notices = useStorage<SystemNotice[]>('rimeq-notices', [])
   // 名称缓存
   const nameCache = reactive({ user: {} as Record<string, string>, group: {} as Record<string, string> })
 

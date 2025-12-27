@@ -2,40 +2,33 @@ import { defineStore } from 'pinia'
 import { computed } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useContactStore } from './contact'
-import type { FriendInfo } from '@/types'
+import { useSettingStore } from './setting'
 
+// 定义数据结构
 export interface Session {
-  id: string
-  type: 'private' | 'group'
-  name: string
-  avatar: string
-  preview: string
-  time: number
-  unread: number
+  id: string                   // 会话ID (用户ID或群组ID)
+  type: 'private' | 'group'    // 会话类型
+  name: string                 // 会话名称 (兜底)
+  avatar: string               // 会话头像 (兜底)
+  preview: string              // 最新消息预览
+  time: number                 // 最新消息时间戳
+  unread: number               // 未读消息数
 }
 
 export const useSessionStore = defineStore('session', () => {
   const contactStore = useContactStore()
-
-  // ============================================================================
-  // 持久化状态：会话列表
-  // 使用 useStorage 确保持久化到 localStorage
-  // ============================================================================
+  const settingStore = useSettingStore()
+  // 持久化会话列表
   const sessions = useStorage<Session[]>('rime-sessions', [])
 
-  // ============================================================================
-  // 计算属性
-  // ============================================================================
+  // 会话列表排序
   const sortedSessions = computed(() => {
-    return sessions.value.sort((a, b) => b.time - a.time)
+    if (!settingStore.isLogged) return []
+    return [...sessions.value].sort((a, b) => b.time - a.time)
   })
 
-  // ============================================================================
-  // 动作
-  // ============================================================================
-
   // 获取单个会话
-  function getSession(id: string) {
+  function getSession(id: string): Session | undefined {
     return sessions.value.find(s => s.id === id)
   }
 
@@ -43,47 +36,31 @@ export const useSessionStore = defineStore('session', () => {
   function updateSession(id: string, partial: Partial<Session>) {
     const index = sessions.value.findIndex(s => s.id === id)
 
-    // 情况 A: 会话已存在
     if (index !== -1) {
       const current = sessions.value[index]
       if (current) {
-        // 1. 合并属性
+        const originalUnread = current.unread || 0
         Object.assign(current, partial)
-
-        // 2. 累加未读数
         if (typeof partial.unread === 'number') {
-           if (partial.unread === 0) {
-             current.unread = 0
-           } else {
-             current.unread = (current.unread || 0) + partial.unread
-           }
+          current.unread = originalUnread + partial.unread
         }
-
-        // 3. 置顶会话 (操作数组，useStorage 会自动同步)
         sessions.value.splice(index, 1)
         sessions.value.unshift(current)
       }
-    }
-    // 情况 B: 新建会话
-    else {
+    } else {
       const isGroup = partial.type === 'group' || id.length > 5
-      let name = `会话 ${id}`
-      let avatar = ''
+      let name: string
+      let avatar: string
 
       if (isGroup) {
-        const group = contactStore.groups.find(g => String(g.group_id) === id)
-        name = group?.group_name || `群 ${id}`
+        // 获取群组名
+        name = contactStore.getGroupName(id)
         avatar = `https://p.qlogo.cn/gh/${id}/${id}/0`
       } else {
-        let friend: FriendInfo | undefined
-        for (const category of contactStore.friends) {
-          friend = category.buddyList.find(f => String(f.user_id) === id)
-          if (friend) break
-        }
-        name = friend?.remark || friend?.nickname || `好友 ${id}`
+        // 获取用户名
+        name = contactStore.getFriendName(id)
         avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
       }
-
       const newSession: Session = {
         id,
         type: isGroup ? 'group' : 'private',
@@ -93,28 +70,25 @@ export const useSessionStore = defineStore('session', () => {
         time: partial.time || Date.now(),
         unread: partial.unread || 1
       }
-
       sessions.value.unshift(newSession)
     }
   }
 
-  // 清除未读数
+  // 清除未读计数
   function clearUnread(id: string) {
-    const s = sessions.value.find(i => i.id === id)
-    if (s) s.unread = 0
+    const session = getSession(id)
+    if (session) {
+      session.unread = 0
+    }
   }
 
-  // 删除会话
+  // 移除指定会话
   function removeSession(id: string) {
-    const idx = sessions.value.findIndex(s => s.id === id)
-    if (idx > -1) sessions.value.splice(idx, 1)
+    const index = sessions.value.findIndex(s => s.id === id)
+    if (index > -1) {
+      sessions.value.splice(index, 1)
+    }
   }
 
-  return {
-    sessions: sortedSessions, // 导出排序后的计算属性
-    getSession,
-    updateSession,
-    clearUnread,
-    removeSession
-  }
+  return { sessions: sortedSessions, getSession, updateSession, clearUnread, removeSession }
 })

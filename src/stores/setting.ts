@@ -18,7 +18,7 @@ export const useSettingStore = defineStore('setting', () => {
   const user = ref<LoginInfo | null>(null)
 
   // 应用配置 (持久化存储)
-  const config = useStorage('rime-config', {
+  const config = useStorage('rimeq-config', {
     // WebSocket 连接地址
     connectAddress: '',
     // 连接鉴权令牌
