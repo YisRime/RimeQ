@@ -14,7 +14,7 @@
     <div class="p-4 border-b border-dim">
       <div class="relative">
         <div class="absolute left-3 top-1/2 -translate-y-1/2 i-ri-search-line text-dim" />
-        <InputText v-model="keyword" placeholder="搜索成员..." class="w-full pl-10 !bg-dim border-0 rounded-lg h-10" />
+        <InputText v-model="keyword" placeholder="搜索成员..." class="w-full pl-10 !bg-dim border-0 rounded-2xl h-10" />
       </div>
     </div>
 
@@ -24,7 +24,7 @@
         <div
           v-for="m in filteredMembers"
           :key="m.user_id"
-          class="flex-x gap-3 p-3 my-hover rounded-xl cursor-pointer my-trans group"
+          class="flex-x gap-3 p-3 my-hover rounded-2xl cursor-pointer my-trans group"
           @click="router.push(`/${m.user_id}`)"
         >
           <Avatar :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${m.user_id}`" shape="circle" size="large" />

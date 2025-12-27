@@ -1,18 +1,25 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
 import type { FriendInfo, GroupInfo, SystemNotice } from '@/types'
 
 export const useContactStore = defineStore('contact', () => {
-  // === State ===
-  const friends = ref<FriendInfo[]>([])
-  const groups = ref<GroupInfo[]>([])
-  const notices = ref<SystemNotice[]>([])
+  // ============================================================================
+  // 持久化状态
+  // ============================================================================
 
-  // 简单的缓存控制
-  const lastFetchTime = ref(0)
+  // 好友列表缓存
+  const friends = useStorage<FriendInfo[]>('rime-friends', [])
+  // 群组列表缓存
+  const groups = useStorage<GroupInfo[]>('rime-groups', [])
+  // 系统通知
+  const notices = useStorage<SystemNotice[]>('rime-notices', [])
+  // 上次拉取时间 (用于节流)
+  const lastFetchTime = useStorage<number>('rime-contact-fetch-time', 0)
 
-  // === Actions ===
+  // ============================================================================
+  // 动作
+  // ============================================================================
 
   /**
    * 获取所有好友和群组列表
@@ -38,8 +45,6 @@ export const useContactStore = defineStore('contact', () => {
    * 添加一条系统通知
    */
   function addNotice(notice: SystemNotice) {
-    // 简单的去重逻辑：防止同一请求被重复添加
-    // 依据 flag 和 time 判断
     const exists = notices.value.some(n => n.flag === notice.flag && n.time === notice.time)
     if (!exists) {
       notices.value.unshift(notice)
@@ -47,7 +52,7 @@ export const useContactStore = defineStore('contact', () => {
   }
 
   /**
-   * 移除一条系统通知 (通常在处理完后调用)
+   * 移除一条系统通知
    */
   function removeNotice(notice: SystemNotice) {
     const index = notices.value.findIndex(n => n.flag === notice.flag)
@@ -56,7 +61,9 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // === Getters / Helpers ===
+  // ============================================================================
+  // Helpers
+  // ============================================================================
 
   function getGroupName(id: number) {
     const g = groups.value.find(i => i.group_id === id)
@@ -78,11 +85,4 @@ export const useContactStore = defineStore('contact', () => {
     getGroupName,
     getFriendName
   }
-}, {
-  // 持久化配置
-  persist: {
-    // 明确指定持久化 notices，好友列表也可以选择持久化
-    paths: ['notices', 'friends', 'groups'],
-    storage: localStorage
-  } as any
 })

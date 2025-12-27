@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
+import { useStorage } from '@vueuse/core'
 import { useContactStore } from './contact'
 
 export interface Session {
@@ -13,14 +14,24 @@ export interface Session {
 }
 
 export const useSessionStore = defineStore('session', () => {
-  // 纯内存数组
-  const sessions = ref<Session[]>([])
   const contactStore = useContactStore()
 
-  // 计算属性：按时间倒序排列
+  // ============================================================================
+  // 持久化状态：会话列表
+  // 使用 useStorage 确保持久化到 localStorage
+  // ============================================================================
+  const sessions = useStorage<Session[]>('rime-sessions', [])
+
+  // ============================================================================
+  // 计算属性
+  // ============================================================================
   const sortedSessions = computed(() => {
     return sessions.value.sort((a, b) => b.time - a.time)
   })
+
+  // ============================================================================
+  // 动作
+  // ============================================================================
 
   // 获取单个会话
   function getSession(id: string) {
@@ -34,14 +45,11 @@ export const useSessionStore = defineStore('session', () => {
     // 情况 A: 会话已存在
     if (index !== -1) {
       const current = sessions.value[index]
-
-      // 显式检查 current 是否存在，解决 TS 的 undefined 报错
       if (current) {
-        // 1. 合并基础属性 (preview, time 等)
+        // 1. 合并属性
         Object.assign(current, partial)
 
-        // 2. 特殊处理未读数 (累加逻辑)
-        // 如果传入的是 0，表示清空；如果大于 0，表示新消息累加
+        // 2. 累加未读数
         if (typeof partial.unread === 'number') {
            if (partial.unread === 0) {
              current.unread = 0
@@ -50,18 +58,17 @@ export const useSessionStore = defineStore('session', () => {
            }
         }
 
-        // 3. 置顶会话 (先删除旧位置，再插入到头部)
+        // 3. 置顶会话 (操作数组，useStorage 会自动同步)
         sessions.value.splice(index, 1)
         sessions.value.unshift(current)
       }
     }
-    // 情况 B: 会话不存在，新建
+    // 情况 B: 新建会话
     else {
       const isGroup = partial.type === 'group' || id.length > 5
       let name = `会话 ${id}`
       let avatar = ''
 
-      // 尝试从联系人 Store 获取更详细的信息
       if (isGroup) {
         name = contactStore.getGroupName(Number(id))
         avatar = `https://p.qlogo.cn/gh/${id}/${id}/0`
@@ -70,7 +77,6 @@ export const useSessionStore = defineStore('session', () => {
         avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
       }
 
-      // 构建新会话对象
       const newSession: Session = {
         id,
         type: isGroup ? 'group' : 'private',
@@ -98,16 +104,10 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   return {
-    sessions: sortedSessions,
+    sessions: sortedSessions, // 导出排序后的计算属性
     getSession,
     updateSession,
     clearUnread,
     removeSession
   }
-}, {
-  // 持久化配置
-  persist: {
-    paths: ['sessions'],
-    storage: localStorage
-  } as any
 })

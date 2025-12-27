@@ -16,7 +16,7 @@
         <div
           v-for="file in currentFiles"
           :key="file.id"
-          class="flex-x gap-3 p-3 my-hover rounded-lg cursor-pointer my-trans"
+          class="flex-x gap-3 p-3 my-hover rounded-2xl cursor-pointer my-trans"
           @click="handleFileClick(file)"
         >
           <div

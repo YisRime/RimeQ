@@ -1,35 +1,26 @@
 <template>
-  <!-- 根容器：统一内边距，处理背景与字体 -->
+  <!-- 根容器 -->
   <div
-    class="ui-flex-col-full overflow-hidden select-none text-foreground-main font-sans ui-trans ui-dur-normal bg-background-main p-3 gap-3"
+    class="ui-flex-col-full overflow-hidden select-none text-foreground-main font-sans ui-trans ui-dur-normal bg-background-main p-2 gap-2"
     :style="rootStyle"
   >
-    <!-- 背景遮罩：处理图片模糊与透明度 -->
+    <!-- 背景遮罩 -->
     <div
       v-if="settingStore.config.backgroundImg"
       class="ui-abs-full bg-background-main/90 dark:bg-background-main/80 backdrop-blur-sm -z-10"
       :style="`backdrop-filter: blur(${settingStore.config.backgroundBlur}px);`"
     />
-
-    <!-- 布局容器：处理三栏排版 -->
-    <!-- 移动端设为 gap-0 以消除侧边栏隐藏时的多余间隙，实现完美对称 -->
+    <!-- 布局容器 -->
     <div
       class="flex flex-1 overflow-hidden relative"
-      :class="isMobile ? 'gap-0' : 'gap-3'"
+      :class="isMobile ? 'gap-0' : 'gap-2'"
     >
-
-      <!-- 1. 左侧导航栏 (Aside) -->
+      <!-- 左侧导航栏 -->
       <aside
-        class="flex flex-col shrink-0 bg-background-sub shadow-sm border border-background-dim/50 ui-trans ui-dur-normal z-30 overflow-hidden relative"
-        :class="[
-          radiusClass,
-          /* 宽度响应：移动端全宽 / 平板窄栏 / 桌面宽栏 */
-          isMobile ? 'w-full' : (isTablet ? 'w-[72px]' : 'w-80'),
-          /* 移动端逻辑：进入聊天内容时隐藏自身 */
-          isMobile && isContentMode ? '!w-0 !opacity-0 !border-none' : ''
-        ]"
+        class="flex flex-col shrink-0 bg-background-sub shadow-sm border border-background-dim/50 ui-trans ui-dur-normal z-30 overflow-hidden relative rounded-2xl"
+        :class="[isMobile ? 'w-full' : (isTablet ? 'w-[72px]' : 'w-80'), isMobile && isContentMode ? '!w-0 !opacity-0 !border-none' : '']"
       >
-        <!-- 侧边栏头部 -->
+        <!-- 侧边栏 -->
         <header
           class="h-16 shrink-0 relative flex items-center border-b border-background-dim/30 transition-colors"
           :class="isTablet ? 'w-[72px]' : 'w-full'"
@@ -48,8 +39,7 @@
               />
             </div>
           </div>
-
-          <!-- 顶部导航与搜索 (平板模式隐藏) -->
+          <!-- 菜单与搜索 (平板模式隐藏) -->
           <div v-if="!isTablet" class="ui-flex-truncate ui-flex-x gap-2 pr-3">
             <div
               class="ui-flex-x justify-start gap-1 shrink-0 ui-trans ui-dur-normal overflow-hidden"
@@ -77,7 +67,6 @@
             </IconField>
           </div>
         </header>
-
         <!-- 垂直菜单 (仅平板模式显示) -->
         <div
           v-if="isTablet"
@@ -95,10 +84,8 @@
             @click="router.push(btn.path)"
           />
         </div>
-
-        <!-- 导航列表视图 -->
+        <!-- 导航列表 -->
         <div class="flex-1 overflow-hidden relative bg-background-sub w-full">
-          <!-- 内部定宽容器防止压缩 -->
           <div class="size-full relative" :class="isTablet ? 'min-w-[72px]' : 'min-w-[320px]'">
             <router-view v-slot="{ Component }" name="nav">
               <keep-alive>
@@ -108,15 +95,10 @@
           </div>
         </div>
       </aside>
-
-      <!-- 2. 中间主内容区 (Main) -->
+      <!-- 中间主内容区 -->
       <main
-        class="flex-1 min-w-0 flex flex-col overflow-hidden bg-background-sub shadow-sm border border-background-dim/50 relative z-20 ui-trans ui-dur-normal"
-        :class="[
-          radiusClass,
-          /* 移动端逻辑：在列表模式下隐藏自身，让位于 Aside */
-          isMobile && !isContentMode ? '!w-0 !min-w-0 !flex-none !opacity-0 !border-none' : ''
-        ]"
+        class="flex-1 min-w-0 flex flex-col overflow-hidden bg-background-sub shadow-sm border border-background-dim/50 relative z-20 ui-trans ui-dur-normal rounded-2xl"
+        :class="[isMobile && !isContentMode ? '!w-0 !min-w-0 !flex-none !opacity-0 !border-none' : '']"
       >
         <!-- 标题栏 -->
         <header
@@ -141,7 +123,6 @@
              <Button v-tooltip.bottom="'群成员'" icon="i-ri-group-line" text rounded class="!w-9 !h-9 !text-foreground-sub hover:!text-primary" @click="router.push(`/${chatId}/member`)" />
           </div>
         </header>
-
         <!-- 内容路由视图 -->
         <div class="ui-flex-col-full relative overflow-hidden ui-flex-truncate">
           <router-view v-slot="{ Component }">
@@ -156,8 +137,7 @@
           />
         </div>
       </main>
-
-      <!-- 3. 右侧扩展侧边栏 (Sidebar Card) -->
+      <!-- 右侧扩展侧边栏 -->
       <router-view v-slot="{ Component }" name="sidebar">
         <Transition
           enter-active-class="transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.5,1)]"
@@ -167,14 +147,9 @@
         >
           <aside
             v-if="Component"
-            class="bg-background-sub z-[60] overflow-hidden flex flex-col border border-background-dim/50 shadow-xl ui-trans ui-dur-normal"
-            :class="[
-              radiusClass,
-              /* 移动端覆盖，桌面端挤压 */
-              isMobile ? 'absolute inset-y-0 right-0 w-full' : 'static w-[320px] shadow-sm z-0'
-            ]"
+            class="bg-background-sub z-[60] overflow-hidden flex flex-col border border-background-dim/50 shadow-xl ui-trans ui-dur-normal rounded-2xl"
+            :class="[isMobile ? 'absolute inset-y-0 right-0 w-full' : 'static w-[320px] shadow-sm z-0']"
           >
-            <!-- 内部定宽容器 -->
             <div class="size-full md:w-[320px] flex-shrink-0 ui-trans ui-dur-normal">
               <component :is="Component" class="size-full" />
             </div>
@@ -183,7 +158,6 @@
       </router-view>
 
     </div>
-
     <!-- 全局组件 -->
     <Toast position="top-left" />
     <ConfirmDialog />
@@ -218,9 +192,6 @@ const isTablet = breakpoints.between('md', 'xl')
 // 界面状态
 const searchKeyword = ref('')
 const showMenu = ref(false)
-
-// 样式计算：统一管理圆角大小
-const radiusClass = computed(() => isMobile.value ? 'rounded-2xl' : 'rounded-3xl')
 
 // 样式计算：根背景
 const rootStyle = computed(() => {
@@ -283,7 +254,7 @@ html, body, #app {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 交互优化：防止拖拽图片 */
+/* 防止拖拽图片 */
 img {
   -webkit-user-drag: none;
   user-select: none;

@@ -17,7 +17,6 @@ import GroupMember from '@/views/pages/GroupMember.vue'
 import MultiForward from '@/views/pages/MultiForward.vue'
 
 const routes: RouteRecordRaw[] = [
-  // 功能页面
   {
     path: '/login',
     name: 'Login',
@@ -42,7 +41,6 @@ const routes: RouteRecordRaw[] = [
     components: { default: NoticeView, nav: ContactList },
     meta: { title: '通知' }
   },
-  // 群侧边栏
   {
     path: '/:id/member',
     name: 'GroupMember',
@@ -71,9 +69,8 @@ const routes: RouteRecordRaw[] = [
     path: '/:id/forward',
     name: 'MultiForward',
     components: { default: ChatView, nav: SessionList, sidebar: MultiForward },
-    meta: { title: '转发' }
+    meta: { title: '多选转发' }
   },
-  // 会话主页
   {
     path: '/:id?',
     name: 'Chat',
@@ -93,19 +90,13 @@ export const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.title) document.title = `${to.meta.title} - RimeQ`
   const settingStore = useSettingStore()
-  if (settingStore.isLogged) {
-    if (to.name === 'Login') {
-      return next('/')
-    }
-    return next()
+  // 已登录
+  if (settingStore.isLogged && to.name === 'Login') {
+    return next('/')
   }
-
-  else {
-    if (to.meta.public === true) {
-      return next()
-    }
-    else {
-      return next({ name: 'Login', query: { redirect: to.fullPath } })
-    }
+  // 未登录
+  if (!settingStore.isLogged && !to.meta.public) {
+    return next({ name: 'Login', query: { redirect: to.fullPath } })
   }
+  next()
 })

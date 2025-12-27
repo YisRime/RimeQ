@@ -13,7 +13,7 @@
         <div
           v-for="item in list"
           :key="item.msg_id || item.message_id"
-          class="bg-sub p-3 rounded-xl border border-dim hover:shadow-sm my-trans cursor-pointer"
+          class="bg-sub p-3 rounded-2xl border border-dim hover:shadow-sm my-trans cursor-pointer"
           @click="item.msg_id && jumpToMsg(String(item.msg_id))"
         >
           <div class="flex-x gap-2 mb-2">
@@ -93,3 +93,4 @@ const jumpToMsg = (msgId: string) => {
   console.log('Jump to', msgId)
 }
 </script>
+

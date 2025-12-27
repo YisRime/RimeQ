@@ -10,7 +10,7 @@
         <div
           v-for="(item, idx) in list"
           :key="idx"
-          class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/30 p-4 rounded-xl relative overflow-hidden"
+          class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/30 p-4 rounded-2xl relative overflow-hidden"
         >
           <div class="absolute top-0 right-0 p-2 opacity-10"><div class="i-ri-pushpin-line text-4xl" /></div>
           <div class="font-bold text-main mb-2 truncate pr-8">

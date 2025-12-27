@@ -2,7 +2,7 @@
   <div class="flex flex-col h-full w-full bg-main border-r border-dim">
     <!-- Header -->
     <header class="flex-x gap-3 p-4 border-b border-dim h-14 box-border">
-      <div class="p-1.5 rounded-lg cursor-pointer my-hover my-trans" @click="router.back()">
+      <div class="p-1.5 rounded-2xl cursor-pointer my-hover my-trans" @click="router.back()">
         <div class="i-ri-arrow-left-line text-lg text-sub" />
       </div>
       <span class="font-bold text-base flex-1">选择转发目标</span>
@@ -26,7 +26,7 @@
         <div
           v-for="s in filteredSessions"
           :key="s.id"
-          class="flex-x gap-3 p-2 rounded-lg cursor-pointer my-trans my-hover"
+          class="flex-x gap-3 p-2 rounded-2xl cursor-pointer my-trans my-hover"
           :class="{ 'bg-primary/10': selectedId === s.id }"
           @click="selectedId = s.id"
         >

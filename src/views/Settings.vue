@@ -4,11 +4,11 @@
     <div class="flex-1 overflow-y-auto ui-scrollbar">
       <div class="max-w-2xl mx-auto p-4 md:p-6 flex flex-col gap-6">
         <!-- 顶部 Tab 导航 -->
-        <div class="flex p-1 bg-background-dim/30 rounded-xl self-center">
+        <div class="flex p-1 bg-background-dim/30 rounded-2xl self-center">
            <div
              v-for="tab in tabs"
              :key="tab.key"
-             class="px-6 py-1.5 rounded-lg text-sm font-bold cursor-pointer ui-trans ui-dur-fast select-none ui-flex-x gap-2"
+             class="px-6 py-1.5 rounded-xl text-sm font-bold cursor-pointer ui-trans ui-dur-fast select-none ui-flex-x gap-2"
              :class="activeTab === tab.key ? 'bg-background-sub text-primary shadow-sm' : 'text-foreground-sub hover:text-foreground-main'"
              @click="activeTab = tab.key"
            >
@@ -16,17 +16,15 @@
               <span>{{ tab.label }}</span>
            </div>
         </div>
-
-        <!-- 1. 用户设置面板 -->
-        <section v-show="activeTab === 'user'" class="flex flex-col gap-6 ui-anim-fade-in">
-          <!-- 后端状态卡片 -->
+        <!-- 用户设置面板 -->
+        <section v-show="activeTab === 'user'" class="flex flex-col gap-6">
           <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">后端状态</h2>
-            <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden">
+            <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden">
               <div class="p-4 ui-flex-x gap-4 border-b border-background-dim">
-                <!-- 状态图标 -->
+                <!-- 后端状态 -->
                 <div
-                  class="w-10 h-10 rounded-lg ui-flex-center shrink-0"
+                  class="w-10 h-10 rounded-xl ui-flex-center shrink-0"
                   :class="robotStatus.online ? 'bg-green-500/10' : 'bg-red-500/10'"
                 >
                   <div
@@ -34,14 +32,12 @@
                     :class="robotStatus.online ? 'text-green-500' : 'text-red-500'"
                   />
                 </div>
-                <!-- 状态文本 -->
                 <div class="flex-1">
                   <div class="text-sm font-medium text-foreground-main">{{ robotStatus.appName }}</div>
                   <div class="text-xs mt-0.5" :class="robotStatus.online ? 'text-green-500' : 'text-red-500'">
                     {{ robotStatus.online ? '运行正常' : '连接异常' }}
                   </div>
                 </div>
-                <!-- 退出按钮 -->
                 <Button label="退出登录" severity="danger" size="small" outlined @click="handleLogout" />
               </div>
               <!-- 版本信息 -->
@@ -57,18 +53,17 @@
               </div>
             </div>
           </div>
-
           <!-- 用户配置表单 -->
           <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">用户配置</h2>
-            <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
+            <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
               <!-- 修改昵称 -->
               <div class="p-4 ui-flex-x gap-3">
                 <label class="text-sm font-medium text-foreground-main whitespace-nowrap">昵称</label>
                 <InputText v-model="profile.nickname" class="!h-9 flex-1 !bg-background-dim/50 focus:!bg-background-dim !border-transparent focus:!border-primary/50 !rounded-lg !text-sm" />
                 <Button label="保存" size="small" :loading="isSaving" @click="saveProfile" />
               </div>
-              <!-- 记住密码开关 -->
+              <!-- 记住密码 -->
               <div class="ui-flex-between p-4 min-h-[72px]">
                 <div class="ui-flex-x gap-4">
                   <div class="i-ri-lock-unlock-line text-xl text-foreground-sub" />
@@ -79,7 +74,7 @@
                 </div>
                 <ToggleSwitch v-model="settingStore.config.rememberToken" />
               </div>
-              <!-- 自动连接开关 -->
+              <!-- 自动连接 -->
               <div class="ui-flex-between p-4 min-h-[72px]">
                 <div class="ui-flex-x gap-4">
                   <div class="i-ri-link-m text-xl text-foreground-sub" />
@@ -93,12 +88,11 @@
             </div>
           </div>
         </section>
-
-        <!-- 2. 外观设置面板 -->
-        <section v-show="activeTab === 'appearance'" class="flex flex-col gap-6 ui-anim-fade-in">
+        <!-- 外观设置面板 -->
+        <section v-show="activeTab === 'appearance'" class="flex flex-col gap-6">
            <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">明暗</h2>
-            <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
+            <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
               <!-- 跟随系统 -->
               <div class="ui-flex-between p-4 min-h-[72px]">
                 <div class="ui-flex-x gap-4">
@@ -125,10 +119,9 @@
               </div>
             </div>
           </div>
-
           <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">主题</h2>
-             <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
+             <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
               <!-- 主题色选择 -->
               <div class="ui-flex-between p-4 min-h-[72px]">
                 <div class="ui-flex-x gap-4">
@@ -191,12 +184,11 @@
              </div>
           </div>
         </section>
-
-        <!-- 3. 高级设置面板 -->
-        <section v-show="activeTab === 'advanced'" class="flex flex-col gap-6 ui-anim-fade-in">
+        <!-- 高级设置面板 -->
+        <section v-show="activeTab === 'advanced'" class="flex flex-col gap-6">
           <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">功能</h2>
-            <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
+            <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden divide-y divide-background-dim">
               <!-- 防撤回 -->
               <div class="ui-flex-between p-4 min-h-[72px]">
                 <div class="ui-flex-x gap-4">
@@ -210,10 +202,9 @@
               </div>
             </div>
           </div>
-
           <div>
             <h2 class="text-sm font-semibold text-foreground-sub mb-2 px-1">杂项</h2>
-            <div class="bg-background-sub rounded-xl shadow-sm border border-background-dim overflow-hidden">
+            <div class="bg-background-sub rounded-2xl shadow-sm border border-background-dim overflow-hidden">
               <!-- 自定义 CSS -->
               <div class="p-4 flex flex-col gap-3">
                 <div class="ui-flex-x gap-4">
@@ -231,12 +222,11 @@
               </div>
             </div>
           </div>
-
           <div>
             <h2 class="text-sm font-semibold text-red-500/80 mb-2 px-1">高危</h2>
-            <!-- 重置应用按钮 -->
+            <!-- 重置应用 -->
             <div
-              class="bg-red-500/10 rounded-xl border border-red-500/30 p-4 hover:bg-red-500/20 cursor-pointer text-red-500 ui-flex-between group ui-trans ui-dur-fast"
+              class="bg-red-500/10 rounded-2xl border border-red-500/30 p-4 hover:bg-red-500/20 cursor-pointer text-red-500 ui-flex-between group ui-trans ui-dur-fast"
               @click="resetApp"
             >
               <div class="ui-flex-x gap-4">
@@ -256,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -287,7 +277,7 @@ const robotStatus = reactive({
   protocolVersion: 'N/A',
 })
 
-// Tab 菜单定义
+// Tab 菜单
 const tabs = [
   { key: 'user', label: '用户', icon: 'i-ri-user-line' },
   { key: 'appearance', label: '外观', icon: 'i-ri-palette-line' },
@@ -338,7 +328,7 @@ const handleLogout = () => {
     icon: 'i-ri-error-warning-line',
     accept: () => {
       settingStore.logout()
-      router.push('/login')
+      router.replace('/login')
     }
   })
 }
@@ -351,7 +341,6 @@ const resetApp = () => {
     icon: 'i-ri-alert-line',
     acceptClass: '!bg-red-500',
     accept: () => {
-      // 删除 IndexedDB 数据库
       const dbRequest = window.indexedDB.deleteDatabase('RimeQDB')
       const reload = () => {
         localStorage.clear()
@@ -364,25 +353,32 @@ const resetApp = () => {
   })
 }
 
-// 初始化：加载 Bot 状态
-onMounted(async () => {
-  // 如果未连接，直接显示未连接状态，避免 socket 报错
-  if (!settingStore.isConnected) {
-     Object.assign(robotStatus, { online: false, appName: '未连接', appVersion: 'N/A', protocolVersion: 'N/A' })
-     return
-  }
-
-  try {
-    const [statusRes, versionRes] = await Promise.all([bot.getStatus(), bot.getVersionInfo()])
-    Object.assign(robotStatus, {
-      online: statusRes.online && statusRes.good,
-      appName: versionRes.app_name,
-      appVersion: versionRes.app_version,
-      protocolVersion: versionRes.protocol_version
-    })
-  } catch (e) {
-    console.error('[Settings] Status check failed:', e)
-    Object.assign(robotStatus, { online: false, appName: '获取失败' })
-  }
-})
+// 监测后端状态
+watch(
+  () => settingStore.isConnected,
+  async (connected) => {
+    if (connected) {
+      try {
+        const [statusRes, versionRes] = await Promise.all([bot.getStatus(), bot.getVersionInfo()])
+        Object.assign(robotStatus, {
+          online: statusRes.online && statusRes.good,
+          appName: versionRes.app_name,
+          appVersion: versionRes.app_version,
+          protocolVersion: versionRes.protocol_version
+        })
+      } catch (e) {
+        console.error('[Settings] 状态检查失败:', e)
+        Object.assign(robotStatus, { online: false, appName: '数据异常' })
+      }
+    } else {
+      Object.assign(robotStatus, {
+        online: false,
+        appName: '未连接',
+        appVersion: 'N/A',
+        protocolVersion: 'N/A'
+      })
+    }
+  },
+  { immediate: true }
+)
 </script>

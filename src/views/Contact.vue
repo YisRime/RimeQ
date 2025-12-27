@@ -4,11 +4,11 @@
     <div class="flex-none px-3 pt-3 pb-2 flex flex-col gap-2 z-20">
       <!-- 系统通知入口 -->
       <div v-if="!keyword">
-        <!-- 平板模式：仅图标 -->
+        <!-- 平板模式 -->
         <div
           v-if="isTablet"
           title="系统通知"
-          class="h-10 w-full ui-flex-center rounded-lg cursor-pointer ui-ia group border"
+          class="h-10 w-full ui-flex-center rounded-2xl cursor-pointer ui-ia group border"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -30,11 +30,10 @@
             {{ noticeCount > 99 ? '99+' : noticeCount }}
           </div>
         </div>
-
-        <!-- 桌面/移动模式：完整条目 -->
+        <!-- 桌面/移动模式 -->
         <div
           v-else
-          class="h-12 ui-flex-x px-3 gap-3 rounded-xl cursor-pointer border ui-ia group"
+          class="h-12 ui-flex-x px-3 gap-3 rounded-2xl cursor-pointer border ui-ia group"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -62,16 +61,15 @@
           />
         </div>
       </div>
-
-      <!-- 好友/群组 切换 Tab -->
+      <!-- 好友/群组 切换 -->
       <div
-        class="flex select-none bg-background-dim/30 p-1 rounded-lg transition-all border border-background-dim/20"
+        class="flex select-none bg-background-dim/30 p-1 rounded-2xl transition-all border border-background-dim/20"
         :class="isTablet ? 'flex-col gap-1' : 'flex-row'"
       >
         <div
           v-for="tab in tabs"
           :key="tab.key"
-          class="flex-1 ui-flex-center text-sm font-bold rounded-md cursor-pointer ui-trans ui-dur-fast"
+          class="flex-1 ui-flex-center text-sm font-bold rounded-xl cursor-pointer ui-trans ui-dur-fast"
           :class="[
             currentTab === tab.key
               ? '!bg-background-sub text-primary shadow-sm ring-1 ring-black/5 dark:ring-white/10'
@@ -84,7 +82,6 @@
         </div>
       </div>
     </div>
-
     <!-- 滚动列表区域 -->
     <div class="flex-1 min-h-0 overflow-y-auto ui-scrollbar relative scroll-smooth px-2 pb-2">
       <!-- 场景 A: 好友列表 -->
@@ -94,7 +91,7 @@
           <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
             <!-- 分组标题栏 -->
             <div
-              class="sticky top-0 z-10 ui-flex-x px-2 py-2 cursor-pointer bg-background-sub/95 backdrop-blur hover:bg-background-dim/30 rounded-lg transition-colors group border-b border-transparent hover:border-background-dim/50"
+              class="sticky top-0 z-10 ui-flex-x px-2 py-2 cursor-pointer bg-background-sub/95 backdrop-blur hover:bg-background-dim/30 rounded-2xl transition-colors group border-b border-transparent hover:border-background-dim/50"
               :class="isTablet ? 'flex-col justify-center gap-0.5' : 'gap-2'"
               @click="toggleCategory(cat.categoryId)"
             >
@@ -114,7 +111,7 @@
               <div
                 v-for="friend in cat.buddyList"
                 :key="friend.user_id"
-                class="ui-flex-x gap-3 p-2 rounded-xl group relative overflow-hidden ui-ia-hover"
+                class="ui-flex-x gap-3 p-2 rounded-2xl group relative overflow-hidden ui-ia-hover"
                 :class="isTablet ? 'justify-center' : ''"
                 @click="router.push(`/${friend.user_id}`)"
               >
@@ -137,12 +134,12 @@
             </div>
           </div>
         </template>
-        <!-- 平铺展示 (当无分组数据时) -->
+        <!-- 平铺展示 -->
         <template v-else>
           <div
             v-for="friend in filteredFlatFriends"
             :key="friend.user_id"
-            class="ui-flex-x gap-3 p-2 rounded-xl group relative ui-ia-hover"
+            class="ui-flex-x gap-3 p-2 rounded-2xl group relative ui-ia-hover"
             :class="isTablet ? 'justify-center' : ''"
             @click="router.push(`/${friend.user_id}`)"
           >
@@ -162,13 +159,12 @@
           </div>
         </template>
       </template>
-
       <!-- 场景 B: 群组列表 -->
       <template v-else>
         <div
           v-for="group in filteredGroups"
           :key="group.group_id"
-          class="ui-flex-x gap-3 p-2 rounded-xl group relative ui-ia-hover"
+          class="ui-flex-x gap-3 p-2 rounded-2xl group relative ui-ia-hover"
           :class="isTablet ? 'justify-center' : ''"
           @click="router.push(`/${group.group_id}`)"
         >
@@ -217,7 +213,7 @@ const expandedCats = ref<number[]>([])
 
 const noticeCount = computed(() => contactStore.notices.length)
 
-// 过滤后的分组列表 (搜索)
+// 过滤分组列表
 const filteredCategories = computed(() => {
   const k = (props.keyword || '').toLowerCase().trim()
   if (!k) return friendCategories.value
@@ -233,7 +229,7 @@ const filteredCategories = computed(() => {
     .filter(cat => cat.buddyList.length > 0)
 })
 
-// 过滤后的平铺好友列表
+// 过滤好友列表
 const filteredFlatFriends = computed(() => {
   const k = (props.keyword || '').toLowerCase().trim()
   const list = contactStore.friends
@@ -245,7 +241,7 @@ const filteredFlatFriends = computed(() => {
   )
 })
 
-// 过滤后的群组列表
+// 过滤群组列表
 const filteredGroups = computed(() => {
   const k = (props.keyword || '').toLowerCase().trim()
   const list = contactStore.groups
@@ -265,7 +261,6 @@ const toggleCategory = (id: number) => {
 
 // 初始化数据加载
 onMounted(async () => {
-  // 优先加载分组，失败则加载平铺列表
   if (friendCategories.value.length === 0) {
     try {
       const res = await bot.getFriendsWithCategory()
@@ -279,7 +274,7 @@ onMounted(async () => {
   }
 })
 
-// 切换 Tab 时按需加载群组
+// 按需加载群组
 watch(currentTab, async (val) => {
   if (val === 'group' && contactStore.groups.length === 0) {
     bot.getGroupList().then(res => contactStore.groups = res || []).catch(() => {})
