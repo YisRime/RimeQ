@@ -8,9 +8,8 @@
         <div
           v-for="session in filteredSessions"
           :key="session.id"
-          class="group relative rounded-xl cursor-pointer select-none overflow-hidden ui-trans ui-dur-normal"
+          class="group relative rounded-xl cursor-pointer select-none overflow-hidden ui-trans ui-dur-normal p-2.5 md:p-2 xl:p-2.5"
           :class="[
-            isTablet ? 'p-2 justify-center' : 'p-2.5',
             isActive(session.id)
               ? 'bg-primary text-primary-content shadow-md shadow-primary/20'
               : 'hover:ui-bg-background-dim/50 bg-transparent text-foreground-main'
@@ -42,8 +41,7 @@
             </div>
             <!-- 文本信息 (平板模式隐藏) -->
             <div
-              class="grid ui-trans ui-dur-normal ease-in-out"
-              :class="isTablet ? 'grid-cols-[0fr] opacity-0 ml-0' : 'grid-cols-[1fr] opacity-100 ml-3'"
+              class="grid ui-trans ui-dur-normal ease-in-out grid-cols-[1fr] opacity-100 ml-3 md:grid-cols-[0fr] md:opacity-0 md:ml-0 xl:grid-cols-[1fr] xl:opacity-100 xl:ml-3"
             >
               <div class="overflow-hidden min-w-0 flex flex-col justify-center h-10">
                 <!-- 顶部：名称 + 时间 -->
@@ -82,7 +80,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import Avatar from 'primevue/avatar'
 import { useSessionStore, type Session } from '@/stores/session'
 import { useContactStore } from '@/stores/contact'
@@ -95,10 +92,6 @@ const route = useRoute()
 const props = defineProps<{ keyword?: string }>()
 const sessionStore = useSessionStore()
 const contactStore = useContactStore()
-
-// 响应式断点
-const breakpoints = useBreakpoints(breakpointsTailwind)
-const isTablet = breakpoints.between('md', 'xl')
 
 // 判断当前会话是否激活
 const isActive = (id: string) => route.params.id === id
@@ -122,13 +115,13 @@ const filteredSessions = computed(() => {
 
 // 获取会话显示名称
 const getSessionName = (session: Session) => {
+  let name: string
   if (session.type === 'group' || session.id.length > 5) {
-    const group = contactStore.groups.find(g => String(g.group_id) === session.id)
-    return group?.group_name || session.name
+    name = contactStore.getGroupName(session.id)
   } else {
-    const friend = contactStore.friends.find(f => String(f.user_id) === session.id)
-    return friend?.remark || friend?.nickname || session.name
+    name = contactStore.getFriendName(session.id)
   }
+  return name === session.id ? session.name : name
 }
 
 // 格式化时间戳

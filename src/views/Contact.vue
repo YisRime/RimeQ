@@ -6,9 +6,8 @@
       <div v-if="!keyword">
         <!-- 平板模式 -->
         <div
-          v-if="isTablet"
           title="系统通知"
-          class="h-10 w-full ui-flex-center rounded-2xl cursor-pointer ui-ia group border"
+          class="h-10 w-full ui-flex-center rounded-2xl cursor-pointer ui-ia group border hidden md:flex xl:hidden"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -32,8 +31,7 @@
         </div>
         <!-- 桌面/移动模式 -->
         <div
-          v-else
-          class="h-12 ui-flex-x px-3 gap-3 rounded-2xl cursor-pointer border ui-ia group"
+          class="h-12 ui-flex-x px-3 gap-3 rounded-2xl cursor-pointer border ui-ia group flex md:hidden xl:flex"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -63,18 +61,16 @@
       </div>
       <!-- 好友/群组 切换 -->
       <div
-        class="flex select-none bg-background-dim/30 p-1 rounded-2xl transition-all border border-background-dim/20"
-        :class="isTablet ? 'flex-col gap-1' : 'flex-row'"
+        class="flex select-none bg-background-dim/30 p-1 rounded-2xl transition-all border border-background-dim/20 flex-row md:flex-col md:gap-1 xl:flex-row"
       >
         <div
           v-for="tab in tabs"
           :key="tab.key"
-          class="flex-1 ui-flex-center text-sm font-bold rounded-xl cursor-pointer ui-trans ui-dur-fast"
+          class="flex-1 ui-flex-center font-bold rounded-xl cursor-pointer ui-trans ui-dur-fast py-1.5 text-sm md:text-xs xl:text-sm"
           :class="[
             currentTab === tab.key
               ? '!bg-background-sub text-primary shadow-sm ring-1 ring-black/5 dark:ring-white/10'
               : 'text-foreground-sub hover:text-foreground-main hover:bg-background-sub/50',
-            isTablet ? 'py-1.5 text-xs' : 'py-1.5'
           ]"
           @click="currentTab = tab.key"
         >
@@ -87,85 +83,56 @@
       <!-- 场景 A: 好友列表 -->
       <template v-if="currentTab === 'friend'">
         <!-- 分组展示 -->
-        <template v-if="friendCategories.length > 0">
-          <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
-            <!-- 分组标题栏 -->
+        <div v-for="cat in filteredCategories" :key="cat.categoryId" class="select-none mb-1 last:mb-0">
+          <!-- 分组标题栏 -->
+          <div
+            class="sticky top-0 z-10 ui-flex-x px-2 py-2 cursor-pointer bg-background-sub/95 backdrop-blur hover:bg-background-dim/30 rounded-2xl transition-colors group border-b border-transparent hover:border-background-dim/50 gap-2 md:flex-col md:justify-center md:gap-0.5 xl:flex-row xl:gap-2"
+            @click="toggleCategory(cat.categoryId)"
+          >
             <div
-              class="sticky top-0 z-10 ui-flex-x px-2 py-2 cursor-pointer bg-background-sub/95 backdrop-blur hover:bg-background-dim/30 rounded-2xl transition-colors group border-b border-transparent hover:border-background-dim/50"
-              :class="isTablet ? 'flex-col justify-center gap-0.5' : 'gap-2'"
-              @click="toggleCategory(cat.categoryId)"
+              class="i-ri-arrow-right-s-fill text-foreground-sub transition-transform duration-200 shrink-0 group-hover:text-primary"
+              :class="{ 'rotate-90': expandedCats.includes(cat.categoryId) || keyword }"
+            />
+            <span class="text-xs font-bold text-foreground-sub group-hover:text-foreground-main flex-1 truncate block md:hidden xl:block">
+              {{ cat.categoryName }}
+            </span>
+            <span class="text-[10px] text-foreground-dim font-mono group-hover:text-foreground-sub transition-colors">
+              {{ isTablet ? cat.categoryMbCount : `${cat.onlineCount}/${cat.categoryMbCount}` }}
+            </span>
+          </div>
+          <!-- 分组好友项 -->
+          <div v-show="expandedCats.includes(cat.categoryId) || keyword" class="pr-1 pl-2 md:pl-1 md:pt-1 xl:pl-2 xl:pt-0">
+            <div
+              v-for="friend in cat.buddyList"
+              :key="friend.user_id"
+              class="ui-flex-x gap-3 p-2 rounded-2xl group relative overflow-hidden ui-ia-hover md:justify-center xl:justify-start"
+              @click="router.push(`/${friend.user_id}`)"
             >
-              <div
-                class="i-ri-arrow-right-s-fill text-foreground-sub transition-transform duration-200 shrink-0 group-hover:text-primary"
-                :class="{ 'rotate-90': expandedCats.includes(cat.categoryId) || keyword }"
+              <!-- 选中指示条 -->
+              <div class="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Avatar
+                shape="circle"
+                :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
+                class="w-9 h-9 shrink-0 bg-background-dim border border-background-dim/50 shadow-sm"
               />
-              <span v-if="!isTablet" class="text-xs font-bold text-foreground-sub group-hover:text-foreground-main flex-1 truncate">
-                {{ cat.categoryName }}
-              </span>
-              <span class="text-[10px] text-foreground-dim font-mono group-hover:text-foreground-sub transition-colors">
-                {{ isTablet ? cat.categoryMbCount : `${cat.onlineCount}/${cat.categoryMbCount}` }}
-              </span>
-            </div>
-            <!-- 分组好友项 -->
-            <div v-show="expandedCats.includes(cat.categoryId) || keyword" class="pl-1 pr-1" :class="isTablet ? 'pt-1' : 'pl-2'">
-              <div
-                v-for="friend in cat.buddyList"
-                :key="friend.user_id"
-                class="ui-flex-x gap-3 p-2 rounded-2xl group relative overflow-hidden ui-ia-hover"
-                :class="isTablet ? 'justify-center' : ''"
-                @click="router.push(`/${friend.user_id}`)"
-              >
-                <!-- 选中指示条 -->
-                <div class="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Avatar
-                  shape="circle"
-                  :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
-                  class="w-9 h-9 shrink-0 bg-background-dim border border-background-dim/50 shadow-sm"
-                />
-                <div v-if="!isTablet" class="ui-flex-truncate">
-                  <div class="text-sm font-medium text-foreground-main truncate group-hover:text-primary transition-colors">
-                    {{ friend.remark || friend.nickname }}
-                  </div>
-                  <div class="text-[11px] text-foreground-sub truncate font-mono opacity-60">
-                    {{ friend.nickname }}
-                  </div>
+              <div class="ui-flex-truncate block md:hidden xl:block">
+                <div class="text-sm font-medium text-foreground-main truncate group-hover:text-primary transition-colors">
+                  {{ friend.remark || friend.nickname }}
+                </div>
+                <div class="text-[11px] text-foreground-sub truncate font-mono opacity-60">
+                  {{ friend.nickname }} ({{ friend.user_id }})
                 </div>
               </div>
             </div>
           </div>
-        </template>
-        <!-- 平铺展示 -->
-        <template v-else>
-          <div
-            v-for="friend in filteredFlatFriends"
-            :key="friend.user_id"
-            class="ui-flex-x gap-3 p-2 rounded-2xl group relative ui-ia-hover"
-            :class="isTablet ? 'justify-center' : ''"
-            @click="router.push(`/${friend.user_id}`)"
-          >
-            <Avatar
-              shape="circle"
-              :image="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${friend.user_id}`"
-              class="w-9 h-9 shrink-0 bg-background-dim border border-background-dim/50 shadow-sm"
-            />
-            <div v-if="!isTablet" class="ui-flex-truncate">
-              <div class="text-sm font-medium text-foreground-main truncate group-hover:text-primary transition-colors">
-                {{ friend.remark || friend.nickname }}
-              </div>
-              <div class="text-[11px] text-foreground-sub truncate font-mono opacity-60">
-                {{ friend.nickname }}
-              </div>
-            </div>
-          </div>
-        </template>
+        </div>
       </template>
       <!-- 场景 B: 群组列表 -->
       <template v-else>
         <div
           v-for="group in filteredGroups"
           :key="group.group_id"
-          class="ui-flex-x gap-3 p-2 rounded-2xl group relative ui-ia-hover"
-          :class="isTablet ? 'justify-center' : ''"
+          class="ui-flex-x gap-3 p-2 rounded-2xl group relative ui-ia-hover md:justify-center xl:justify-start"
           @click="router.push(`/${group.group_id}`)"
         >
           <Avatar
@@ -173,12 +140,12 @@
             :image="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/0`"
             class="w-9 h-9 shrink-0 bg-background-dim border border-background-dim/50 shadow-sm"
           />
-          <div v-if="!isTablet" class="ui-flex-truncate">
+          <div class="ui-flex-truncate block md:hidden xl:block">
             <div class="text-sm font-medium text-foreground-main truncate group-hover:text-primary transition-colors">
-              {{ group.group_remark ? `${group.group_remark}` : group.group_name }}
+              {{ group.group_remark ? `${group.group_remark} (${group.group_name})` : group.group_name }}
             </div>
             <div class="text-[11px] text-foreground-sub truncate font-mono opacity-60">
-              {{ group.group_id }}
+              {{ group.group_id }} ({{ group.member_count }}/{{ group.max_member_count }})
             </div>
           </div>
         </div>
@@ -188,13 +155,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
 import Avatar from 'primevue/avatar'
 import { useContactStore } from '@/stores/contact'
-import { bot } from '@/api'
-import type { FriendCategory } from '@/types'
+import type { GroupInfo } from '@/types'
 
 defineOptions({ name: 'ContactView' })
 
@@ -208,48 +174,43 @@ const isTablet = breakpoints.between('md', 'xl')
 // 状态管理
 const tabs = [{ key: 'friend', label: '好友' }, { key: 'group', label: '群组' }] as const
 const currentTab = ref<'friend' | 'group'>('friend')
-const friendCategories = ref<FriendCategory[]>([])
 const expandedCats = ref<number[]>([])
+
+// 默认展开
+watch(
+  () => contactStore.friends,
+  (cats) => {
+    if (cats.length > 0 && expandedCats.value.length === 0) {
+      // @ts-ignore: cats.length > 0
+      expandedCats.value.push(cats[0].categoryId);
+    }
+  },
+  { deep: true, immediate: true }
+)
 
 const noticeCount = computed(() => contactStore.notices.length)
 
+function filterList<T extends Record<string, any>>(list: T[], keyword: string | undefined, fields: (keyof T)[]): T[] {
+  const k = (keyword || '').toLowerCase().trim()
+  if (!k) return list
+  return list.filter(item =>
+    fields.some(field =>
+      String(item[field] || '').toLowerCase().includes(k)
+    )
+  )
+}
+
 // 过滤分组列表
 const filteredCategories = computed(() => {
-  const k = (props.keyword || '').toLowerCase().trim()
-  if (!k) return friendCategories.value
-  return friendCategories.value
-    .map(cat => ({
-      ...cat,
-      buddyList: cat.buddyList.filter(f =>
-        (f.remark || '').toLowerCase().includes(k) ||
-        f.nickname.toLowerCase().includes(k) ||
-        String(f.user_id).includes(k)
-      )
-    }))
+  if (!(props.keyword || '').trim()) return contactStore.friends
+  return contactStore.friends
+    .map(cat => ({ ...cat, buddyList: filterList(cat.buddyList, props.keyword, ['remark', 'nickname', 'user_id']) }))
     .filter(cat => cat.buddyList.length > 0)
-})
-
-// 过滤好友列表
-const filteredFlatFriends = computed(() => {
-  const k = (props.keyword || '').toLowerCase().trim()
-  const list = contactStore.friends
-  if (!k) return list
-  return list.filter(f =>
-    (f.remark || '').toLowerCase().includes(k) ||
-    f.nickname.toLowerCase().includes(k) ||
-    String(f.user_id).includes(k)
-  )
 })
 
 // 过滤群组列表
 const filteredGroups = computed(() => {
-  const k = (props.keyword || '').toLowerCase().trim()
-  const list = contactStore.groups
-  if (!k) return list
-  return list.filter(g =>
-    g.group_name.toLowerCase().includes(k) ||
-    String(g.group_id).includes(k)
-  )
+  return filterList<GroupInfo>(contactStore.groups, props.keyword, ['group_name', 'group_id'])
 })
 
 // 切换分组展开/折叠
@@ -258,26 +219,4 @@ const toggleCategory = (id: number) => {
   if (idx > -1) expandedCats.value.splice(idx, 1)
   else expandedCats.value.push(id)
 }
-
-// 初始化数据加载
-onMounted(async () => {
-  if (friendCategories.value.length === 0) {
-    try {
-      const res = await bot.getFriendsWithCategory()
-      if (Array.isArray(res) && res.length > 0) friendCategories.value = res
-      else throw new Error('Empty Category List')
-    } catch {
-      if (contactStore.friends.length === 0) {
-        bot.getFriendList().then(res => contactStore.friends = res || []).catch(() => {})
-      }
-    }
-  }
-})
-
-// 按需加载群组
-watch(currentTab, async (val) => {
-  if (val === 'group' && contactStore.groups.length === 0) {
-    bot.getGroupList().then(res => contactStore.groups = res || []).catch(() => {})
-  }
-})
 </script>

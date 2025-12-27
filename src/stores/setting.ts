@@ -5,6 +5,7 @@ import { colord, extend } from 'colord'
 import mixPlugin from 'colord/plugins/mix'
 import a11yPlugin from 'colord/plugins/a11y'
 import { bot } from '@/api'
+import { useContactStore } from './contact'
 import type { LoginInfo } from '@/types'
 
 // 注册 Colord 插件
@@ -57,6 +58,11 @@ export const useSettingStore = defineStore('setting', () => {
       // 更新运行时状态
       user.value = info
       isConnected.value = true
+
+      // 异步获取列表
+      const contactStore = useContactStore()
+      contactStore.fetchContacts()
+
       // 更新持久化配置
       config.value.connectAddress = addr
       config.value.accessToken = config.value.rememberToken ? tk : ''
@@ -71,14 +77,6 @@ export const useSettingStore = defineStore('setting', () => {
     bot.disconnect()
     isConnected.value = false
     user.value = null
-  }
-
-  // 自动登录：检查配置并尝试重连
-  function attemptAutoLogin() {
-    const { autoConnect, connectAddress, accessToken } = config.value
-    if (autoConnect && connectAddress && accessToken) {
-      login(connectAddress, accessToken).catch(e => console.warn('自动登录失败:', e.message))
-    }
   }
 
   // 应用主题样式：计算 CSS 变量并注入 DOM
@@ -148,5 +146,5 @@ export const useSettingStore = defineStore('setting', () => {
     { immediate: true }
   )
 
-  return { isConnected, user, config, isLogged, login, logout, attemptAutoLogin }
+  return { isConnected, user, config, isLogged, login, logout }
 })

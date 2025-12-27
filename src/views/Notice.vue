@@ -18,7 +18,7 @@
             <Avatar :image="getAvatar(item)" shape="circle" class="border border-background-dim bg-background-sub shrink-0 !w-9 !h-9" />
             <div class="ui-flex-truncate flex flex-wrap items-center gap-1.5 leading-tight">
               <!-- 用户名称与 ID -->
-              <span class="font-bold text-foreground-main">{{ getName((item.user_id as number), (item as any).requester_nick) }}</span>
+              <span class="font-bold text-foreground-main">{{ contactStore.getFriendName((item.user_id as number), (item as any).requester_nick) }}</span>
               <span class="text-xs text-foreground-dim font-mono">({{ item.user_id }})</span>
               <!-- 行为描述 -->
               <span class="text-foreground-sub shrink-0 mx-1">
@@ -26,7 +26,7 @@
               </span>
               <!-- 关联群组 -->
               <template v-if="item.group_id">
-                <span class="font-bold text-foreground-main">{{ getGroupName(item.group_id, (item as any).group_name) }}</span>
+                <span class="font-bold text-foreground-main">{{ contactStore.getGroupName(item.group_id, (item as any).group_name) }}</span>
                 <span class="text-xs text-foreground-dim font-mono">({{ item.group_id }})</span>
               </template>
               <!-- 时间戳 -->
@@ -51,7 +51,7 @@
               class="!h-8 [&>.p-button]:!px-3 [&>.p-button]:!text-xs shadow-sm shadow-primary/20"
               :model="[
                 { label: '拒绝', icon: 'i-ri-close-line', command: () => handle(item, false) },
-                { label: '忽略', icon: 'i-ri-eye-off-line', command: () => remove(item) }
+                { label: '忽略', icon: 'i-ri-eye-off-line', command: () => contactStore.removeNotice(item) }
               ]"
               :loading="!!processing[item.flag || idx]"
               @click="handle(item, true)"
@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Avatar from 'primevue/avatar'
 import SplitButton from 'primevue/splitbutton'
@@ -85,7 +85,6 @@ const toast = useToast()
 const contactStore = useContactStore()
 
 const processing = ref<Record<string, boolean>>({})
-const nameCache = reactive({ user: {} as Record<number, string>, group: {} as Record<number, string> })
 const list = computed(() => contactStore.notices.filter(i => i.post_type === 'request'))
 
 // 格式化时间显示
@@ -102,28 +101,6 @@ const getAvatar = (i: SystemNotice) =>
     ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${i.user_id}`
     : (i.group_id ? `https://p.qlogo.cn/gh/${i.group_id}/${i.group_id}/0` : `https://q1.qlogo.cn/g?b=qq&s=0&nk=${i.user_id}`)
 
-// 获取用户名
-const getName = (uid: number, nick?: string) => {
-  if (nick) return nick
-  if (nameCache.user[uid]) return nameCache.user[uid]
-  bot.getStrangerInfo(uid).then(res => nameCache.user[uid] = res.nickname).catch(() => nameCache.user[uid] = `${uid}`)
-  return `${uid}`
-}
-
-// 获取群名称
-const getGroupName = (gid: number, name?: string) => {
-  if (name) return name
-  if (nameCache.group[gid]) return nameCache.group[gid]
-  bot.getGroupInfo(gid).then(res => nameCache.group[gid] = res.group_name).catch(() => nameCache.group[gid] = `群 ${gid}`)
-  return `群 ${gid}`
-}
-
-// 移除列表项
-const remove = (item: SystemNotice) => {
-  const idx = contactStore.notices.indexOf(item)
-  if (idx > -1) contactStore.notices.splice(idx, 1)
-}
-
 // 处理请求
 const handle = async (item: SystemNotice, approve: boolean) => {
   if (!item.flag) return
@@ -137,7 +114,7 @@ const handle = async (item: SystemNotice, approve: boolean) => {
       await bot.setGroupAddRequest(item.flag, item.sub_type || 'add', approve)
     }
     toast.add({ severity: approve ? 'success' : 'info', summary: approve ? '已同意' : '已拒绝', life: 3000 })
-    remove(item)
+    contactStore.removeNotice(item)
   } catch (e) {
     toast.add({ severity: 'error', summary: '操作失败', detail: e, life: 3000 })
   } finally {

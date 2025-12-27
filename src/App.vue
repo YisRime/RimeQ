@@ -12,18 +12,16 @@
     />
     <!-- 布局容器 -->
     <div
-      class="flex flex-1 overflow-hidden relative"
-      :class="isMobile ? 'gap-0' : 'gap-2'"
+      class="flex flex-1 overflow-hidden relative gap-0 md:gap-2"
     >
       <!-- 左侧导航栏 -->
       <aside
-        class="flex flex-col shrink-0 bg-background-sub shadow-sm border border-background-dim/50 ui-trans ui-dur-normal z-30 overflow-hidden relative rounded-2xl"
-        :class="[isMobile ? 'w-full' : (isTablet ? 'w-[72px]' : 'w-80'), isMobile && isContentMode ? '!w-0 !opacity-0 !border-none' : '']"
+        class="flex flex-col shrink-0 bg-background-sub shadow-sm border border-background-dim/50 ui-trans ui-dur-normal z-30 overflow-hidden relative rounded-2xl w-full md:w-[72px] xl:w-80"
+        :class="[isMobile && isContentMode ? '!w-0 !opacity-0 !border-none' : '']"
       >
         <!-- 侧边栏 -->
         <header
-          class="h-16 shrink-0 relative flex items-center border-b border-background-dim/30 transition-colors"
-          :class="isTablet ? 'w-[72px]' : 'w-full'"
+          class="h-16 shrink-0 relative flex items-center border-b border-background-dim/30 transition-colors w-full md:w-[72px] xl:w-full"
         >
           <!-- 头像与状态 -->
           <div class="w-[72px] h-full shrink-0 ui-flex-center">
@@ -40,7 +38,7 @@
             </div>
           </div>
           <!-- 菜单与搜索 (平板模式隐藏) -->
-          <div v-if="!isTablet" class="ui-flex-truncate ui-flex-x gap-2 pr-3">
+          <div class="ui-flex-truncate ui-flex-x gap-2 pr-3 flex md:hidden xl:flex">
             <div
               class="ui-flex-x justify-start gap-1 shrink-0 ui-trans ui-dur-normal overflow-hidden"
               :class="showMenu ? 'w-[108px] opacity-100' : 'w-0 opacity-0'"
@@ -69,8 +67,7 @@
         </header>
         <!-- 垂直菜单 (仅平板模式显示) -->
         <div
-          v-if="isTablet"
-          class="flex flex-col items-center gap-2 bg-background-sub/50 backdrop-blur-sm z-20 w-full ui-trans ui-dur-normal overflow-hidden"
+          class="flex-col items-center gap-2 bg-background-sub/50 backdrop-blur-sm z-20 w-full ui-trans ui-dur-normal overflow-hidden hidden md:flex xl:hidden"
           :class="showMenu ? 'max-h-[200px] opacity-100 py-3 border-b border-background-dim/30' : 'max-h-0 opacity-0 py-0 border-none'"
         >
           <Button
@@ -86,7 +83,7 @@
         </div>
         <!-- 导航列表 -->
         <div class="flex-1 overflow-hidden relative bg-background-sub w-full">
-          <div class="size-full relative" :class="isTablet ? 'min-w-[72px]' : 'min-w-[320px]'">
+          <div class="size-full relative min-w-[320px] md:min-w-[72px] xl:min-w-[320px]">
             <router-view v-slot="{ Component }" name="nav">
               <keep-alive>
                 <component :is="Component" :keyword="searchKeyword" />
@@ -142,13 +139,12 @@
         <Transition
           enter-active-class="transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.5,1)]"
           leave-active-class="transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.5,1)]"
-          :enter-from-class="isMobile ? 'translate-x-full' : 'translate-x-0 w-0 opacity-0'"
-          :leave-to-class="isMobile ? 'translate-x-full' : 'translate-x-0 w-0 opacity-0'"
+          enter-from-class="translate-x-full md:translate-x-0 md:w-0 md:opacity-0"
+          leave-to-class="translate-x-full md:translate-x-0 md:w-0 md:opacity-0"
         >
           <aside
             v-if="Component"
-            class="bg-background-sub z-[60] overflow-hidden flex flex-col border border-background-dim/50 shadow-xl ui-trans ui-dur-normal rounded-2xl"
-            :class="[isMobile ? 'absolute inset-y-0 right-0 w-full' : 'static w-[320px] shadow-sm z-0']"
+            class="bg-background-sub z-[60] overflow-hidden flex flex-col border border-background-dim/50 shadow-xl ui-trans ui-dur-normal rounded-2xl absolute inset-y-0 right-0 w-full md:static md:w-[320px] md:shadow-sm md:z-0"
           >
             <div class="size-full md:w-[320px] flex-shrink-0 ui-trans ui-dur-normal">
               <component :is="Component" class="size-full" />
@@ -187,7 +183,6 @@ const contactStore = useContactStore()
 // 响应式断点
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
-const isTablet = breakpoints.between('md', 'xl')
 
 // 界面状态
 const searchKeyword = ref('')
@@ -218,12 +213,13 @@ const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
 const pageTitle = computed(() => {
   if (route.name === 'Login') return ''
   if (chatId.value) {
-    const group = contactStore.groups.find(g => String(g.group_id) === chatId.value)
-    if (group) return group.group_name
-    const friend = contactStore.friends.find(f => String(f.user_id) === chatId.value)
-    if (friend) return friend.remark || friend.nickname
-    if (session.value) return session.value.name
-    return chatId.value
+    let name: string
+    if (isGroup.value) {
+      name = contactStore.getGroupName(chatId.value)
+    } else {
+      name = contactStore.getFriendName(chatId.value)
+    }
+    return name !== chatId.value ? name : session.value?.name || chatId.value
   }
   return (route.meta.title as string) || ''
 })

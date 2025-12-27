@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useContactStore } from './contact'
+import type { FriendInfo } from '@/types'
 
 export interface Session {
   id: string
@@ -70,10 +71,16 @@ export const useSessionStore = defineStore('session', () => {
       let avatar = ''
 
       if (isGroup) {
-        name = contactStore.getGroupName(Number(id))
+        const group = contactStore.groups.find(g => String(g.group_id) === id)
+        name = group?.group_name || `群 ${id}`
         avatar = `https://p.qlogo.cn/gh/${id}/${id}/0`
       } else {
-        name = contactStore.getFriendName(Number(id))
+        let friend: FriendInfo | undefined
+        for (const category of contactStore.friends) {
+          friend = category.buddyList.find(f => String(f.user_id) === id)
+          if (friend) break
+        }
+        name = friend?.remark || friend?.nickname || `好友 ${id}`
         avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
       }
 
