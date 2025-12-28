@@ -585,3 +585,6 @@ export class ExtendedClient extends BaseClient {
 
 /** 导出全局单例 */
 export const bot = new ExtendedClient()
+
+/** 重新导出 socket */
+export { socket }

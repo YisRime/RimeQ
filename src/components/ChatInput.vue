@@ -150,7 +150,7 @@
             icon="i-ri-close-line text-xl"
             text rounded
             class="!w-10 !h-10 shrink-0 !text-foreground-sub hover:!text-red-500 hover:!bg-background-dim !border-none"
-            @click="$emit('cancel-multi')"
+            @click="cancelMulti"
           />
         </div>
       </transition>
@@ -183,9 +183,10 @@
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, type ComponentPublicInstance } from 'vue'
 import { useTextareaAutosize } from '@vueuse/core'
 import Button from 'primevue/button'
+import { useMessageStore } from '@/stores/message'
 import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
-import { determineMsgType, type ChatMsg } from '@/utils/msg-parser'
-import { MsgType } from '@/types'
+import { determineMsgType } from '@/utils/handler'
+import { MsgType, type IMessage } from '@/types'
 import type { AnimationItem } from 'lottie-web'
 
 defineOptions({ name: 'ChatInput' })
@@ -193,9 +194,7 @@ defineOptions({ name: 'ChatInput' })
 // 组件定义
 const props = defineProps<{
   modelValue: string
-  isMultiSelect: boolean
-  selectedCount: number
-  replyTarget: ChatMsg | null
+  replyTarget: IMessage | null
   sessionId: string
 }>()
 
@@ -203,10 +202,11 @@ const emit = defineEmits<{
   (e: 'update:modelValue', val: string): void
   (e: 'send'): void
   (e: 'forward'): void
-  (e: 'cancel-multi'): void
   (e: 'clear-reply'): void
   (e: 'upload', file: File): void
 }>()
+
+const messageStore = useMessageStore()
 
 // 状态变量
 const showMenu = ref(false)
@@ -214,6 +214,10 @@ const activeTab = ref<'emoji' | 'super' | 'collection' | null>(null)
 const isExpanded = ref(false)
 const lottieMap = new Map<number, AnimationItem>()
 const lottieRefs = new Map<number, HTMLElement>()
+
+// 状态计算
+const isMultiSelect = computed(() => messageStore.isMultiSelect)
+const selectedCount = computed(() => messageStore.selectedIds.length)
 
 // 菜单配置
 const menuButtons = [
@@ -238,7 +242,7 @@ const inputValue = computed({
 
 // 是否可发送
 const canSend = computed(() => {
-  if (props.isMultiSelect) return props.selectedCount > 0
+  if (isMultiSelect.value) return selectedCount.value > 0
   return !!props.modelValue.trim()
 })
 
@@ -267,6 +271,11 @@ const triggerExpand = () => {
   })
 }
 
+// 取消多选
+const cancelMulti = () => {
+  messageStore.setMultiSelect(false)
+}
+
 // 处理回车发送
 const handleEnter = (e: KeyboardEvent) => {
   if (e.shiftKey || e.ctrlKey) {
@@ -278,7 +287,7 @@ const handleEnter = (e: KeyboardEvent) => {
 
 // 执行发送
 const handleSend = () => {
-  if (props.isMultiSelect) {
+  if (isMultiSelect.value) {
     emit('forward')
   } else if (inputValue.value.trim()) {
     emit('send')
@@ -326,7 +335,7 @@ const handleUpload = (e: Event) => {
 }
 
 // 获取消息摘要
-const getSummary = (msg: ChatMsg) => {
+const getSummary = (msg: IMessage) => {
   const type = determineMsgType(msg.message)
   if (type === MsgType.Text) {
     const txt = msg.message.filter((s) => s.type === 'text').map((s) => s.data.text).join('')
@@ -368,7 +377,7 @@ watch(activeTab, (val) => {
 })
 
 // 监听多选关闭
-watch(() => props.isMultiSelect, (val) => {
+watch(isMultiSelect, (val) => {
   if (val) {
     showMenu.value = false
     isExpanded.value = false

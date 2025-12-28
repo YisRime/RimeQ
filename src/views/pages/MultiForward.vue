@@ -53,10 +53,10 @@
 <script setup lang="ts">
 /**
  * 转发选择面板
- * 从路由参数中读取待转发的消息 IDs
+ * 从 Store 中读取待转发的消息 IDs
  */
 import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
@@ -69,7 +69,6 @@ import type { ForwardNode } from '@/types'
 defineOptions({ name: 'MultiForward' })
 
 const router = useRouter()
-const route = useRoute()
 const toast = useToast()
 
 const messageStore = useMessageStore()
@@ -79,13 +78,8 @@ const keyword = ref('')
 const selectedId = ref('')
 const sending = ref(false)
 
-const id = computed(() => (route.params.id as string) || '')
-const messageIds = computed(() =>
-  String(route.query.ids || '')
-    .split(',')
-    .map(Number)
-    .filter(Boolean)
-)
+// 从 Store 读取选中的消息 ID
+const messageIds = computed(() => messageStore.selectedIds)
 const count = computed(() => messageIds.value.length)
 
 const filteredSessions = computed(() => {
@@ -124,6 +118,8 @@ const handleSend = async () => {
     else await bot.sendPrivateForwardMsg(targetId, nodes)
 
     toast.add({ severity: 'success', summary: '转发成功', life: 3000 })
+    // 发送成功后关闭多选模式并返回
+    messageStore.setMultiSelect(false)
     router.back()
   } catch (e: any) {
     console.error(e)
