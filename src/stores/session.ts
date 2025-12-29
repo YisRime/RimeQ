@@ -19,7 +19,7 @@ export const useSessionStore = defineStore('session', () => {
   const contactStore = useContactStore()
   const settingStore = useSettingStore()
   // 持久化会话列表
-  const sessions = useStorage<Session[]>('rime-sessions', [])
+  const sessions = useStorage<Session[]>('rimeq-sessions', [])
 
   // 会话列表排序
   const sortedSessions = computed(() => {

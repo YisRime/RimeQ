@@ -24,6 +24,7 @@
             <div class="i-ri-loader-4-line animate-spin text-primary text-2xl" />
           </div>
 
+          <!-- 使用 toggle 模式处理点击选择 -->
           <MsgBubble
             v-for="(msg, index) in list"
             :key="msg.message_id || index"
@@ -32,7 +33,7 @@
             :is-selected="messageStore.selectedIds.includes(msg.message_id)"
             @contextmenu="onContextMenu"
             @poke="onPoke"
-            @select="messageStore.toggleSelection"
+            @select="(mid) => messageStore.handleSelection(mid, 'toggle')"
           />
         </div>
 
@@ -77,7 +78,7 @@ const sessionStore = useSessionStore()
 
 const id = computed(() => (route.params.id as string) || '')
 const session = computed(() => sessionStore.getSession(id.value))
-const list = computed(() => messageStore.messages)
+const list = computed(() => messageStore.messages) // 注意：现在是 shallowRef，用法不变
 const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
 
 const inputText = ref('')
@@ -100,23 +101,20 @@ const scrollToBottom = async () => {
 // 触顶加载历史
 const onScroll = (e: Event) => {
   const el = e.target as HTMLElement
-  if (el.scrollTop < 50 && id.value) messageStore.fetchCloudHistory(id.value)
+  if (el.scrollTop < 50 && id.value) messageStore.fetchHistory(id.value)
 }
 
-// 核心发送逻辑 (内联)
+// 核心发送逻辑
 const doSend = async () => {
   const content = inputText.value.trim()
   if (!content) return
 
-  // 构建消息体
   const chain: MessageSegment[] = []
   if (replyTarget.value) {
     chain.push({ type: 'reply', data: { id: String(replyTarget.value.message_id) } })
   }
-  // 简单处理：当前仅支持纯文本，如有需要可在此扩展解析
   chain.push({ type: 'text', data: { text: content } })
 
-  // 重置 UI
   inputText.value = ''
   replyTarget.value = null
 
@@ -126,7 +124,6 @@ const doSend = async () => {
       [isGroup.value ? 'group_id' : 'user_id']: Number(id.value),
       message: chain
     })
-    // 成功后由 WebSocket 事件更新列表，无需手动 addMessage
   } catch (e) {
     console.error('发送消息失败:', e)
     toast.add({ severity: 'error', summary: '发送失败', detail: String(e), life: 3000 })
@@ -136,7 +133,6 @@ const doSend = async () => {
 // 处理文件上传
 const handleFileUpload = async (file: File) => {
   toast.add({ severity: 'info', summary: '正在上传...', detail: file.name, life: 2000 })
-  // 占位
 }
 
 // 戳一戳
@@ -167,6 +163,7 @@ const onContextMenu = (e: MouseEvent, msg: IMessage) => {
   showMenu.value = true
 }
 
+// 菜单动作处理
 const onMenuSelect = async (key: string) => {
   if (!contextMsg.value) return
   const msg = contextMsg.value
@@ -175,15 +172,15 @@ const onMenuSelect = async (key: string) => {
       replyTarget.value = msg
       break
     case 'forward':
-      messageStore.selectSingle(msg.message_id)
+      // 仅选中当前并跳转
+      messageStore.handleSelection(msg.message_id, 'only')
       goToForward()
       break
     case 'select':
-      messageStore.setMultiSelect(true)
-      messageStore.selectSingle(msg.message_id)
+      // 仅选中当前并开启多选
+      messageStore.handleSelection(msg.message_id, 'only')
       break
     case 'recall':
-      // 核心撤回逻辑 (内联)
       try {
         await bot.deleteMsg(msg.message_id)
       } catch (e) {

@@ -1,173 +1,147 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import Dexie, { type Table } from 'dexie'
 import { bot } from '@/api'
 import { useSessionStore } from './session'
 import { useSettingStore } from './setting'
-import type { IMessage } from '@/types'
-import { parseMsgList } from '@/utils/handler'
+import { useContactStore } from './contact'
+import type { IMessage, Message } from '@/types'
 
-// 定义 Dexie 数据库实例
-class RimeQDB extends Dexie {
+/** 数据库定义 */
+class Database extends Dexie {
   public messages!: Table<IMessage, number>
-
   constructor() {
-    super('RimeQDB')
-    // 定义数据库架构
-    // sessionId: 索引会话
-    // [sessionId+time]: 复合索引，用于按时间倒序获取会话历史
-    this.version(1).stores({
-      messages: 'message_id, sessionId, [sessionId+time]'
-    })
+    super('rimeq-message')
+    this.version(1).stores({ messages: 'message_id, sessionId, [sessionId+time]' })
   }
 }
+const db = new Database()
 
-// 初始化数据库
-const db = new RimeQDB()
-
-// Pinia Message Store
 export const useMessageStore = defineStore('message', () => {
   const sessionStore = useSessionStore()
   const settingStore = useSettingStore()
+  const contactStore = useContactStore()
 
-  // 状态 State
-  const activeChatId = ref<string>('')
-  const messages = ref<IMessage[]>([])
+  // 当前会话 ID
+  const activeId = ref('')
+  // 消息列表
+  const messages = shallowRef<IMessage[]>([])
+  // 加载状态
   const isLoading = ref(false)
+  // 是否加载完成
   const isFinished = ref(false)
+  // 多选模式状态
   const isMultiSelect = ref(false)
+  // 选中的消息 ID 列表
   const selectedIds = ref<number[]>([])
 
-  // 操作 Actions
+  // 获取选中消息列表
+  const selectedMessages = computed(() => {
+    if (!selectedIds.value.length) return []
+    const set = new Set(selectedIds.value)
+    return messages.value.filter(m => set.has(m.message_id))
+  })
 
-  // 打开并加载指定会话的消息
+  // 消息标准化映射
+  const normalize = (raw: any, sessionId: string): IMessage => ({ ...raw, sessionId })
+
+  /** 切换会话 */
   async function openSession(id: string) {
-    if (activeChatId.value === id) return
+    if (activeId.value === id) return
 
-    activeChatId.value = id
-    messages.value = []
+    activeId.value = id
     isLoading.value = true
     isFinished.value = false
-    isMultiSelect.value = false
-    selectedIds.value = []
-
+    setMultiSelect(false)
     sessionStore.clearUnread(id)
 
-    try {
-      // 从数据库加载最新的 50 条消息
-      const history = await db.messages
-        .where({ sessionId: id })
-        .reverse()
-        .limit(50)
-        .toArray()
-      messages.value = history.reverse()
+    const history = await db.messages.where({ sessionId: id }).reverse().limit(99).toArray()
+    messages.value = history.reverse()
+    isLoading.value = false
 
-      // 如果本地消息过少，尝试从云端拉取
-      if (messages.value.length < 5) {
-        await fetchCloudHistory(id)
-      }
-    } catch (e) {
-      console.error('[MsgStore] 从数据库加载消息失败', e)
-    } finally {
-      isLoading.value = false
-    }
+    if (messages.value.length < 10) await fetchHistory(id)
   }
 
-  // 从云端拉取更早的历史消息
-  async function fetchCloudHistory(id: string) {
+  /** 拉取历史消息 */
+  async function fetchHistory(id: string = activeId.value) {
     if (isLoading.value || isFinished.value) return
 
     isLoading.value = true
     try {
-      const earliestMsg = messages.value.find(m => m.message_id > 0)
-      const seq = earliestMsg?.real_id || earliestMsg?.message_id
-      const session = sessionStore.getSession(id)
-      const isGroup = session?.type === 'group' || id.length > 5
+      const startMsg = messages.value[0]
+      const seq = startMsg?.real_id || startMsg?.message_id
+      const isGroup = sessionStore.getSession(id)?.type === 'group' || contactStore.groups.some(g => String(g.group_id) === id)
 
       const res = isGroup
         ? await bot.getGroupMsgHistory(Number(id), seq)
         : await bot.getFriendMsgHistory(Number(id), seq)
 
-      if (!res.messages || res.messages.length === 0) {
+      if (!res.messages?.length) {
         isFinished.value = true
       } else {
-        const newMsgs = res.messages.map((m: any) => ({
-          ...m,
-          sessionId: id,
-          message_type: isGroup ? 'group' : 'private',
-          message: typeof m.message === 'string' ? parseMsgList(m.message).raw : m.message
-        })) as IMessage[]
-
-        // 批量存入数据库
-        await db.messages.bulkPut(newMsgs)
-
-        // 如果当前仍在该会话，更新内存中的列表
-        if (activeChatId.value === id) {
+        const newMsgs = res.messages.map(m => normalize(m, id))
+        db.messages.bulkPut(newMsgs).catch(() => {})
+        if (activeId.value === id) {
           messages.value = [...newMsgs, ...messages.value]
         }
       }
-    } catch (e) {
-      console.error('[MsgStore] 拉取历史消息失败', e)
     } finally {
       isLoading.value = false
     }
   }
 
-  // 新增消息至数据库和内存
-  async function _addMessage(id: string, msg: IMessage) {
-    await db.messages.put({ ...msg, sessionId: id })
-    if (activeChatId.value === id) {
-      // 避免重复添加
+  /** 接收并处理消息 */
+  function pushMessage(rawEvent: Message, sessionId: string): IMessage {
+    const msg = normalize(rawEvent, sessionId)
+    db.messages.put(msg).catch(() => {})
+
+    if (activeId.value === sessionId) {
       if (!messages.value.some(m => m.message_id === msg.message_id)) {
-        messages.value.push(msg)
+        messages.value = [...messages.value, msg]
       }
     }
+    return msg
   }
 
-  // 标记消息为已撤回
-  async function _markMessageAsRecalled(msgId: number) {
-    // 更新内存状态
-    const msg = messages.value.find(m => m.message_id === msgId)
-    if (msg) {
-      msg.recalled = true
-    }
-    // 更新数据库状态
+  /** 撤回消息 */
+  async function recallMessage(msgId: number) {
     await db.messages.update(msgId, { recalled: true })
 
-    // 如果未启用防撤回，则从视图中移除
-    if (!settingStore.config.enableAntiRecall) {
-      if (msg) {
-        const idx = messages.value.indexOf(msg)
-        if (idx > -1) messages.value.splice(idx, 1)
+    const list = messages.value
+    const idx = list.findIndex(m => m.message_id === msgId)
+
+    if (idx !== -1) {
+      if (settingStore.config.enableAntiRecall) {
+        if (list[idx]) {
+          list[idx].recalled = true
+          messages.value = [...list]
+        }
+      } else {
+        const copy = [...list]
+        copy.splice(idx, 1)
+        messages.value = copy
       }
     }
   }
 
-  // 设置多选模式
+  /** 切换消息选中状态 */
+  function handleSelection(msgId: number, mode: 'toggle' | 'only') {
+    if (mode === 'only') {
+      isMultiSelect.value = true
+      selectedIds.value = [msgId]
+    } else {
+      const idx = selectedIds.value.indexOf(msgId)
+      if (idx > -1) selectedIds.value.splice(idx, 1)
+      else selectedIds.value.push(msgId)
+    }
+  }
+
+  /** 设置多选模式 */
   function setMultiSelect(enable: boolean) {
     isMultiSelect.value = enable
     if (!enable) selectedIds.value = []
   }
 
-  // 切换单条消息的选中状态
-  function toggleSelection(msgId: number) {
-    const index = selectedIds.value.indexOf(msgId)
-    if (index > -1) selectedIds.value.splice(index, 1)
-    else selectedIds.value.push(msgId)
-  }
-
-  // 仅选中单条消息
-  function selectSingle(msgId: number) {
-    selectedIds.value = [msgId]
-  }
-
-  // 清空整个消息数据库
-  async function clearDatabase() {
-    await db.delete()
-    await db.open()
-  }
-
-  return { activeChatId, messages, isLoading, isFinished, isMultiSelect, selectedIds,
-    openSession, fetchCloudHistory, _addMessage, _markMessageAsRecalled, setMultiSelect, toggleSelection, selectSingle, clearDatabase
-  }
+  return { activeId, messages, isLoading, isFinished, isMultiSelect, selectedIds, selectedMessages,
+    openSession, fetchHistory, pushMessage, recallMessage, handleSelection, setMultiSelect }
 })
