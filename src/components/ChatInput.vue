@@ -185,8 +185,8 @@ import { useTextareaAutosize } from '@vueuse/core'
 import Button from 'primevue/button'
 import { useMessageStore } from '@/stores/message'
 import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
-import { determineMsgType } from '@/utils/handler'
-import { MsgType, type IMessage } from '@/types'
+import { processMessageChain } from '@/utils/handler'
+import type { IMessage } from '@/types'
 import type { AnimationItem } from 'lottie-web'
 
 defineOptions({ name: 'ChatInput' })
@@ -336,12 +336,8 @@ const handleUpload = (e: Event) => {
 
 // 获取消息摘要
 const getSummary = (msg: IMessage) => {
-  const type = determineMsgType(msg.message)
-  if (type === MsgType.Text) {
-    const txt = msg.message.filter((s) => s.type === 'text').map((s) => s.data.text).join('')
-    return txt.length > 30 ? txt.slice(0, 30) + '...' : txt
-  }
-  return `[${type}]`
+  const processed = processMessageChain(msg)
+  return processed.previewText
 }
 
 // 绑定 Lottie 元素

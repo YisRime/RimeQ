@@ -341,7 +341,7 @@ const resetApp = () => {
     icon: 'i-ri-alert-line',
     acceptClass: '!bg-red-500',
     accept: () => {
-      const dbRequest = window.indexedDB.deleteDatabase('RimeQDB')
+      const dbRequest = window.indexedDB.deleteDatabase('rimeq-message')
       const reload = () => {
         localStorage.clear()
         sessionStorage.clear()

@@ -4,8 +4,9 @@ import { useStorage, usePreferredDark } from '@vueuse/core'
 import { colord, extend } from 'colord'
 import mixPlugin from 'colord/plugins/mix'
 import a11yPlugin from 'colord/plugins/a11y'
-import { bot } from '@/api'
+import { bot, socket } from '@/api'
 import { useContactStore } from './contact'
+import { handleMessage } from '@/utils/handler'
 import type { LoginInfo } from '@/types'
 
 // 注册 Colord 插件
@@ -58,11 +59,11 @@ export const useSettingStore = defineStore('setting', () => {
       // 更新运行时状态
       user.value = info
       isConnected.value = true
-
+      // 注册全局消息监听
+      socket.onReceive(handleMessage)
       // 异步获取列表
       const contactStore = useContactStore()
       contactStore.fetchContacts()
-
       // 更新持久化配置
       config.value.connectAddress = addr
       config.value.accessToken = config.value.rememberToken ? tk : ''
@@ -75,6 +76,7 @@ export const useSettingStore = defineStore('setting', () => {
   // 登出：断开连接并清理状态
   function logout() {
     bot.disconnect()
+    socket.onReceive(() => {})
     isConnected.value = false
     user.value = null
   }

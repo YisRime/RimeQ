@@ -64,7 +64,7 @@ import { useToast } from 'primevue/usetoast'
 import { useMessageStore } from '@/stores/message'
 import { useSessionStore } from '@/stores/session'
 import { bot } from '@/api'
-import type { ForwardNode } from '@/types'
+import type { Segment } from '@/types'
 
 defineOptions({ name: 'MultiForward' })
 
@@ -101,7 +101,7 @@ const handleSend = async () => {
 
     if (targetMsgs.length === 0) throw new Error('未找到有效消息')
 
-    const nodes: ForwardNode[] = targetMsgs.map((m) => ({
+    const nodes: Segment[] = targetMsgs.map((m) => ({
       type: 'node',
       data: {
         nickname: m.sender.nickname,

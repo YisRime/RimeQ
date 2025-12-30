@@ -1,260 +1,479 @@
-import { socket } from '@/api'
+import { useContactStore } from '@/stores/contact'
 import { useMessageStore } from '@/stores/message'
 import { useSessionStore } from '@/stores/session'
-import { useContactStore } from '@/stores/contact'
-import { MsgType, type OneBotEvent, type Message, type SystemNotice, type MetaEvent, type IMessage, type MessageSegment, type FileInfo, type ParsedMessage } from '@/types'
+import { useSettingStore } from '@/stores/setting'
+import type { IMessage, Segment } from '@/types'
 
-// === 消息解析工具函数 ===
+// === 类型定义 ===
 
-interface CQSegment { type: string; data: Record<string, string> }
-
-// 解码 CQ 码转义字符
-function decodeCQText(str: string): string {
-  if (!str) return ''
-  return str.replace(/&amp;/g, '&').replace(/&#91;/g, '[').replace(/&#93;/g, ']').replace(/&#44;/g, ',')
+export interface ProcessedMessage {
+  replyId: string | null
+  replyDetail: {
+    id: string
+    text: string
+    sender: string
+  } | null
+  segments: FormattedSegment[]
+  isPureImage: boolean // 用于 UI 判断是否需要去除气泡背景
+  previewText: string // 用于会话列表预览
 }
 
-// 解析 CQ 码字符串为段数组
-function parseCQ(msg: string): CQSegment[] {
-  if (typeof msg !== 'string') return msg as unknown as CQSegment[]
-  const segments: CQSegment[] = []
-  const regex = /\[CQ:([a-zA-Z0-9-_]+)((?:,[a-zA-Z0-9-_]+=[^,\]]*)*)\]/g
-  let lastIndex = 0
-  let match
-
-  while ((match = regex.exec(msg)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ type: 'text', data: { text: decodeCQText(msg.substring(lastIndex, match.index)) } })
-    }
-    const data: Record<string, string> = {}
-    if (match[2]) {
-      match[2].split(',').forEach(param => {
-        const eqIdx = param.indexOf('=')
-        if (eqIdx > -1) data[param.substring(0, eqIdx)] = decodeCQText(param.substring(eqIdx + 1))
-      })
-    }
-    segments.push({ type: match[1] || 'unknown', data })
-    lastIndex = regex.lastIndex
-  }
-  if (lastIndex < msg.length) {
-    segments.push({ type: 'text', data: { text: decodeCQText(msg.substring(lastIndex)) } })
-  }
-  return segments
+export interface FormattedSegment {
+  type: string
+  text?: string // 文本内容
+  url?: string // 图片/视频地址/跳转链接
+  fileName?: string // 文件名
+  fileSize?: string // 文件大小
+  atUid?: number // @对象的UID
+  atName?: string // @对象的名称
+  faceId?: number // 表情ID
+  // 卡片/转发相关
+  title?: string
+  desc?: string
+  preview?: string
+  source?: string
+  // 语音相关
+  duration?: number
+  // 转发相关
+  nodes?: { sender: string; text: string }[]
+  count?: number
+  // 原始数据
+  raw?: Segment
 }
 
-// 提取 JSON/XML 卡片关键信息
-function extractCardInfo(rawData: string | Record<string, unknown>): any | null {
-  try {
-    const data: any = typeof rawData === 'string' ? (rawData.startsWith('<') ? {} : JSON.parse(rawData)) : rawData
-    // 简易 XML 处理
-    if (typeof rawData === 'string' && rawData.startsWith('<')) {
-      const title = rawData.match(/summary="([^"]*)"/) || rawData.match(/<title>([^<]*)<\/title>/)
-      return { title: title?.[1] || 'XML卡片', desc: '点击查看详情', preview: '' }
-    }
-    // JSON 处理
-    const meta = data.meta || {}
-    const detail = meta.detail_1 || meta.news || Object.values(meta)[0] || {}
-    return {
-      title: detail.title || data.title || data.prompt || '卡片消息',
-      desc: detail.desc || detail.summary || '',
-      preview: detail.preview || detail.cover || ''
-    }
-  } catch {
-    return null
-  }
+// === 辅助工具 ===
+
+/**
+ * 格式化文件大小
+ */
+export function formatFileSize(bytes: number) {
+  if (!bytes && bytes !== 0) return '未知大小'
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
 }
 
-/** 解析消息列表为前端友好格式 */
-export function parseMsgList(message: string | MessageSegment[] | CQSegment[]): ParsedMessage {
-  const result: ParsedMessage = { text: '', images: [], files: [], replyId: null, atUserId: null, faces: [], raw: [] }
-  const chain = (typeof message === 'string' && message.includes('[CQ:')) ? parseCQ(message) : message
+/**
+ * 文本转 HTML (处理链接和换行)
+ */
+export function formatTextToHtml(text: string): string {
+  if (!text) return ''
+  let result = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 
-  if (typeof chain === 'string') {
-    result.text = chain
-    result.raw = [{ type: 'text', data: { text: chain } }]
-    return result
-  }
+  // 处理换行
+  result = result.replace(/\r\n/g, '<br>').replace(/\n/g, '<br>').replace(/\r/g, '<br>')
 
-  if (!Array.isArray(chain)) return result
-  result.raw = chain as MessageSegment[]
+  // 识别 URL 并转为链接 (禁止事件冒泡防止触发气泡点击)
+  const urlRegex = /(https?:\/\/[^\s<]+)/g
+  result = result.replace(urlRegex, url => {
+    return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all cursor-pointer" onclick="event.stopPropagation()">${url}</a>`
+  })
 
-  for (const seg of chain) {
-    const data = seg.data || {}
-    switch (seg.type) {
-      case 'text': result.text += (data.text as string) || ''; break
-      case 'image':
-      case 'mface':
-        const url = (data.url || data.file) as string
-        if (url) result.images.push(url)
-        result.text += seg.type === 'mface' ? `[${data.summary || '表情'}]` : '[图片]'
-        break
-      case 'face': result.faces.push(Number(data.id)); result.text += '[表情]'; break
-      case 'file':
-        if (data.name) result.files.push(data as FileInfo)
-        result.text += `[文件: ${data.name || '未知'}]`
-        break
-      case 'at': result.atUserId = Number(data.qq); result.text += `@${data.name || data.qq} `; break
-      case 'reply': result.replyId = String(data.id); break
-      case 'markdown': result.markdown = data.content as string; result.text += '[Markdown]'; break
-      case 'json':
-      case 'xml':
-        result.text += '[卡片消息]'
-        const card = extractCardInfo(data.data || data.content || data)
-        if (card) result.card = card
-        break
-      case 'video': result.text += '[视频]'; break
-    }
-  }
   return result
 }
 
 /**
- * 判断消息的主要类型
- * 优先级: 文件 > Markdown > 卡片 > 纯图片 > 文本
+ * 解析 JSON 消息卡片 (参考 body-parser.ts)
  */
-export function determineMsgType(message: string | MessageSegment[] | ParsedMessage): MsgType {
-  // 1. 处理已解析的 ParsedMessage 对象
-  if (typeof message === 'object' && message !== null && 'raw' in message && 'text' in message) {
-    const p = message as ParsedMessage
-    if (p.files.length > 0) return MsgType.File
-    if (p.markdown) return MsgType.Markdown
-    if (p.card) return MsgType.Json
-    // 如果有图片且无有效文本，视为纯图片消息
-    if (p.images.length > 0 && !p.text.trim()) return MsgType.Image
-    return MsgType.Text
+function parseJsonCard(dataStr: string): FormattedSegment | null {
+  try {
+    const json = JSON.parse(dataStr)
+    // 1. 群公告
+    if (json.desc === '群公告') {
+      return {
+        type: 'card',
+        title: '群公告',
+        desc: json.prompt || json.desc,
+        preview: '',
+        text: '[群公告]'
+      }
+    }
+    // 2. 通用结构解析 (meta -> detail/news/etc)
+    const metaKeys = Object.keys(json.meta || {})
+    if (metaKeys.length > 0) {
+      const key = metaKeys[0]
+      const body = json.meta[key]
+      if (body) {
+        return {
+          type: 'card',
+          title: body.title || body.tag || json.prompt || json.app,
+          desc: body.desc,
+          preview: body.preview || body.cover || body.icon,
+          url: body.jumpUrl || body.qqdocurl || body.url,
+          text: json.prompt || '[卡片消息]'
+        }
+      }
+    }
+    return { type: 'card', title: json.prompt || '卡片消息', text: '[卡片消息]' }
+  } catch (e) {
+    return null
   }
-
-  // 2. 处理原始 Segment 数组
-  if (Array.isArray(message)) {
-    // 优先检查特殊类型
-    if (message.some(s => s.type === 'file')) return MsgType.File
-    if (message.some(s => s.type === 'markdown')) return MsgType.Markdown
-    if (message.some(s => s.type === 'json' || s.type === 'xml')) return MsgType.Json
-
-    // 检查图片和文本共存情况
-    const hasImage = message.some(s => s.type === 'image' || s.type === 'mface')
-    // 修复 TS(2532): 增加可选链 ?. 确保 data 存在
-    const hasText = message.some(s =>
-      s.type === 'text' && String(s.data?.text || '').trim().length > 0
-    )
-
-    if (hasImage && !hasText) return MsgType.Image
-    return MsgType.Text
-  }
-
-  // 3. 默认为文本
-  return MsgType.Text
 }
 
-/** 生成会话列表预览文本 */
-export function generatePreview(msg: IMessage): string {
-  if (msg.sender.user_id === 10000) return '[系统消息]'
-  if (msg.recalled) return '[已撤回]'
+/**
+ * 解析 XML 消息卡片 (简化版)
+ */
+function parseXmlCard(dataStr: string): FormattedSegment | null {
+  try {
+    // 简单提取 title 和 summary
+    const titleMatch = dataStr.match(/title="([^"]*)"/) || dataStr.match(/<title>([^<]*)<\/title>/)
+    const summaryMatch = dataStr.match(/summary="([^"]*)"/) || dataStr.match(/<summary>([^<]*)<\/summary>/)
+    const sourceMatch = dataStr.match(/source name="([^"]*)"/)
 
-  const type = determineMsgType(msg.message)
-  let content = ''
-  switch (type) {
-    case MsgType.Image: content = '[图片]'; break
-    case MsgType.Record: content = '[语音]'; break
-    case MsgType.File: content = '[文件]'; break
-    case MsgType.Json: content = '[卡片]'; break
-    case MsgType.Markdown: content = '[Markdown]'; break
-    default: content = parseMsgList(msg.message).text
+    return {
+      type: 'card',
+      title: titleMatch ? titleMatch[1] : 'XML 卡片',
+      desc: summaryMatch ? summaryMatch[1] : '',
+      source: sourceMatch ? sourceMatch[1] : '',
+      text: '[卡片消息]'
+    }
+  } catch (e) {
+    return null
   }
-
-  if (msg.message_type === 'group') {
-    const name = msg.sender.card || msg.sender.nickname
-    if (name) return `${name}: ${content}`
-  }
-  return content
 }
 
-// === OneBot 事件分发 ===
+// === 核心解析逻辑 ===
 
-export class OneBotHandler {
-  constructor() {
-    socket.onReceive(this.dispatch.bind(this))
+/**
+ * 解析图片 URL
+ * 增强对 NTQQ multimedia 链接的处理兼容
+ */
+function resolveImageUrl(data: any): string {
+  if (!data) return ''
+
+  let url = ''
+
+  // 1. 优先使用网络 URL
+  if (data.url && data.url.startsWith('http')) {
+    url = data.url
   }
-
-  public dispatch(evt: OneBotEvent) {
-    switch (evt.post_type) {
-      case 'message': return this.onMessage(evt as Message)
-      case 'notice': return this.onNotice(evt as SystemNotice)
-      case 'request': return this.onRequest(evt as SystemNotice)
-      case 'meta_event': return this.onMeta(evt as MetaEvent)
+  // 2. 处理 file 字段 (Base64 或 http)
+  else if (data.file) {
+    if (data.file.startsWith('base64://')) {
+      url = 'data:image/png;base64,' + data.file.substring(9)
+    } else if (data.file.startsWith('http')) {
+      url = data.file
+    } else if (data.file.length > 500 && !data.file.includes('/')) {
+      // 假设是无头的 base64
+      url = 'data:image/png;base64,' + data.file
     }
   }
 
-  private onMessage(msg: Message) {
-    const messageStore = useMessageStore()
-    const sessionStore = useSessionStore()
-    const isGroup = msg.message_type === 'group'
-    const id = isGroup ? String(msg.group_id) : String(msg.user_id)
-    if (!id) return
+  return url
+}
 
-    // 1. 交给 MessageStore 处理存储和列表更新
-    const chatMsg = messageStore.pushMessage(msg, id)
+/**
+ * 辅助：获取预览文本 (用于 reply 或 会话列表)
+ */
+export function getPreviewText(message: Segment[] | string): string {
+  if (typeof message === 'string') return message
+  if (!Array.isArray(message)) return ''
 
-    // 2. 更新会话列表预览
-    const unreadInc = messageStore.activeId === id ? 0 : 1
-    sessionStore.updateSession(id, {
-      time: msg.time * 1000,
-      preview: generatePreview(chatMsg),
-      unread: unreadInc,
-      type: msg.message_type
+  let text = ''
+  for (const seg of message) {
+    if (seg.type === 'text' && seg.data.text) text += seg.data.text
+    else if (seg.type === 'image') text += '[图片]'
+    else if (seg.type === 'face') text += '[表情]'
+    else if (seg.type === 'mface') text += '[表情]'
+    else if (seg.type === 'record') text += '[语音]'
+    else if (seg.type === 'video') text += '[视频]'
+    else if (seg.type === 'file') text += `[文件: ${seg.data.name}]`
+    else if (seg.type === 'at') text += `@${seg.data.name || seg.data.qq} `
+    else if ((seg.type === 'json' || seg.type === 'xml') && seg.data.data) {
+        try {
+            if (seg.type === 'json') text += JSON.parse(seg.data.data).prompt || '[卡片]'
+            else text += '[卡片]'
+        } catch { text += '[卡片]' }
+    }
+    else if (seg.type === 'forward') text += '[聊天记录]'
+    else if (seg.type === 'markdown') text += '[Markdown]'
+    else text += `[${seg.type}]`
+  }
+  return text
+}
+
+/**
+ * 处理消息链 (Message -> UI Format)
+ * @param msg 完整的消息对象 (IMessage)
+ */
+export function processMessageChain(msg: IMessage): ProcessedMessage {
+  const contactStore = useContactStore()
+  const messageStore = useMessageStore() // 仅用于同步查找，不进行 API 请求
+
+  // 1. 规范化消息段
+  let rawSegments: Segment[] = []
+  if (Array.isArray(msg.message)) {
+    rawSegments = msg.message
+  } else if (typeof msg.message === 'string') {
+    rawSegments = [{ type: 'text', data: { text: msg.message } }]
+  }
+
+  // 2. 状态变量
+  let replyId: string | null = null
+  let replyDetail: ProcessedMessage['replyDetail'] = null
+  const segments: FormattedSegment[] = []
+  let imageCount = 0
+  let nonImageCount = 0
+  let previewText = ''
+
+  // 3. 遍历解析
+  for (const seg of rawSegments) {
+    // === Reply (引用回复) ===
+    if (seg.type === 'reply' && seg.data.id) {
+      replyId = seg.data.id
+      // 尝试在本地 Store 中查找引用的消息
+      if (replyId) {
+        // 忽略负数 ID (本地临时 ID)
+        if (parseInt(replyId) < 0) {
+          replyDetail = { id: replyId, text: '[本地消息]', sender: '我' }
+        } else {
+          const found = messageStore.messages.find(m => String(m.message_id) === replyId)
+          if (found) {
+            replyDetail = {
+              id: replyId,
+              text: getPreviewText(found.message),
+              sender: found.sender.card || found.sender.nickname
+            }
+          }
+        }
+      }
+      continue
+    }
+
+    // === Image (图片) / MFace (商城表情) ===
+    if (seg.type === 'image' || seg.type === 'mface') {
+      const url = resolveImageUrl(seg.data)
+      if (url) {
+        const isMface = seg.type === 'mface'
+        segments.push({
+            type: isMface ? 'mface' : 'image',
+            url,
+            text: seg.data.summary || seg.data.text,
+            raw: seg
+        })
+        imageCount++
+        previewText += seg.data.summary || '[图片]'
+      } else {
+        segments.push({ type: 'text', text: '[图片失效]', raw: seg })
+        nonImageCount++
+      }
+      continue
+    }
+
+    // === At (提及) ===
+    if (seg.type === 'at' && seg.data.qq) {
+      const uid = Number(seg.data.qq)
+      let name = seg.data.name
+      if (!name) {
+        if (seg.data.qq === 'all') {
+          name = '全体成员'
+        } else {
+          name = contactStore.getFriendName(uid)
+        }
+      }
+
+      segments.push({ type: 'at', atUid: uid, atName: name, raw: seg })
+      previewText += `@${name} `
+      nonImageCount++
+      continue
+    }
+
+    // === Text (文本) ===
+    if (seg.type === 'text') {
+      const text = seg.data.text || ''
+      if (text) {
+        segments.push({ type: 'text', text, raw: seg })
+        if (text.trim()) {
+          previewText += text
+          nonImageCount++
+        }
+      }
+      continue
+    }
+
+    // === Face (表情) ===
+    if (seg.type === 'face' && seg.data.id) {
+      segments.push({ type: 'face', faceId: Number(seg.data.id), raw: seg })
+      previewText += '[表情]'
+      nonImageCount++
+      continue
+    }
+
+    // === File (文件) ===
+    if (seg.type === 'file' && seg.data.name) {
+      segments.push({
+        type: 'file',
+        fileName: seg.data.name || seg.data.file || '未知文件',
+        fileSize: formatFileSize(Number(seg.data.size)),
+        raw: seg
+      })
+      previewText += `[文件: ${seg.data.name}]`
+      nonImageCount++
+      continue
+    }
+
+    // === Video (视频) ===
+    if (seg.type === 'video') {
+      const url = resolveImageUrl(seg.data)
+      segments.push({ type: 'video', url, raw: seg })
+      previewText += '[视频]'
+      imageCount++
+      continue
+    }
+
+    // === Record (语音) ===
+    if (seg.type === 'record') {
+        const url = resolveImageUrl(seg.data)
+        segments.push({
+            type: 'record',
+            url,
+            text: '语音消息',
+            raw: seg
+        })
+        previewText += '[语音]'
+        nonImageCount++
+        continue
+    }
+
+    // === Forward (合并转发) ===
+    if (seg.type === 'forward' && seg.data.id) {
+        const nodes = [] as { sender: string; text: string }[]
+        const content = (seg.data as any).content
+        if (content && Array.isArray(content)) {
+            (content as any[]).slice(0, 4).forEach((node: any) => {
+                if (node.type === 'node') {
+                    const sender = node.data.nickname || node.data.user_id || '未知'
+                    let text = ''
+                    if (Array.isArray(node.data.content)) {
+                        text = getPreviewText(node.data.content)
+                    } else if (typeof node.data.content === 'string') {
+                        text = node.data.content
+                    }
+                    nodes.push({ sender: String(sender), text })
+                }
+            })
+        }
+        segments.push({
+            type: 'forward',
+            title: (seg.data as any).summary || '聊天记录',
+            nodes,
+            source: (seg.data as any).source || '聊天记录',
+            raw: seg
+        })
+        previewText += '[聊天记录]'
+        nonImageCount++
+        continue
+    }
+
+    // === Card (JSON/XML) ===
+    if (['json', 'xml'].includes(seg.type) && seg.data.data) {
+      let cardInfo: FormattedSegment | null = null
+      if (seg.type === 'json') {
+        cardInfo = parseJsonCard(seg.data.data)
+      } else {
+        cardInfo = parseXmlCard(seg.data.data)
+      }
+
+      if (cardInfo) {
+        cardInfo.raw = seg
+        segments.push(cardInfo)
+        previewText += cardInfo.text || '[卡片]'
+      } else {
+        segments.push({ type: 'card', text: '未知卡片', raw: seg })
+        previewText += '[卡片]'
+      }
+      nonImageCount++
+      continue
+    }
+
+    // === Markdown ===
+    if (seg.type === 'markdown') {
+      segments.push({ type: 'markdown', text: (seg.data as any).content || '', raw: seg })
+      previewText += '[Markdown]'
+      nonImageCount++
+      continue
+    }
+
+    // === Poke (戳一戳) ===
+    if (seg.type === 'poke') {
+        segments.push({ type: 'text', text: '[戳一戳]', raw: seg })
+        previewText += '[戳一戳]'
+        nonImageCount++
+        continue
+    }
+  }
+
+  // 纯图片判断
+  const isPureImage = imageCount > 0 && nonImageCount === 0
+
+  return {
+    replyId,
+    replyDetail,
+    segments,
+    isPureImage,
+    previewText: previewText || '[消息]'
+  }
+}
+
+/**
+ * 全局 WebSocket 消息事件处理器
+ * 负责将 OneBot 事件分发到各个 Store
+ */
+export function handleMessage(data: any) {
+  // 在函数内部获取 Store 实例，避免循环依赖问题
+  const messageStore = useMessageStore()
+  const sessionStore = useSessionStore()
+  const contactStore = useContactStore()
+  const settingStore = useSettingStore()
+
+  // 1. 处理消息事件
+  if (data.post_type === 'message' || data.post_type === 'message_sent') {
+    const isGroupMsg = data.message_type === 'group'
+    const sessionId = isGroupMsg ? String(data.group_id) : String(data.user_id)
+    const senderId = data.user_id
+
+    // 推送消息到 Message Store
+    messageStore.pushMessage(data, sessionId)
+
+    // 更新会话列表
+    const preview = getPreviewText(data.message)
+    const isSelf = senderId === settingStore.user?.user_id
+    // 如果是自己发送的，或者当前正好在这个会话中，则不增加未读数
+    // 注意：activeId 是 Ref<string>
+    const isActiveSession = messageStore.activeId === sessionId
+    const unreadCount = (isActiveSession || isSelf) ? 0 : 1
+
+    sessionStore.updateSession(sessionId, {
+      type: isGroupMsg ? 'group' : 'private',
+      preview: `${isSelf ? '我' : (data.sender.card || data.sender.nickname)}: ${preview}`,
+      time: data.time * 1000,
+      unread: unreadCount
     })
   }
 
-  private onNotice(evt: SystemNotice) {
-    const messageStore = useMessageStore()
-    const pid = String(evt.group_id || evt.user_id || '')
-    if (!pid) return
-
-    switch (evt.notice_type) {
-      case 'group_recall':
-      case 'friend_recall':
-        if (evt.message_id) messageStore.recallMessage(evt.message_id)
-        break
-      case 'notify':
-        if (evt.sub_type === 'poke') {
-          const actor = evt.user_id === evt.self_id ? '你' : evt.user_id
-          const target = evt.target_id === evt.self_id ? '你' : evt.target_id
-          this.addSystemMsg(pid, `${actor} 戳了 ${target} 一下`)
-        }
-        break
-      case 'group_ban':
-        const action = evt.sub_type === 'ban' ? `禁言 ${evt.duration}秒` : '解除禁言'
-        this.addSystemMsg(pid, `成员 ${evt.user_id} 被${action}`)
-        break
-      case 'group_increase': this.addSystemMsg(pid, `欢迎 ${evt.user_id} 入群`); break
-      case 'group_decrease': this.addSystemMsg(pid, `${evt.user_id} 退群`); break
-    }
+  // 2. 处理请求事件
+  if (data.post_type === 'request') {
+    contactStore.addNotice(data)
   }
 
-  // 构造本地系统提示消息
-  private addSystemMsg(id: string, text: string) {
-    // 构造一个伪造的消息事件
-    this.onMessage({
-      message_type: id.length > 5 ? 'group' : 'private',
-      [id.length > 5 ? 'group_id' : 'user_id']: Number(id),
-      post_type: 'message',
-      message_id: -Date.now(), // 负数 ID 避免冲突
-      time: Date.now() / 1000,
-      sender: { user_id: 10000, nickname: 'System', role: 'admin' },
-      message: [{ type: 'text', data: { text } }]
-    } as any)
+  // 3. 处理通知事件
+  if (data.post_type === 'notice') {
+      // 消息撤回
+      if (data.notice_type === 'group_recall' || data.notice_type === 'friend_recall') {
+          messageStore.recallMessage(data.message_id)
+      }
+      // 好友添加/群成员变动等可在此扩展
   }
 
-  private onRequest(evt: SystemNotice) {
-    const contactStore = useContactStore()
-    contactStore.addNotice(evt)
-  }
-
-  private onMeta(evt: MetaEvent) {
-    if (evt.meta_event_type === 'lifecycle' && evt.sub_type === 'connect') {
-      console.log('[OneBot] Lifecycle Connected')
-    }
+  // 4. 心跳事件
+  if (data.post_type === 'meta_event' && data.meta_event_type === 'heartbeat') {
+      // 可以在 settingStore 中更新心跳状态
   }
 }
-
-export const oneBotHandler = new OneBotHandler()
