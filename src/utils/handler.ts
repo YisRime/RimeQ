@@ -2,7 +2,7 @@ import { useContactStore } from '@/stores/contact'
 import { useMessageStore } from '@/stores/message'
 import { useSessionStore } from '@/stores/session'
 import { useSettingStore } from '@/stores/setting'
-import type { IMessage, Segment } from '@/types'
+import type { Message, Segment } from '@/types'
 
 // === 类型定义 ===
 
@@ -80,7 +80,7 @@ export function formatTextToHtml(text: string): string {
 }
 
 /**
- * 解析 JSON 消息卡片 (参考 body-parser.ts)
+ * 解析 JSON 消息卡片
  */
 function parseJsonCard(dataStr: string): FormattedSegment | null {
   try {
@@ -201,9 +201,9 @@ export function getPreviewText(message: Segment[] | string): string {
 
 /**
  * 处理消息链 (Message -> UI Format)
- * @param msg 完整的消息对象 (IMessage)
+ * @param msg 完整的消息对象 (Message)
  */
-export function processMessageChain(msg: IMessage): ProcessedMessage {
+export function processMessageChain(msg: Message): ProcessedMessage {
   const contactStore = useContactStore()
   const messageStore = useMessageStore() // 仅用于同步查找，不进行 API 请求
 
@@ -234,6 +234,7 @@ export function processMessageChain(msg: IMessage): ProcessedMessage {
         if (parseInt(replyId) < 0) {
           replyDetail = { id: replyId, text: '[本地消息]', sender: '我' }
         } else {
+          // 在当前会话列表里查找
           const found = messageStore.messages.find(m => String(m.message_id) === replyId)
           if (found) {
             replyDetail = {
@@ -439,7 +440,7 @@ export function handleMessage(data: any) {
     const sessionId = isGroupMsg ? String(data.group_id) : String(data.user_id)
     const senderId = data.user_id
 
-    // 推送消息到 Message Store
+    // 推送消息到 Message Store (不再修改原始数据结构)
     messageStore.pushMessage(data, sessionId)
 
     // 更新会话列表

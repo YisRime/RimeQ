@@ -10,11 +10,11 @@ import SessionList from '@/views/Session.vue'
 import ContactList from '@/views/Contact.vue'
 
 // 侧边栏组件
-import GroupFile from '@/views/pages/GroupFile.vue'
-import GroupNotice from '@/views/pages/GroupNotice.vue'
-import GroupEssence from '@/views/pages/GroupEssence.vue'
-import GroupMember from '@/views/pages/GroupMember.vue'
-import MultiForward from '@/views/pages/MultiForward.vue'
+import GroupFile from '@/components/GroupFile.vue'
+import GroupNotice from '@/components/GroupNotice.vue'
+import GroupEssence from '@/components/GroupEssence.vue'
+import GroupMember from '@/components/GroupMember.vue'
+import MultiForward from '@/components/MultiForward.vue'
 
 const routes: RouteRecordRaw[] = [
   {

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
-import type { GroupInfo, SystemNotice, FriendCategory } from '@/types'
+import type { GroupInfo, Request, FriendCategory } from '@/types'
 
 export const useContactStore = defineStore('contact', () => {
 
@@ -11,7 +11,7 @@ export const useContactStore = defineStore('contact', () => {
   // 群组列表
   const groups = useStorage<GroupInfo[]>('rimeq-groups', [])
   // 系统通知
-  const notices = useStorage<SystemNotice[]>('rimeq-notices', [])
+  const notices = useStorage<Request[]>('rimeq-notices', [])
   // 名称缓存
   const nameCache = reactive({ user: {} as Record<string, string>, group: {} as Record<string, string> })
 
@@ -57,7 +57,7 @@ export const useContactStore = defineStore('contact', () => {
   }
 
   // 添加系统通知
-  function addNotice(notice: SystemNotice) {
+  function addNotice(notice: Request) {
     const exists = notices.value.some(n => n.flag === notice.flag && n.time === notice.time)
     if (!exists) {
       notices.value.unshift(notice)
@@ -65,7 +65,7 @@ export const useContactStore = defineStore('contact', () => {
   }
 
   // 移除系统通知
-  function removeNotice(notice: SystemNotice) {
+  function removeNotice(notice: Request) {
     const index = notices.value.findIndex(n => n.flag === notice.flag)
     if (index !== -1) {
       notices.value.splice(index, 1)

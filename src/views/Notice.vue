@@ -77,7 +77,7 @@ import Avatar from 'primevue/avatar'
 import SplitButton from 'primevue/splitbutton'
 import { useContactStore } from '@/stores/contact'
 import { bot } from '@/api'
-import type { SystemNotice } from '@/types'
+import type { Request } from '@/types'
 
 defineOptions({ name: 'NoticeView' })
 
@@ -96,13 +96,13 @@ const formatTime = (ts: number) => {
 }
 
 // 动态获取头像 URL
-const getAvatar = (i: SystemNotice) =>
+const getAvatar = (i: Request) =>
   (i.request_type === 'group' && i.sub_type === 'add')
     ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${i.user_id}`
     : (i.group_id ? `https://p.qlogo.cn/gh/${i.group_id}/${i.group_id}/0` : `https://q1.qlogo.cn/g?b=qq&s=0&nk=${i.user_id}`)
 
 // 处理请求
-const handle = async (item: SystemNotice, approve: boolean) => {
+const handle = async (item: Request, approve: boolean) => {
   if (!item.flag) return
   const key = item.flag
   processing.value[key] = true

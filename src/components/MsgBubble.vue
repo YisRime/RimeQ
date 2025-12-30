@@ -119,7 +119,6 @@
             <div v-else-if="seg.type === 'record'" class="flex items-center gap-2 px-2 py-1 my-1 rounded-full bg-black/5 dark:bg-white/10 cursor-pointer hover:bg-black/10 transition-colors w-fit select-none" title="播放语音">
                 <div class="i-ri-voiceprint-line text-lg text-primary"></div>
                 <span class="text-xs">语音消息</span>
-                <!-- 这里暂时没有实现实际播放逻辑，仅做 UI 展示 -->
             </div>
 
             <!-- 文件 -->
@@ -190,7 +189,7 @@
       </div>
 
       <!-- 已撤回提示 -->
-      <div v-if="msg.recalled" class="text-[11px] ui-text-foreground-dim mt-1 ui-flex-x gap-1 ml-1">
+      <div v-if="isRecalled" class="text-[11px] ui-text-foreground-dim mt-1 ui-flex-x gap-1 ml-1">
         <div class="i-ri-arrow-go-back-line" />
         已撤回
       </div>
@@ -203,21 +202,23 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import { useSettingStore } from '@/stores/setting'
+import { useMessageStore } from '@/stores/message'
 import { EmojiUtils } from '@/utils/emoji'
 import { processMessageChain, formatTextToHtml } from '@/utils/handler'
-import type { IMessage } from '@/types'
+import type { Message } from '@/types'
 
 const settingStore = useSettingStore()
+const messageStore = useMessageStore()
 const router = useRouter()
 
 const props = defineProps<{
-  msg: IMessage
+  msg: Message
   selectionMode?: boolean
   isSelected?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'contextmenu', ev: MouseEvent, msg: IMessage): void
+  (e: 'contextmenu', ev: MouseEvent, msg: Message): void
   (e: 'poke', uid: number): void
   (e: 'select', msgId: number): void
 }>()
@@ -225,6 +226,8 @@ const emit = defineEmits<{
 // 判断角色
 const isMe = computed(() => props.msg.sender.user_id === settingStore.user?.user_id)
 const isSystem = computed(() => props.msg.sender.user_id === 10000)
+// 获取撤回状态
+const isRecalled = computed(() => messageStore.isRecalled(props.msg.message_id))
 
 // 核心处理
 const processed = computed(() => processMessageChain(props.msg))
@@ -268,7 +271,7 @@ const openLink = (url?: string) => {
     if (url) window.open(url, '_blank')
 }
 
-// 滚动到引用消息 (简单实现，需配合 Store 查找 DOM)
+// 滚动到引用消息
 const scrollToMsg = (id: string | null) => {
     if (!id) return
     const el = document.getElementById(`msg-${id}`)
