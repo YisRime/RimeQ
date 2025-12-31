@@ -6,7 +6,7 @@ import type { GroupInfo, Request, FriendCategory, GroupMemberInfo } from '@/type
 
 /**
  * 联系人与通知状态管理 Store
- * 负责好友、群组、系统通知的管理，并提供名称和群成员的缓存机制
+ * @description 负责好友、群组、系统通知的管理，并提供名称和群成员的缓存机制
  */
 export const useContactStore = defineStore('contact', () => {
   /** 持久化的好友列表 */

@@ -2,21 +2,28 @@ import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
 import Dexie, { type Table } from 'dexie'
 import { bot } from '@/api'
-import { useSessionStore } from './session'
+import { useSessionStore, type Session } from './session'
 import { useSettingStore } from './setting'
+import { useContactStore } from './contact'
 import type { Message } from '@/types'
 
+/**
+ * 本地数据库消息接口
+ * @description 扩展原始消息类型，用于本地存储和排序索引
+ */
 interface DBMessage extends Message {
+  /** 自增主键 */
   id?: number
+  /** 会话唯一标识 */
   session_id: string
+  /** 会话排序序号 */
   session_seq: number
 }
 
 /**
- * 定义用于存储消息的本地 IndexedDB 数据库
+ * 消息持久化数据库
  */
 class Database extends Dexie {
-  /** 持久化存储聊天记录表 */
   public messages!: Table<DBMessage, number>
   constructor() {
     super('rimeq-message')
@@ -27,29 +34,31 @@ const db = new Database()
 
 /**
  * 消息状态管理 Store
- * 负责聊天消息的获取、持久化、状态管理及相关交互逻辑
+ * @description 负责消息的存储、加载、实时更新及多选和回复等功能
  */
 export const useMessageStore = defineStore('message', () => {
   const sessionStore = useSessionStore()
   const settingStore = useSettingStore()
+  const contactStore = useContactStore()
   /** 当前激活的会话 ID */
   const activeId = ref('')
-  /** 当前会话的消息列表 */
+  /** 当前展示的消息列表 */
   const messages = shallowRef<DBMessage[]>([])
   /** 是否正在加载历史消息 */
   const isLoading = ref(false)
   /** 是否已加载完历史消息 */
   const isFinished = ref(false)
-  /** 是否处于消息多选模式 */
+  /** 是否开启多选模式 */
   const isMultiSelect = ref(false)
-  /** 已选中消息的 ID 列表 */
+  /** 选中的消息 ID 集合 */
   const selectedIds = ref<number[]>([])
-  /** 已被撤回的消息 ID 列表 */
+  /** 已撤回消息的 ID 缓存 */
   const recalledCache = ref(new Set<number>())
+  /** 正在回复的目标消息 */
+  const replyTarget = ref<Message | null>(null)
 
   /**
-   * (计算属性) 获取当前选中的消息对象数组
-   * @returns 已选中的消息对象列表
+   * 获取当前多选选中的消息对象列表
    */
   const selectedMessages = computed((): DBMessage[] => {
     if (!selectedIds.value.length) return []
@@ -58,28 +67,56 @@ export const useMessageStore = defineStore('message', () => {
   })
 
   /**
-   * 检查指定 ID 的消息是否已被撤回
-   * @param messageId - 要检查的消息 ID
-   * @returns 如果消息在撤回缓存中，则返回 `true`
+   * 根据 ID 获取会话类型
+   */
+  const getSessionType = (id: string): 'group' | 'private' => {
+    const session = sessionStore.getSession(id)
+    if (session) return session.type
+    const isGroup = contactStore.groups.some(g => String(g.group_id) === id)
+    return isGroup ? 'group' : 'private'
+  }
+
+  /**
+   * 生成统一的会话 ID
+   * @param targetId - 目标 ID
+   * @param type - 会话类型
+   */
+  const getSessionKey = (targetId: string, type: 'private' | 'group'): string => {
+    return type === 'group' ? `g_${targetId}` : `p_${targetId}`
+  }
+
+  /**
+   * 标准化消息对象
+   */
+  const normalizeMessage = (msg: Message): DBMessage => {
+    const storedMsg = msg as DBMessage
+    let seq = 0
+    if (msg.real_seq) seq = Number(msg.real_seq)
+    else if (msg.message_seq) seq = msg.message_seq
+    else seq = msg.time * 1000 + (msg.message_id % 1000)
+    storedMsg.session_seq = seq
+    if (msg.message_type === 'group') {
+      storedMsg.session_id = `g_${msg.group_id}`
+    } else {
+      const selfId = settingStore.user?.user_id || 0
+      const friendId = msg.user_id === selfId ? (msg as any).target_id : msg.user_id
+      storedMsg.session_id = `p_${friendId}`
+    }
+    return storedMsg
+  }
+
+  /**
+   * 判断消息是否已被撤回
+   * @param messageId - 消息 ID
+   * @returns 是否已撤回
    */
   function isRecalled(messageId: number): boolean {
     return recalledCache.value.has(messageId)
   }
 
-  const getSessionId = (id: string, type: 'private' | 'group'): string => {
-    if (type === 'group') {
-      return `g_${id}`
-    } else {
-      const selfId = settingStore.user!.user_id
-      const friendId = Number(id)
-      return `p_${[selfId, friendId].sort((a, b) => a - b).join('_')}`
-    }
-  }
-
   /**
-   * 打开并加载指定会话的消息
-   * 先从本地数据库加载，然后异步拉取最新消息进行同步和补充
-   * @param id - 要打开的会话 ID
+   * 切换并打开一个会话
+   * @param id - 会话 ID
    */
   async function openSession(id: string): Promise<void> {
     if (activeId.value === id) return
@@ -87,99 +124,104 @@ export const useMessageStore = defineStore('message', () => {
     isLoading.value = true
     isFinished.value = false
     setMultiSelect(false)
+    setReplyTarget(null)
     sessionStore.clearUnread(id)
     messages.value = []
     try {
-      const session = sessionStore.getSession(id)
-      if (!session) {
-          isLoading.value = false
-          return
-      }
-      const sessionId = getSessionId(id, session.type)
+      const type = getSessionType(id)
+      const session = sessionStore.getSession(id) || ({ id, type } as Session)
+      const dbKey = getSessionKey(id, session.type)
       const history = await db.messages
         .where('[session_id+session_seq]')
-        .between([sessionId, Dexie.minKey], [sessionId, Dexie.maxKey])
+        .between([dbKey, Dexie.minKey], [dbKey, Dexie.maxKey])
         .reverse()
-        .limit(20)
+        .limit(100)
         .toArray()
-      if (history.length > 0) messages.value = history.reverse()
-    } catch (e) {
-      console.warn('从数据库加载消息失败:', e)
-    }
-    await fetchHistory(id)
-    isLoading.value = false
-  }
-
-  /**
-   * 从 OneBot API 拉取更多历史消息
-   * @param id - 目标会话 ID，默认为当前激活的会话
-   */
-  async function fetchHistory(id: string = activeId.value): Promise<void> {
-    if (isLoading.value && messages.value.length > 0 && !isFinished.value) return
-    isLoading.value = true
-    try {
-      const startMsg = messages.value[0]
-      const apiCursor = startMsg?.message_id
-      const session = sessionStore.getSession(id)
-      const res = session?.type === 'group'
-        ? await bot.getGroupMsgHistory(Number(id), apiCursor)
-        : await bot.getFriendMsgHistory(Number(id), apiCursor)
-      if (!res.messages?.length) {
-        isFinished.value = true
+      if (history.length > 0) {
+        messages.value = history.reverse()
+        isLoading.value = false
       } else {
-        const rawApiMessages: Message[] = res.messages
-        const processedMessages = rawApiMessages.map(m => addCustomFields(m))
-        db.messages.bulkPut(processedMessages).catch(console.warn)
-        if (activeId.value === id) {
-          const messageMap = new Map<number, DBMessage>()
-          messages.value.forEach(m => messageMap.set(m.message_id, m))
-          processedMessages.forEach(m => messageMap.set(m.message_id, m))
-          const sortedMessages = Array.from(messageMap.values())
-            .sort((a, b) => a.session_seq - b.session_seq)
-          messages.value = sortedMessages
-        }
+        await fetchHistory(id)
       }
-    } catch (e) {
-      console.error('获取历史消息失败:', e)
-    } finally {
+    } catch {
       isLoading.value = false
     }
   }
 
-  const addCustomFields = (msg: Message): DBMessage => {
-    const storedMsg = msg as DBMessage
-    storedMsg.session_seq = Number(msg.real_seq) || msg.message_seq || (msg.time * 1000 + (msg.message_id % 1000));
-    if (msg.message_type === 'group') {
-      storedMsg.session_id = `g_${msg.group_id}`
-    } else {
-      const selfId = settingStore.user!.user_id
-      const friendId = msg.user_id === selfId ? (msg as any).target_id : msg.user_id
-      if (selfId && friendId) {
-        storedMsg.session_id = `p_${[selfId, friendId].sort((a, b) => a - b).join('_')}`;
+  /**
+   * 拉取历史消息
+   * @param id - 会话 ID (默认为当前激活会话)
+   * @returns 是否成功获取并合并了新数据
+   */
+  async function fetchHistory(id: string = activeId.value): Promise<boolean> {
+    if (id !== activeId.value) return false
+    if (isLoading.value && messages.value.length > 0) return false
+    if (isFinished.value) return false
+    isLoading.value = true
+    let hasNewData = false
+    try {
+      const type = getSessionType(id)
+      const apiCursor = messages.value.length > 0 ? messages.value[0]?.message_seq : undefined
+      let res: { messages: Message[] }
+      if (type === 'group') {
+        res = await bot.getGroupMsgHistory(Number(id), apiCursor, 100, true)
+      } else {
+        res = await bot.getFriendMsgHistory(Number(id), apiCursor, 100, true)
       }
+      if (id !== activeId.value) return false
+      const fetchedList = res.messages || []
+      if (fetchedList.length === 0) {
+        isFinished.value = true
+      } else {
+        const newMessages = fetchedList.map(m => normalizeMessage(m))
+        await db.messages.bulkPut(newMessages)
+        if (messages.value.length === 0) {
+          messages.value = newMessages
+          hasNewData = true
+        } else {
+          const existingIds = new Set(messages.value.map(m => m.message_id))
+          const uniqueNew = newMessages.filter(m => !existingIds.has(m.message_id))
+          if (uniqueNew.length > 0) {
+            const merged = [...uniqueNew, ...messages.value]
+            merged.sort((a, b) => a.session_seq - b.session_seq)
+            messages.value = merged
+            hasNewData = true
+          } else {
+            isFinished.value = true
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`[Message] 拉取消息 ${id} 历史失败:`, e)
+    } finally {
+      isLoading.value = false
     }
-    return storedMsg
+    return hasNewData
   }
 
   /**
-   * 接收并处理实时推送的新消息
-   * 将新消息存入数据库，并更新当前会话的 UI
-   * @param rawEvent - 从 WebSocket 推送的原始消息对象
+   * 接收实时消息推送
+   * @param rawEvent - 原始消息事件
    */
   function pushMessage(rawEvent: Message): void {
-    const processedMessage = addCustomFields(rawEvent)
-    db.messages.put(processedMessage).catch(() => {})
-    const currentSessionId = getSessionId(activeId.value, sessionStore.getSession(activeId.value)!.type)
-    if (currentSessionId === processedMessage.session_id) {
-      if (!messages.value.some(m => m.message_id === processedMessage.message_id)) {
-        messages.value = [...messages.value, processedMessage]
+    const processed = normalizeMessage(rawEvent)
+    db.messages.put(processed).catch(e => console.warn('[Message] 存储消息失败:', e))
+    if (activeId.value) {
+      const activeSession = sessionStore.getSession(activeId.value)
+      if (activeSession) {
+        const activeKey = getSessionKey(activeId.value, activeSession.type)
+        if (activeKey === processed.session_id) {
+          if (!messages.value.some(m => m.message_id === processed.message_id)) {
+            messages.value = [...messages.value, processed]
+          }
+        }
       }
     }
   }
 
   /**
-   * 处理消息撤回事件
-   * @param msgId - 被撤回的消息 ID
+   * 处理消息撤回
+   * @param msgId - 消息 ID
    */
   async function recallMessage(msgId: number): Promise<void> {
     recalledCache.value.add(msgId)
@@ -195,9 +237,9 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
-   * 处理消息的选中状态变更
-   * @param msgId - 被操作的消息 ID
-   * @param mode - 操作模式：'toggle' (切换选中/取消) 或 'only' (仅选中此项)
+   * 处理消息选中状态
+   * @param msgId - 消息 ID
+   * @param mode - 模式：切换或仅选中
    */
   function handleSelection(msgId: number, mode: 'toggle' | 'only'): void {
     if (mode === 'only') {
@@ -211,14 +253,26 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
-   * 启用或禁用消息多选模式
-   * @param enable - `true` 表示启用，`false` 表示禁用
+   * 设置多选模式
+   * @param enable - 是否开启
    */
   function setMultiSelect(enable: boolean): void {
     isMultiSelect.value = enable
-    if (!enable) selectedIds.value = []
+    if (!enable) {
+      selectedIds.value = []
+    } else {
+      setReplyTarget(null)
+    }
   }
 
-  return { activeId, messages, isLoading, isFinished, isMultiSelect, selectedIds, selectedMessages,
-    isRecalled, openSession, fetchHistory, pushMessage, recallMessage, handleSelection, setMultiSelect }
+  /**
+   * 设置回复引用目标
+   * @param message - 目标消息对象
+   */
+  function setReplyTarget(message: Message | null): void {
+    replyTarget.value = message
+  }
+
+  return { activeId, messages, isLoading, isFinished, isMultiSelect, selectedIds, selectedMessages, replyTarget,
+    isRecalled, openSession, fetchHistory, pushMessage, recallMessage, handleSelection, setMultiSelect, setReplyTarget }
 })

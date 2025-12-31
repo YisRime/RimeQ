@@ -428,7 +428,6 @@ export function processMessageChain(msg: Message): ProcessedMessage {
  * 负责将 OneBot 事件分发到各个 Store
  */
 export function handleMessage(data: any) {
-  // 在函数内部获取 Store 实例，避免循环依赖问题
   const messageStore = useMessageStore()
   const sessionStore = useSessionStore()
   const contactStore = useContactStore()
@@ -437,17 +436,22 @@ export function handleMessage(data: any) {
   // 1. 处理消息事件
   if (data.post_type === 'message' || data.post_type === 'message_sent') {
     const isGroupMsg = data.message_type === 'group'
-    const sessionId = isGroupMsg ? String(data.group_id) : String(data.user_id)
-    const senderId = data.user_id
+    const selfId = settingStore.user?.user_id
 
-    // 推送消息到 Message Store (不再修改原始数据结构)
-    messageStore.pushMessage(data, sessionId)
+    let sessionId: string
+    if (isGroupMsg) {
+      sessionId = String(data.group_id)
+    } else {
+      sessionId = String(data.user_id === selfId ? (data as any).target_id : data.user_id)
+    }
+
+    // 推送消息到 Message Store
+    messageStore.pushMessage(data)
 
     // 更新会话列表
     const preview = getPreviewText(data.message)
-    const isSelf = senderId === settingStore.user?.user_id
+    const isSelf = data.sender.user_id === selfId
     // 如果是自己发送的，或者当前正好在这个会话中，则不增加未读数
-    // 注意：activeId 是 Ref<string>
     const isActiveSession = messageStore.activeId === sessionId
     const unreadCount = (isActiveSession || isSelf) ? 0 : 1
 

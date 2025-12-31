@@ -89,8 +89,8 @@ export class ExtendedClient extends BaseClient {
    * @param message_seq - 起始消息序号，0 为最新
    * @param count - 获取数量
    */
-  getGroupMsgHistory(group_id: number, message_seq?: number, count = 20) {
-    return this.request<{ messages: T.Message[] }>('get_group_msg_history', { group_id, message_seq, count })
+  getGroupMsgHistory(group_id: number, message_seq?: number, count = 20, reverseOrder = false) {
+    return this.request<{ messages: T.Message[] }>('get_group_msg_history', { group_id, message_seq, count, reverseOrder })
   }
 
   /**
@@ -99,8 +99,8 @@ export class ExtendedClient extends BaseClient {
    * @param message_seq - 起始消息序号
    * @param count - 获取数量
    */
-  getFriendMsgHistory(user_id: number, message_seq?: number, count = 20) {
-    return this.request<{ messages: T.Message[] }>('get_friend_msg_history', { user_id, message_seq, count })
+  getFriendMsgHistory(user_id: number, message_seq?: number, count = 20, reverseOrder = false) {
+    return this.request<{ messages: T.Message[] }>('get_friend_msg_history', { user_id, message_seq, count, reverseOrder })
   }
 
   /**

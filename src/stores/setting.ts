@@ -13,7 +13,7 @@ extend([mixPlugin, a11yPlugin])
 
 /**
  * 全局应用设置与状态管理
- * 负责用户登录、连接状态、主题外观以及各项应用配置
+ * @description 负责用户登录、连接状态、主题外观以及各项应用配置
  */
 export const useSettingStore = defineStore('setting', () => {
   /** WebSocket 连接状态 */

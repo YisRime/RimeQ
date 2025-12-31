@@ -26,7 +26,7 @@ export interface Session {
 
 /**
  * 最近会话列表状态管理 Store
- * 负责维护、更新和排序用户的聊天会话列表
+ * @description 负责维护、更新和排序用户的聊天会话列表
  */
 export const useSessionStore = defineStore('session', () => {
   const contactStore = useContactStore()
