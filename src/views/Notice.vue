@@ -72,11 +72,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useToast } from 'primevue/usetoast'
-import Avatar from 'primevue/avatar'
-import SplitButton from 'primevue/splitbutton'
-import { useContactStore } from '@/stores/contact'
+import { useToast, Avatar, SplitButton } from 'primevue'
 import { bot } from '@/api'
+import { useContactStore } from '@/stores'
 import type { Request } from '@/types'
 
 defineOptions({ name: 'NoticeView' })

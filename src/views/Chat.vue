@@ -231,8 +231,7 @@ import Button from 'primevue/button'
 import { EditorContent } from '@tiptap/vue-3'
 import tippy, { type Instance, type Props } from 'tippy.js'
 
-import { useMessageStore } from '@/stores/message'
-import { useSessionStore } from '@/stores/session'
+import { useMessageStore, useSessionStore, useContactStore } from '@/stores'
 import { bot } from '@/api'
 import type { Message, Segment } from '@/types'
 import type { AnimationItem } from 'lottie-web'
@@ -250,6 +249,7 @@ const route = useRoute()
 const toast = useToast()
 const messageStore = useMessageStore()
 const sessionStore = useSessionStore()
+const contactStore = useContactStore()
 
 // 当前会话 ID
 const id = computed(() => (route.params.id as string) || '')
@@ -258,7 +258,11 @@ const session = computed(() => sessionStore.getSession(id.value))
 // 消息列表
 const list = computed(() => messageStore.messages)
 // 是否为群组会话
-const isGroup = computed(() => session.value?.type === 'group' || id.value.length > 5)
+const isGroup = computed(() => {
+  if (!id.value) return false
+  if (session.value) return session.value.type === 'group'
+  return contactStore.checkIsGroup(id.value)
+})
 // 是否处于多选模式
 const isMultiSelect = computed(() => messageStore.isMultiSelect)
 // 多选模式选中数量

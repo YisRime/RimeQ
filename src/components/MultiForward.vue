@@ -61,8 +61,8 @@ import InputText from 'primevue/inputtext'
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import { useMessageStore } from '@/stores/message'
-import { useSessionStore } from '@/stores/session'
+import { useMessageStore, useSessionStore, useContactStore } from '@/stores'
+import {  } from '@/stores/session'
 import { bot } from '@/api'
 import type { Segment } from '@/types'
 
@@ -73,6 +73,7 @@ const toast = useToast()
 
 const messageStore = useMessageStore()
 const sessionStore = useSessionStore()
+const contactStore = useContactStore()
 
 const keyword = ref('')
 const selectedId = ref('')
@@ -112,7 +113,7 @@ const handleSend = async () => {
 
     const targetId = Number(selectedId.value)
     const session = sessionStore.getSession(selectedId.value)
-    const isGroup = session?.type === 'group' || selectedId.value.length > 5
+    const isGroup = session?.type === 'group' || contactStore.checkIsGroup(selectedId.value)
 
     if (isGroup) await bot.sendGroupForwardMsg(targetId, nodes)
     else await bot.sendPrivateForwardMsg(targetId, nodes)

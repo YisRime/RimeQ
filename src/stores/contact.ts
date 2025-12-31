@@ -140,5 +140,14 @@ export const useContactStore = defineStore('contact', () => {
     return `群 ${id}`
   }
 
-  return { friends, groups, notices, fetchContacts, fetchGroupMembers, addNotice, removeNotice, getFriendName, getGroupName }
+  /**
+   * 判断指定 ID 是否为群组
+   * @description 基于本地群组列表进行精确匹配
+   */
+  function checkIsGroup(id: string | number): boolean {
+    const targetId = String(id)
+    return groups.value.some(g => String(g.group_id) === targetId)
+  }
+
+  return { friends, groups, notices, fetchContacts, fetchGroupMembers, addNotice, removeNotice, getFriendName, getGroupName, checkIsGroup }
 })

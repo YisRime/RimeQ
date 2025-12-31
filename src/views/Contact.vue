@@ -157,9 +157,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Avatar } from 'primevue'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
-import Avatar from 'primevue/avatar'
-import { useContactStore } from '@/stores/contact'
+import { useContactStore } from '@/stores'
 import type { GroupInfo } from '@/types'
 
 defineOptions({ name: 'ContactView' })

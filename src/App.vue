@@ -163,16 +163,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Avatar, IconField, InputIcon, InputText, Button } from 'primevue'
 import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
-import { useSettingStore } from '@/stores/setting'
-import { useSessionStore } from '@/stores/session'
-import { useContactStore } from '@/stores/contact'
+import { useSettingStore, useSessionStore, useContactStore } from '@/stores'
 import MediaViewer from '@/components/MediaViewer.vue'
-import Avatar from 'primevue/avatar'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Button from 'primevue/button'
 
 const router = useRouter()
 const route = useRoute()
@@ -205,7 +199,10 @@ const userAvatar = computed(() => {
 // 数据计算：当前上下文
 const chatId = computed(() => route.params.id as string)
 const session = computed(() => sessionStore.getSession(chatId.value))
-const isGroup = computed(() => session.value?.type === 'group' || chatId.value?.length > 5)
+const isGroup = computed(() => {
+  if (session.value) return session.value.type === 'group'
+  return contactStore.checkIsGroup(chatId.value)
+})
 const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
 const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
 

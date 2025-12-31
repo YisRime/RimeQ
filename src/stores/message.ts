@@ -72,7 +72,7 @@ export const useMessageStore = defineStore('message', () => {
   const getSessionType = (id: string): 'group' | 'private' => {
     const session = sessionStore.getSession(id)
     if (session) return session.type
-    const isGroup = contactStore.groups.some(g => String(g.group_id) === id)
+    const isGroup = contactStore.checkIsGroup(id)
     return isGroup ? 'group' : 'private'
   }
 

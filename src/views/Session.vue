@@ -80,9 +80,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import Avatar from 'primevue/avatar'
-import { useSessionStore, type Session } from '@/stores/session'
-import { useContactStore } from '@/stores/contact'
+import { Avatar } from 'primevue'
+import { useSessionStore, useContactStore, type Session } from '@/stores'
 
 defineOptions({ name: 'SessionView' })
 
@@ -116,7 +115,7 @@ const filteredSessions = computed(() => {
 // 获取会话显示名称
 const getSessionName = (session: Session) => {
   let name: string
-  if (session.type === 'group' || session.id.length > 5) {
+  if (session.type === 'group' || contactStore.checkIsGroup(session.id)) {
     name = contactStore.getGroupName(session.id)
   } else {
     name = contactStore.getFriendName(session.id)

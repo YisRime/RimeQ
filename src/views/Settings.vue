@@ -248,16 +248,9 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
-import { useSettingStore } from '@/stores/setting'
+import { ToggleSwitch, InputGroup, InputText, Textarea, Slider, Button, useToast, useConfirm } from 'primevue'
 import { bot } from '@/api'
-import ToggleSwitch from 'primevue/toggleswitch'
-import InputGroup from 'primevue/inputgroup'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Slider from 'primevue/slider'
-import Button from 'primevue/button'
+import { useSettingStore } from '@/stores'
 
 defineOptions({ name: 'SettingsView' })
 

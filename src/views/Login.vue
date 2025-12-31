@@ -64,14 +64,8 @@
 <script setup lang="ts">
 import { reactive, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
-import { useSettingStore } from '@/stores/setting'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
-import Checkbox from 'primevue/checkbox'
-import Button from 'primevue/button'
+import { IconField, InputIcon, InputText, Password, Checkbox, Button, useToast } from 'primevue'
+import { useSettingStore } from '@/stores'
 
 const router = useRouter()
 const route = useRoute()
