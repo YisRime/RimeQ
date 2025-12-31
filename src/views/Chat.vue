@@ -234,17 +234,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, type ComponentPublicInstance, h, defineComponent } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, type ComponentPublicInstance } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
 
-// Tiptap imports
-import { useEditor, EditorContent, VueRenderer } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-import Mention from '@tiptap/extension-mention'
-import Placeholder from '@tiptap/extension-placeholder'
+// Tiptap
+import { EditorContent } from '@tiptap/vue-3'
 import tippy, { type Instance, type Props } from 'tippy.js'
 
 import { useMessageStore } from '@/stores/message'
@@ -256,96 +252,9 @@ import MsgBubble from '@/components/MsgBubble.vue'
 import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
 import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
 import { processMessageChain } from '@/utils/handler'
+import { useChatEditor } from '@/utils/editor'
 
 defineOptions({ name: 'ChatView' })
-
-// ----------------------------------------------------------------------
-// 1. 内联组件与工具函数定义 (MentionList & Converter)
-// ----------------------------------------------------------------------
-
-// 内联 MentionList 组件 (渲染 @ 候选列表)
-const MentionList = defineComponent({
-  props: {
-    items: { type: Array as () => any[], required: true },
-    command: { type: Function, required: true }
-  },
-  setup(props, { expose }) {
-    const selectedIndex = ref(0)
-    watch(() => props.items, () => selectedIndex.value = 0)
-
-    const selectItem = (index: number) => {
-      const item = props.items[index]
-      if (item) props.command({ id: item.id, label: item.label })
-    }
-
-    const onKeyDown = ({ event }: { event: KeyboardEvent }) => {
-      if (event.key === 'ArrowUp') {
-        selectedIndex.value = (selectedIndex.value + props.items.length - 1) % props.items.length
-        return true
-      }
-      if (event.key === 'ArrowDown') {
-        selectedIndex.value = (selectedIndex.value + 1) % props.items.length
-        return true
-      }
-      if (event.key === 'Enter') {
-        selectItem(selectedIndex.value)
-        return true
-      }
-      return false
-    }
-
-    expose({ onKeyDown })
-
-    return () => h('div', {
-      class: 'bg-background-sub border border-background-dim rounded-lg shadow-xl overflow-hidden min-w-[12rem] flex flex-col p-1 z-50'
-    }, [
-      props.items.length
-        ? props.items.map((item, index) => h('button', {
-            class: [
-              'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors w-full text-left',
-              index === selectedIndex.value ? 'bg-primary/10 text-primary' : 'hover:bg-background-dim text-foreground-main'
-            ],
-            onClick: () => selectItem(index)
-          }, [
-            h('img', { src: item.avatar, class: 'w-6 h-6 rounded-full bg-background-dim object-cover border border-background-dim/50' }),
-            h('span', { class: 'truncate flex-1' }, item.label),
-            h('span', { class: 'text-xs text-foreground-dim font-mono opacity-50' }, item.id)
-          ]))
-        : h('div', { class: 'p-2 text-xs text-foreground-dim text-center' }, '没有找到成员')
-    ])
-  }
-})
-
-// 工具函数：将 Tiptap JSON 转换为 OneBot 消息段
-const convertEditorJsonToSegment = (json: any): Segment[] => {
-  const segments: Segment[] = []
-  if (!json.content || !Array.isArray(json.content)) return segments
-
-  json.content.forEach((node: any) => {
-    if (node.type === 'paragraph') {
-      // 段落之间添加换行符（第一行除外）
-      if (segments.length > 0) {
-        segments.push({ type: 'text', data: { text: '\n' } })
-      }
-      if (node.content) {
-        node.content.forEach((child: any) => {
-          if (child.type === 'text') {
-            segments.push({ type: 'text', data: { text: child.text } })
-          } else if (child.type === 'image') {
-            segments.push({ type: 'image', data: { file: child.attrs.src } })
-          } else if (child.type === 'mention') {
-            segments.push({ type: 'at', data: { qq: child.attrs.id } })
-          }
-        })
-      }
-    }
-  })
-  // [修复 1] 使用可选链 ?. 访问
-  if (segments.length > 0 && segments[0]?.type === 'text' && segments[0]?.data?.text === '\n') {
-    segments.shift()
-  }
-  return segments
-}
 
 // ----------------------------------------------------------------------
 // 2. 核心逻辑
@@ -373,123 +282,79 @@ const isExpanded = ref(false)
 const lottieMap = new Map<number, AnimationItem>()
 const lottieRefs = new Map<number, HTMLElement>()
 
-// Tiptap 编辑器初始化
-const editor = useEditor({
-  content: '',
-  extensions: [
-    StarterKit,
-    Image.configure({
-      allowBase64: true,
-      inline: true,
-    }),
-    Placeholder.configure({
-      placeholder: '请输入消息... (输入 @ 提及)',
-    }),
-    Mention.configure({
-      HTMLAttributes: {
-        class: 'text-primary font-bold bg-primary/10 rounded px-1 py-0.5 mx-0.5 decoration-clone inline-block',
-      },
-      suggestion: {
-        items: async ({ query }: { query: string }) => {
-          if (!isGroup.value) return []
-          try {
-            // 获取群成员列表 (实际建议走 Store 缓存)
-            const list = await bot.getGroupMemberList(Number(id.value))
-            const q = query.toLowerCase()
-            return list
-              .filter(item =>
-                String(item.user_id).includes(q) ||
-                (item.card && item.card.toLowerCase().includes(q)) ||
-                (item.nickname && item.nickname.toLowerCase().includes(q))
-              )
-              .slice(0, 10)
-              .map(item => ({
-                id: item.user_id,
-                label: item.card || item.nickname,
-                avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${item.user_id}`
-              }))
-          } catch (e) {
-            console.error('Fetch members failed', e)
-            return []
-          }
-        },
-        render: () => {
-          let component: VueRenderer
-          let popup: Instance[]
+// 处理输入发送（逻辑已内联优化）
+const handleInputSend = async () => {
+  if (isMultiSelect.value) {
+    // 多选转发跳转
+    if (messageStore.selectedIds.length > 0) {
+      router.push(`/${id.value}/forward`)
+    }
+  } else {
+    // 普通消息发送
+    if (isEditorEmpty.value || !editor.value) return
 
-          return {
-            onStart: (props: any) => {
-              component = new VueRenderer(MentionList, { props, editor: props.editor })
-              if (!props.clientRect) return
+    const segments: Segment[] = []
+    const json = editor.value.getJSON()
 
-              // [修复 2] 使用 as HTMLElement 强制类型转换，确保 content 匹配类型
-              popup = tippy([document.body], {
-                getReferenceClientRect: props.clientRect,
-                appendTo: () => document.body,
-                content: component.element as HTMLElement,
-                showOnCreate: true,
-                interactive: true,
-                trigger: 'manual',
-                placement: 'top-start',
-                zIndex: 9999,
-              })
-            },
-            onUpdate(props: any) {
-              component.updateProps(props)
-              if (!props.clientRect) return
-              popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect })
-            },
-            onKeyDown(props: any) {
-              if (props.event.key === 'Escape') {
-                popup?.[0]?.hide()
-                return true
-              }
-              return component.ref?.onKeyDown(props)
-            },
-            onExit() {
-              popup?.[0]?.destroy()
-              component.destroy()
-            },
+    // 1. 内联编辑器内容转换逻辑
+    if (json.content && Array.isArray(json.content)) {
+      json.content.forEach((node: any) => {
+        if (node.type === 'paragraph') {
+          // 段落之间添加换行符（第一行除外）
+          if (segments.length > 0) {
+            segments.push({ type: 'text', data: { text: '\n' } })
           }
-        },
-      }
-    }),
-  ],
-  editorProps: {
-    handlePaste: (view, event) => {
-      // 粘贴图片处理
-      const items = event.clipboardData?.items
-      if (items) {
-        for (const item of items) {
-          if (item.type.indexOf('image') === 0) {
-            const blob = item.getAsFile()
-            if (blob) {
-              const reader = new FileReader()
-              reader.onload = (e) => {
-                const src = e.target?.result as string
-                // 确保 image 节点存在
-                if (view.state.schema.nodes.image) {
-                  view.dispatch(view.state.tr.replaceSelectionWith(
-                    view.state.schema.nodes.image.create({ src })
-                  ))
-                }
+          if (node.content) {
+            node.content.forEach((child: any) => {
+              if (child.type === 'text') {
+                segments.push({ type: 'text', data: { text: child.text } })
+              } else if (child.type === 'image') {
+                segments.push({ type: 'image', data: { file: child.attrs.src } })
+              } else if (child.type === 'mention') {
+                segments.push({ type: 'at', data: { qq: child.attrs.id } })
               }
-              reader.readAsDataURL(blob)
-              return true
-            }
+            })
           }
         }
-      }
-      return false
-    },
-    handleKeyDown: (view, event) => {
-      if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey) {
-        handleInputSend()
-        return true
-      }
-      return false
+      })
     }
+    // 移除开头的多余换行
+    if (segments.length > 0 && segments[0]?.type === 'text' && segments[0]?.data?.text === '\n') {
+      segments.shift()
+    }
+
+    // 2. 附加引用
+    if (replyTarget.value) {
+      segments.unshift({ type: 'reply', data: { id: String(replyTarget.value.message_id) } })
+    }
+
+    if (segments.length === 0) return
+
+    // 3. 重置状态并发送
+    editor.value.commands.clearContent()
+    replyTarget.value = null
+    if (isExpanded.value) isExpanded.value = false
+
+    try {
+      await bot.sendMsg({
+        message_type: isGroup.value ? 'group' : 'private',
+        [isGroup.value ? 'group_id' : 'user_id']: Number(id.value),
+        message: segments
+      })
+    } catch (e) {
+      console.error('发送消息失败:', e)
+      toast.add({ severity: 'error', summary: '发送失败', detail: String(e), life: 3000 })
+    }
+
+    nextTick(focusEditor)
   }
+}
+
+// 引入 Tiptap 编辑器逻辑
+const editor = useChatEditor({
+  currentId: id,
+  isGroup: isGroup,
+  onSend: handleInputSend
 })
 
 // [修改点] 右键菜单 Tippy 逻辑
@@ -633,47 +498,6 @@ const onScroll = (e: Event) => {
   }
 }
 
-// 处理输入发送
-const handleInputSend = async () => {
-  if (isMultiSelect.value) {
-    // 多选转发跳转
-    if (messageStore.selectedIds.length > 0) {
-      router.push(`/${id.value}/forward`)
-    }
-  } else {
-    // 普通消息发送
-    if (isEditorEmpty.value || !editor.value) return
-
-    // 转换富文本内容
-    const segments = convertEditorJsonToSegment(editor.value.getJSON())
-
-    // 附加引用
-    if (replyTarget.value) {
-      segments.unshift({ type: 'reply', data: { id: String(replyTarget.value.message_id) } })
-    }
-
-    if (segments.length === 0) return
-
-    // 重置状态
-    editor.value.commands.clearContent()
-    replyTarget.value = null
-    if (isExpanded.value) isExpanded.value = false
-
-    try {
-      await bot.sendMsg({
-        message_type: isGroup.value ? 'group' : 'private',
-        [isGroup.value ? 'group_id' : 'user_id']: Number(id.value),
-        message: segments
-      })
-    } catch (e) {
-      console.error('发送消息失败:', e)
-      toast.add({ severity: 'error', summary: '发送失败', detail: String(e), life: 3000 })
-    }
-
-    nextTick(focusEditor)
-  }
-}
-
 // 处理输入文件上传
 const handleUploadInput = (e: Event) => {
   const input = e.target as HTMLInputElement
@@ -813,7 +637,7 @@ onMounted(() => {
 .chat-editor {
   .ProseMirror {
     outline: none;
-    min-height: 2.5rem;
+    min-height: 1.5rem; /* 单行高度修正 */
 
     p {
       margin: 0;

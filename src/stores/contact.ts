@@ -2,31 +2,36 @@ import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
-import type { GroupInfo, Request, FriendCategory } from '@/types'
+import type { GroupInfo, Request, FriendCategory, GroupMemberInfo } from '@/types'
 
+/**
+ * 联系人与通知状态管理 Store
+ * 负责好友、群组、系统通知的管理，并提供名称和群成员的缓存机制
+ */
 export const useContactStore = defineStore('contact', () => {
-
-  // 好友列表
+  /** 持久化的好友列表 */
   const friends = useStorage<FriendCategory[]>('rimeq-friends', [])
-  // 群组列表
+  /** 持久化的群组列表 */
   const groups = useStorage<GroupInfo[]>('rimeq-groups', [])
-  // 系统通知
+  /** 持久化的系统通知 */
   const notices = useStorage<Request[]>('rimeq-notices', [])
-  // 名称缓存
+  /** 用户和群组名称的内存缓存 */
   const nameCache = reactive({ user: {} as Record<string, string>, group: {} as Record<string, string> })
+  /** 群成员列表的内存缓存 */
+  const memberCache = reactive(new Map<number, GroupMemberInfo[]>())
 
-  // 拉取所有信息
+  /**
+   * 从 API 拉取所有联系人信息，包括好友和群组列表
+   * 优先尝试获取带分组的好友列表，失败则回退到普通好友列表
+   */
   async function fetchContacts() {
-    // 获取群组列表
     try {
       groups.value = await bot.getGroupList() || []
     } catch (e) {
       console.error('[Contact] 获取群组列表失败', e)
       groups.value = []
     }
-    // 获取好友列表
     try {
-      // 获取分组列表
       const cats = await bot.getFriendsWithCategory()
       if (!Array.isArray(cats) || cats.length === 0) {
         throw new Error('Friend Categories is Empty')
@@ -35,7 +40,6 @@ export const useContactStore = defineStore('contact', () => {
     } catch (e) {
       console.warn('[Contact] 获取分组列表失败:', e)
       try {
-        // 获取好友列表
         const fList = await bot.getFriendList()
         if (fList && fList.length > 0) {
           friends.value = [{
@@ -56,63 +60,85 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // 添加系统通知
+  /**
+   * 获取指定群组的成员列表
+   * @param groupId - 目标群组的 ID
+   * @param force - 是否强制从 API 重新获取
+   * @returns 群成员信息数组的 Promise
+   */
+  async function fetchGroupMembers(groupId: number, force = false): Promise<GroupMemberInfo[]> {
+    if (!force && memberCache.has(groupId)) return memberCache.get(groupId)!
+    try {
+      const list = await bot.getGroupMemberList(groupId)
+      memberCache.set(groupId, list)
+      return list
+    } catch (e) {
+      console.error(`[Contact] 获取群 ${groupId} 成员列表失败:`, e)
+      return []
+    }
+  }
+
+  /**
+   * 添加一条新的系统通知
+   * @param notice - 新的通知对象
+   */
   function addNotice(notice: Request) {
     const exists = notices.value.some(n => n.flag === notice.flag && n.time === notice.time)
-    if (!exists) {
-      notices.value.unshift(notice)
-    }
+    if (!exists) notices.value.unshift(notice)
   }
 
-  // 移除系统通知
+  /**
+   * 根据 flag 移除一条系统通知
+   * @param notice - 要移除的通知对象
+   */
   function removeNotice(notice: Request) {
     const index = notices.value.findIndex(n => n.flag === notice.flag)
-    if (index !== -1) {
-      notices.value.splice(index, 1)
-    }
+    if (index !== -1) notices.value.splice(index, 1)
   }
 
-  // 获取用户名称
+  /**
+   * 获取用户的显示名称
+   * @param userId - 用户的 ID
+   * @param fallbackNick - 当本地无数据时，可提供的备用昵称
+   * @returns 用户的显示名称
+   */
   function getFriendName(userId: string | number, fallbackNick?: string): string {
     const id = String(userId)
-    // 查找好友列表
     for (const category of friends.value) {
       const friend = category.buddyList.find(f => String(f.user_id) === id)
       if (friend) return friend.remark || friend.nickname
     }
-    // 检查缓存
     if (nameCache.user[id]) return nameCache.user[id]
-    // 使用回退昵称
     if (fallbackNick) {
       nameCache.user[id] = fallbackNick
       return fallbackNick
     }
-    // 从 API 获取并缓存
     bot.getStrangerInfo(Number(id))
       .then(res => { nameCache.user[id] = res.nickname })
       .catch(() => { nameCache.user[id] = `用户 ${id}` })
     return `用户 ${id}`
   }
 
-  // 获取群名称
+  /**
+   * 获取群组的显示名称
+   * @param groupId - 群组的 ID
+   * @param fallbackName - 当本地无数据时，可提供的备用群名
+   * @returns 群组的显示名称
+   */
   function getGroupName(groupId: string | number, fallbackName?: string): string {
     const id = String(groupId)
-    // 查找群组列表
     const group = groups.value.find(g => String(g.group_id) === id)
     if (group) return group.group_name
-    // 检查缓存
     if (nameCache.group[id]) return nameCache.group[id]
-    // 使用回退群名
     if (fallbackName) {
       nameCache.group[id] = fallbackName
       return fallbackName
     }
-    // 从 API 获取并缓存
     bot.getGroupInfo(Number(id))
       .then(res => { nameCache.group[id] = res.group_name })
       .catch(() => { nameCache.group[id] = `群 ${id}` })
     return `群 ${id}`
   }
 
-  return { friends, groups, notices, fetchContacts, addNotice, removeNotice, getFriendName, getGroupName }
+  return { friends, groups, notices, fetchContacts, fetchGroupMembers, addNotice, removeNotice, getFriendName, getGroupName }
 })

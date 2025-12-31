@@ -235,8 +235,10 @@ export interface Message extends Event {
   anonymous?: AnonymousInfo | null
   /** 消息序列号 */
   message_seq?: number
-  /** 真实消息 ID */
+  /** 真实消息 ID (Napcat) */
   real_id?: number
+  /** 真实消息序列号 (Napcat) */
+  real_seq?: string
 }
 
 /**
