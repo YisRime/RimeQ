@@ -157,7 +157,8 @@
             >
               <editor-content
                 :editor="editor"
-                class="chat-editor w-full text-sm text-foreground-main leading-5"
+                class="chat-editor w-full text-sm text-foreground-main leading-5 py-2 caret-primary ui-scrollbar transition-all duration-300 ease-in-out"
+                :class="isExpanded ? 'max-h-40' : 'max-h-24'"
               />
             </div>
             <!-- 多选状态指示条 -->
@@ -226,20 +227,19 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
-import Button from 'primevue/button'
+import { Button, useToast } from 'primevue'
+import type { AnimationItem } from 'lottie-web'
 import { EditorContent } from '@tiptap/vue-3'
 import tippy, { type Instance, type Props } from 'tippy.js'
 
-import { useMessageStore, useSessionStore, useContactStore } from '@/stores'
 import { bot } from '@/api'
+import { useMessageStore, useSessionStore, useContactStore } from '@/stores'
 import type { Message, Segment } from '@/types'
-import type { AnimationItem } from 'lottie-web'
+import { useChatEditor } from '@/utils/editor'
+import { processMessageChain } from '@/utils/handler'
+import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
 import MsgBubble from '@/components/MsgBubble.vue'
 import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
-import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
-import { processMessageChain } from '@/utils/handler'
-import { useChatEditor } from '@/utils/editor'
 
 defineOptions({ name: 'ChatView' })
 
@@ -251,52 +251,109 @@ const messageStore = useMessageStore()
 const sessionStore = useSessionStore()
 const contactStore = useContactStore()
 
-// 当前会话 ID
-const id = computed(() => (route.params.id as string) || '')
-// 当前会话对象
-const session = computed(() => sessionStore.getSession(id.value))
-// 消息列表
-const list = computed(() => messageStore.messages)
-// 是否为群组会话
-const isGroup = computed(() => {
+// 会话上下文
+const id = computed(() => (route.params.id as string) || '') // 当前会话ID
+const session = computed(() => sessionStore.getSession(id.value)) // 当前会话对象
+const list = computed(() => messageStore.messages) // 当前会话的消息列表
+const isGroup = computed(() => { // 判断当前会话是否为群聊
   if (!id.value) return false
   if (session.value) return session.value.type === 'group'
   return contactStore.checkIsGroup(id.value)
 })
-// 是否处于多选模式
-const isMultiSelect = computed(() => messageStore.isMultiSelect)
-// 多选模式选中数量
-const selectedCount = computed(() => messageStore.selectedIds.length)
 
-const scrollRef = ref<HTMLElement>()
-const imageInputRef = ref<HTMLInputElement>()
-const fileInputRef = ref<HTMLInputElement>()
-const menuDomRef = ref<HTMLElement | null>(null)
+// UI 状态管理
+const isMultiSelect = computed(() => messageStore.isMultiSelect) // 是否处于多选模式
+const selectedCount = computed(() => messageStore.selectedIds.length) // 已选中消息数量
+const showInputMenu = ref(false) // 是否显示输入框左侧功能菜单
+const activeTab = ref<'emoji' | 'super' | 'collection' | null>(null) // 功能菜单激活标签页
+const isExpanded = ref(false) // 编辑器是否展开
+const contextMsg = ref<Message | null>(null) // 右键菜单的目标消息
+let menuInstance: Instance<Props> | undefined // Tippy.js 菜单实例
 
-// 右键菜单的目标消息
-const contextMsg = ref<Message | null>(null)
-// 是否显示输入框菜单
-const showInputMenu = ref(false)
-// 当前激活的功能菜单
-const activeTab = ref<'emoji' | 'super' | 'collection' | null>(null)
-// 编辑器是否展开
-const isExpanded = ref(false)
-// Tippy 菜单实例
-let menuInstance: Instance<Props> | undefined
+// DOM 引用
+const scrollRef = ref<HTMLElement>() // 消息列表滚动容器
+const imageInputRef = ref<HTMLInputElement>() // 图片文件输入框
+const fileInputRef = ref<HTMLInputElement>() // 通用文件输入框
+const menuDomRef = ref<HTMLElement | null>(null) // 右键菜单 DOM 模板
+const lottieMap = new Map<number, AnimationItem>() // Lottie 动画实例
+const lottieRefs = new Map<number, HTMLElement>() // Lottie 动画渲染容器
 
-// Lottie 动画
-const lottieMap = new Map<number, AnimationItem>()
-const lottieRefs = new Map<number, HTMLElement>()
+// 滚动冷却状态
+const loadingCoolDown = ref(false)
+// 滚动到底部
+const scrollToBottom = async (force = false) => {
+  await nextTick()
+  if (scrollRef.value) {
+    const { scrollHeight, scrollTop, clientHeight } = scrollRef.value
+    if (force || (scrollHeight - scrollTop - clientHeight < 200)) {
+      scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+    }
+  }
+}
 
-// 右键菜单选项
-const menuOpts = computed<MenuItem[]>(() => [
-  { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
-  { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
-  { label: '多选', key: 'select', icon: 'i-ri-check-double-line' },
-  { label: '撤回', key: 'recall', icon: 'i-ri-arrow-go-back-line', danger: true },
-])
+// 滚动事件监听
+const onScroll = async (e: Event) => {
+  if (messageStore.isLoading || messageStore.isFinished || loadingCoolDown.value) {
+    return
+  }
+  const el = e.target as HTMLElement
+  // 滚动到顶部时触发加载
+  if (el.scrollTop < 50 && id.value) {
+    loadingCoolDown.value = true
+    const oldScrollHeight = el.scrollHeight
+    const oldScrollTop = el.scrollTop
+    const hasNewData = await messageStore.fetchHistory(id.value)
+    await nextTick()
+    if (hasNewData) {
+      // 保持滚动位置
+      el.scrollTop = el.scrollHeight - oldScrollHeight + oldScrollTop
+      setTimeout(() => { loadingCoolDown.value = false }, 1000)
+    } else {
+      // 没有新数据，则延长冷却时间
+      setTimeout(() => { loadingCoolDown.value = false }, 3000)
+    }
+  }
+}
 
-// 输入框左侧菜单配置
+// 生命周期监听
+watch(() => id.value, async (v) => { // 侦听会话 ID 变化
+  if (v) {
+    editor.value?.commands.clearContent() // 清空编辑器
+    await messageStore.openSession(v) // 打开新会话
+    await scrollToBottom(true) // 滚动到底部
+  }
+}, { immediate: true })
+
+// 进入多选模式时，收起菜单和编辑器
+watch(isMultiSelect, (v) => {
+  if (v) {
+    showInputMenu.value = false
+    isExpanded.value = false
+  }
+})
+
+// 切换到超级表情时，加载 Lottie 动画
+watch(activeTab, (v) => {
+  if (v === 'super') nextTick(loadLottie)
+})
+
+onBeforeUnmount(() => {
+  lottieMap.forEach(a => a.destroy())
+  lottieMap.clear()
+  lottieRefs.clear()
+  editor.value?.destroy()
+  menuInstance?.destroy()
+})
+
+// ============================================================================
+// 编辑器交互
+// ============================================================================
+
+// 初始化与聚焦
+const editor = useChatEditor({ currentId: id, isGroup: isGroup, onSend: handleInputSend })
+const focusEditor = () => editor.value?.commands.focus()
+
+// 左侧菜单按钮配置
 const menuButtons = [
   { key: 'emoji', label: 'Emoji', icon: 'i-ri-emotion-line text-xl', type: 'tab' },
   { key: 'super', label: '超级表情', icon: 'i-ri-user-smile-line text-xl', type: 'tab' },
@@ -305,16 +362,118 @@ const menuButtons = [
   { key: 'file', label: '文件', icon: 'i-ri-file-line text-xl', type: 'file' },
 ] as const
 
+// 切换菜单显示/隐藏
+const toggleInputMenu = () => {
+  showInputMenu.value = !showInputMenu.value
+  if (!showInputMenu.value) {
+    activeTab.value = null
+    focusEditor()
+  }
+}
+
+// 处理菜单按钮点击
+const handleInputMenuClick = (btn: any) => {
+  if (btn.type === 'tab') {
+    activeTab.value = activeTab.value === btn.key ? null : btn.key
+  } else if (btn.type === 'image') {
+    imageInputRef.value?.click()
+  } else if (btn.type === 'file') {
+    fileInputRef.value?.click()
+  }
+}
+
+// 切换编辑器展开/收起状态
+const triggerExpand = () => {
+  isExpanded.value = !isExpanded.value
+  nextTick(focusEditor)
+}
+
+// 取消多选模式
+const cancelMulti = () => messageStore.setMultiSelect(false)
+
+// 插入 Emoji
+const insertEmoji = (code: number) => {
+  editor.value?.commands.insertContent(String.fromCodePoint(code))
+  focusEditor()
+}
+
+// 插入超级表情
+const insertSuperEmoji = (i: number) => {
+  editor.value?.commands.setImage({ src: EmojiUtils.getNormalUrl(i) })
+  focusEditor()
+  showInputMenu.value = false
+}
+
+// 设置 Lottie 动画 DOM 引用
+const setLottieRef = (el: any, i: number) => {
+  if (el instanceof HTMLElement) lottieRefs.set(i, el)
+}
+
+// 播放 Lottie 动画
+const loadLottie = async () => {
+  if (activeTab.value !== 'super') return
+  const lottie = (await import('lottie-web')).default
+  for (const i of superList) {
+    const el = lottieRefs.get(i)
+    if (!el || lottieMap.has(i)) continue
+    const res = await fetch(EmojiUtils.getSuperUrl(i))
+    const d = await res.json()
+    lottieMap.set(i, lottie.loadAnimation({
+      container: el,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      animationData: d
+    }))
+  }
+}
+
+// 处理选择图片
+const handleImageSelect = (e: any) => {
+  const f = e.target.files?.[0]
+  if (f) {
+    const r = new FileReader()
+    r.onload = (ev) => {
+      editor.value?.commands.setImage({ src: ev.target?.result as string })
+      focusEditor()
+    }
+    r.readAsDataURL(f)
+    showInputMenu.value = false
+    e.target.value = ''
+  }
+}
+
+// 处理文件上传
+const handleFileUpload = async (e: any) => {
+  const f = e.target.files?.[0]
+  if (!f) return
+  if (!isGroup.value) {
+    toast.add({ severity: 'warn', summary: '暂不支持私聊文件发送', life: 2000 })
+    return
+  }
+  toast.add({ severity: 'info', summary: '开始上传文件', detail: f.name, life: 2000 })
+  try {
+    const ab = await f.arrayBuffer()
+    const b64 = btoa(new Uint8Array(ab).reduce((d, b) => d + String.fromCharCode(b), ''))
+    await bot.uploadGroupFile(Number(id.value), 'base64://' + b64, f.name)
+  } catch(err) {
+    toast.add({ severity: 'error', summary: '上传失败', detail: String(err), life: 3000 })
+  }
+  showInputMenu.value = false
+  e.target.value = ''
+}
+
+// ============================================================================
+// 消息发送
+// ============================================================================
+
 // 编辑器是否为空
 const isEditorEmpty = computed(() => !editor.value || editor.value.isEmpty)
-// 是否允许发送
+// 判断是否可发送
 const canSend = computed(() => isMultiSelect.value ? selectedCount.value > 0 : !isEditorEmpty.value)
 
-/**
- * 将 Tiptap 编辑器内容转换为 OneBot 消息段格式
- * @returns Segment[] 消息段数组
- */
-const convertEditorContentToSegments = (): Segment[] => {
+// 编辑器内容转换
+const contentToSegments = (): Segment[] => {
   if (!editor.value) return []
   const segments: Segment[] = []
   const json = editor.value.getJSON()
@@ -324,9 +483,13 @@ const convertEditorContentToSegments = (): Segment[] => {
         if (index > 0) segments.push({ type: 'text', data: { text: '\n' } })
         if (node.content) {
           node.content.forEach((child: any) => {
-            if (child.type === 'text') segments.push({ type: 'text', data: { text: child.text } })
-            else if (child.type === 'image' && child.attrs.src) segments.push({ type: 'image', data: { file: child.attrs.src } })
-            else if (child.type === 'mention' && child.attrs.id) segments.push({ type: 'at', data: { qq: child.attrs.id } })
+            if (child.type === 'text') {
+              segments.push({ type: 'text', data: { text: child.text } })
+            } else if (child.type === 'image' && child.attrs.src) {
+              segments.push({ type: 'image', data: { file: child.attrs.src } })
+            } else if (child.type === 'mention' && child.attrs.id) {
+              segments.push({ type: 'at', data: { qq: child.attrs.id } })
+            }
           })
         }
       }
@@ -335,18 +498,19 @@ const convertEditorContentToSegments = (): Segment[] => {
   return segments
 }
 
-/**
- * 处理发送逻辑
- * 支持普通发送和多选转发
- */
-const handleInputSend = async () => {
+// 处理发送
+async function handleInputSend() {
+  // 多选跳转
   if (isMultiSelect.value) {
     if (messageStore.selectedIds.length > 0) router.push(`/${id.value}/forward`)
     return
   }
   if (isEditorEmpty.value) return
-  const segments = convertEditorContentToSegments()
-  if (messageStore.replyTarget) segments.unshift({ type: 'reply', data: { id: String(messageStore.replyTarget.message_id) } })
+  const segments = contentToSegments()
+  // 回复处理
+  if (messageStore.replyTarget) {
+    segments.unshift({ type: 'reply', data: { id: String(messageStore.replyTarget.message_id) } })
+  }
   if (segments.length === 0) return
   editor.value?.commands.clearContent()
   messageStore.setReplyTarget(null)
@@ -363,174 +527,117 @@ const handleInputSend = async () => {
   nextTick(focusEditor)
 }
 
-// 初始化编辑器
-const editor = useChatEditor({ currentId: id, isGroup: isGroup, onSend: handleInputSend })
-const focusEditor = () => editor.value?.commands.focus()
+// ============================================================================
+// 右键菜单
+// ============================================================================
 
-// 输入框菜单交互
-const toggleInputMenu = () => {
-  showInputMenu.value = !showInputMenu.value
-  if (!showInputMenu.value) { activeTab.value = null; focusEditor() }
-}
-const handleInputMenuClick = (btn: any) => {
-  if (btn.type === 'tab') activeTab.value = activeTab.value === btn.key ? null : btn.key
-  else if (btn.type === 'image') imageInputRef.value?.click()
-  else if (btn.type === 'file') fileInputRef.value?.click()
-}
-const triggerExpand = () => { isExpanded.value = !isExpanded.value; nextTick(focusEditor) }
-const cancelMulti = () => messageStore.setMultiSelect(false)
-const insertEmoji = (code: number) => { editor.value?.commands.insertContent(String.fromCodePoint(code)); focusEditor() }
-const insertSuperEmoji = (i: number) => { editor.value?.commands.setImage({ src: EmojiUtils.getNormalUrl(i) }); focusEditor(); showInputMenu.value = false }
+// 选项定义
+const menuOpts = computed<MenuItem[]>(() => [
+  { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
+  { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
+  { label: '多选', key: 'select', icon: 'i-ri-check-double-line' },
+  { label: '撤回', key: 'recall', icon: 'i-ri-arrow-go-back-line', danger: true },
+])
 
-// Lottie 动画加载
-const setLottieRef = (el: any, i: number) => { if (el instanceof HTMLElement) lottieRefs.set(i, el) }
-const loadLottie = async () => {
-  if (activeTab.value !== 'super') return
-  try {
-    const lottie = (await import('lottie-web')).default
-    for (const i of superList) {
-      const el = lottieRefs.get(i)
-      if (!el || lottieMap.has(i)) continue
-      try {
-        const res = await fetch(EmojiUtils.getSuperUrl(i))
-        const d = await res.json()
-        lottieMap.set(i, lottie.loadAnimation({ container: el, renderer: 'svg', loop: true, autoplay: true, animationData: d }))
-      } catch {}
-    }
-  } catch {}
-}
-// 监听 Tab 切换
-watch(activeTab, (v) => { if (v === 'super') nextTick(loadLottie) })
-
-// 滚动加载
-const loadingCoolDown = ref(false)
-
-/**
- * 滚动到底部
- * @param force - 是否强制滚动，忽略距离检查
- */
-const scrollToBottom = async (force = false) => {
-  await nextTick()
-  if (scrollRef.value) {
-    const { scrollHeight, scrollTop, clientHeight } = scrollRef.value
-    if (force || scrollHeight - scrollTop - clientHeight < 200) {
-      scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-    }
-  }
+// 发送戳一戳
+const onPoke = (uid: number) => {
+  bot.sendPoke({ user_id: uid, group_id: isGroup.value ? Number(id.value) : undefined })
 }
 
-/**
- * 监听滚动事件，处理历史消息加载
- * @param e - 滚动事件对象
- */
-const onScroll = async (e: Event) => {
-  if (messageStore.isLoading || messageStore.isFinished || loadingCoolDown.value) return
-  const el = e.target as HTMLElement
-  if (el.scrollTop < 50 && id.value) {
-    loadingCoolDown.value = true
-    const oldScrollHeight = el.scrollHeight
-    const oldScrollTop = el.scrollTop
-    const hasNewData = await messageStore.fetchHistory(id.value)
-    await nextTick()
-    if (hasNewData) {
-      el.scrollTop = el.scrollHeight - oldScrollHeight + oldScrollTop
-      setTimeout(() => { loadingCoolDown.value = false }, 500)
-    } else {
-      setTimeout(() => { loadingCoolDown.value = false }, 2000)
-    }
-  }
-}
-
-// 文件/图片处理
-const handleImageSelect = (e: any) => {
-  const f = e.target.files?.[0]
-  if (f) { const r = new FileReader(); r.onload = (ev) => { editor.value?.commands.setImage({ src: ev.target?.result as string }); focusEditor() }; r.readAsDataURL(f); showInputMenu.value = false; e.target.value = '' }
-}
-const handleFileUpload = async (e: any) => {
-  const f = e.target.files?.[0]
-  if (!f) return
-  if (!isGroup.value) { toast.add({ severity: 'warn', summary: '暂不支持私聊文件发送', life: 2000 }); return }
-  toast.add({ severity: 'info', summary: '开始上传文件', detail: f.name, life: 2000 })
-  try {
-    const ab = await f.arrayBuffer()
-    const b64 = btoa(new Uint8Array(ab).reduce((d, b) => d + String.fromCharCode(b), ''))
-    await bot.uploadGroupFile(Number(id.value), 'base64://' + b64, f.name)
-    toast.add({ severity: 'success', summary: '文件发送成功', life: 3000 })
-  } catch(err) { toast.add({ severity: 'error', summary: '上传失败', detail: String(err), life: 3000 }) }
-  showInputMenu.value = false; e.target.value = ''
-}
-
-// 右键菜单与交互
-const onPoke = (uid: number) => bot.sendPoke({ user_id: uid, group_id: isGroup.value ? Number(id.value) : undefined })
-
-/**
- * 显示消息右键菜单
- */
+// 处理气泡点击
 const onContextMenu = (e: MouseEvent, msg: Message) => {
   if (isMultiSelect.value) return
-  e.preventDefault(); contextMsg.value = msg
+  e.preventDefault()
+  contextMsg.value = msg
   if (!menuInstance && menuDomRef.value) {
-    menuInstance = tippy(document.body, { content: menuDomRef.value, trigger: 'manual', placement: 'bottom-start', interactive: true, arrow: false, offset: [0, 0], appendTo: document.body, zIndex: 9999, onClickOutside(i){i.hide()}, onHide(){contextMsg.value=null} })
+    menuInstance = tippy(document.body, {
+      content: menuDomRef.value,
+      trigger: 'manual',
+      placement: 'bottom-start',
+      interactive: true,
+      arrow: false,
+      offset: [0, 0],
+      appendTo: document.body,
+      zIndex: 9999,
+      onClickOutside(instance) {
+        instance.hide()
+      },
+      onHide() {
+        contextMsg.value = null
+      }
+    })
   }
-  menuInstance?.setProps({ getReferenceClientRect: () => ({ width: 0, height: 0, top: e.clientY, bottom: e.clientY, left: e.clientX, right: e.clientX, x: e.clientX, y: e.clientY, toJSON(){} } as any) })
+  menuInstance?.setProps({
+    getReferenceClientRect: () => ({
+      width: 0,
+      height: 0,
+      top: e.clientY,
+      bottom: e.clientY,
+      left: e.clientX,
+      right: e.clientX,
+      x: e.clientX,
+      y: e.clientY,
+      toJSON() {}
+    } as any)
+  })
   menuInstance?.show()
 }
 
-/**
- * 处理右键菜单项点击
- */
+// 处理选项点击
 const onMenuSelect = async (k: string) => {
-  menuInstance?.hide(); const m = contextMsg.value; if (!m) return
-  if (k === 'reply') { messageStore.setReplyTarget(m); focusEditor() }
-  else if (k === 'forward') { messageStore.handleSelection(m.message_id, 'only'); if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`) }
-  else if (k === 'select') messageStore.handleSelection(m.message_id, 'only')
-  else if (k === 'recall') { try { await bot.deleteMsg(m.message_id) } catch(e) { toast.add({ severity: 'error', summary: '撤回失败', detail: String(e), life: 3000 }) } }
-}
-
-// 监听会话 ID 变化，切换会话
-watch(() => id.value, async (v) => {
-  if (v) {
-    editor.value?.commands.clearContent()
-    await messageStore.openSession(v)
-    await scrollToBottom(true)
+  menuInstance?.hide()
+  const m = contextMsg.value
+  if (!m) return
+  if (k === 'reply') {
+    messageStore.setReplyTarget(m)
+    focusEditor()
+  } else if (k === 'forward') {
+    messageStore.handleSelection(m.message_id, 'only')
+    if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`)
+  } else if (k === 'select') {
+    messageStore.handleSelection(m.message_id, 'only')
+  } else if (k === 'recall') {
+    try {
+      await bot.deleteMsg(m.message_id)
+    } catch(e) {
+      toast.add({ severity: 'error', summary: '撤回失败', detail: String(e), life: 3000 })
+    }
   }
-}, { immediate: true })
-
-// 监听消息列表长度，自动滚动到底部
-watch(() => messageStore.messages.length, () => { if (!messageStore.isLoading) scrollToBottom(false) })
-// 监听多选模式状态，自动关闭其他面板
-watch(isMultiSelect, (v) => { if (v) { showInputMenu.value = false; isExpanded.value = false } })
-
-// 组件销毁前清理资源
-onBeforeUnmount(() => {
-  lottieMap.forEach(a => a.destroy());
-  lottieMap.clear();
-  lottieRefs.clear();
-  editor.value?.destroy();
-  menuInstance?.destroy()
-})
+}
 </script>
 
 <style lang="scss">
+/* 编辑器核心样式 */
 .chat-editor {
-  overflow-y: auto;
-  max-height: 10rem;
-
-  /* 自定义滚动条样式，替换非标准 @apply */
-  &::-webkit-scrollbar {
-    display: none;
-  }
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-
-  /* Tiptap 编辑器内部样式重置 */
   .ProseMirror {
-    outline: none; min-height: 1.25rem;
-    p { margin: 0; }
-    img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; &.ProseMirror-selectednode { outline: 2px solid var(--primary-color); } }
-    /* 空编辑器占位符 */
-    p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; color: var(--text-dim); pointer-events: none; height: 0; }
-    &::selection { background-color: var(--primary-soft); }
+    outline: none;
+    min-height: 1.25rem;
+    p {
+      margin: 0;
+    }
+    /* 图片样式 */
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 4px 0;
+      /* 选中样式 */
+      &.ProseMirror-selectednode {
+        outline: 2px solid var(--primary-color);
+      }
+    }
+    /* 占位符样式 */
+    p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      color: var(--text-dim);
+      pointer-events: none;
+      height: 0;
+    }
+    /* 选中文本背景色 */
+    &::selection {
+      background-color: var(--primary-soft);
+    }
   }
 }
 </style>
