@@ -100,7 +100,7 @@
                 referrerpolicy="no-referrer"
                 loading="lazy"
                 @click.stop="previewImage(seg.url)"
-                @error="handleImgError($event, seg)"
+                @error="handleImgError($event)"
               />
               <!-- 加载失败占位 -->
               <div class="hidden absolute inset-0 bg-gray-200 dark:bg-gray-800 text-xs text-gray-500 flex-center flex-col gap-1 p-2 text-center img-error-placeholder min-h-[80px] min-w-[80px]">
@@ -202,13 +202,11 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import { useSettingStore } from '@/stores/setting'
-import { useMessageStore } from '@/stores/message'
 import { EmojiUtils } from '@/utils/emoji'
 import { processMessageChain, formatTextToHtml } from '@/utils/handler'
 import type { Message } from '@/types'
 
 const settingStore = useSettingStore()
-const messageStore = useMessageStore()
 const router = useRouter()
 
 const props = defineProps<{
@@ -227,7 +225,7 @@ const emit = defineEmits<{
 const isMe = computed(() => props.msg.sender.user_id === settingStore.user?.user_id)
 const isSystem = computed(() => props.msg.sender.user_id === 10000)
 // 获取撤回状态
-const isRecalled = computed(() => messageStore.isRecalled(props.msg.message_id))
+const isRecalled = computed(() => (props.msg as any).is_recalled)
 
 // 核心处理
 const processed = computed(() => processMessageChain(props.msg))
@@ -241,7 +239,7 @@ const bubbleClass = computed(() => {
 })
 
 // 处理图片错误
-const handleImgError = (e: Event, seg: any) => {
+const handleImgError = (e: Event) => {
   const img = e.target as HTMLImageElement
   // 隐藏坏图，显示占位符
   img.style.display = 'none'

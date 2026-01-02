@@ -5,7 +5,7 @@ import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import Placeholder from '@tiptap/extension-placeholder'
 import tippy, { type Instance } from 'tippy.js'
-import { bot } from '@/api'
+import { useContactStore } from '@/stores'
 import MentionList from '@/components/MentionList.vue'
 
 interface ChatEditorOptions {
@@ -18,6 +18,7 @@ interface ChatEditorOptions {
 }
 
 export function useChatEditor({ currentId, isGroup, onSend }: ChatEditorOptions) {
+  const contactStore = useContactStore()
   return useEditor({
     content: '',
     extensions: [
@@ -37,8 +38,7 @@ export function useChatEditor({ currentId, isGroup, onSend }: ChatEditorOptions)
           items: async ({ query }: { query: string }) => {
             if (!isGroup.value) return []
             try {
-              // 获取群成员列表
-              const list = await bot.getGroupMemberList(Number(currentId.value))
+              const list = await contactStore.fetchGroupMembers(Number(currentId.value))
               const q = query.toLowerCase()
               return list
                 .filter(item =>

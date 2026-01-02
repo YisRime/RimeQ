@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
-import { reactive } from 'vue'
+import { reactive, shallowRef } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
+import { database } from './database'
+import { useMessageStore } from './message'
 import type { GroupInfo, Request, FriendCategory, GroupMemberInfo } from '@/types'
 
 /**
@@ -15,10 +17,10 @@ export const useContactStore = defineStore('contact', () => {
   const groups = useStorage<GroupInfo[]>('rimeq-groups', [])
   /** 持久化的系统通知 */
   const notices = useStorage<Request[]>('rimeq-notices', [])
-  /** 用户和群组名称的内存缓存 */
-  const nameCache = reactive({ user: {} as Record<string, string>, group: {} as Record<string, string> })
-  /** 群成员列表的内存缓存 */
-  const memberCache = reactive(new Map<number, GroupMemberInfo[]>())
+  /** 群成员内存缓存 */
+  const members = reactive(new Map<number, GroupMemberInfo[]>())
+  /** 已加载成员列表的群组 ID */
+  const fetchedGroups = shallowRef(new Set<number>())
 
   /**
    * 从 API 拉取所有联系人信息，包括好友和群组列表
@@ -64,14 +66,36 @@ export const useContactStore = defineStore('contact', () => {
    * 获取指定群组的成员列表
    * @param groupId - 目标群组的 ID
    * @param force - 是否强制从 API 重新获取
-   * @returns 群成员信息数组的 Promise
    */
   async function fetchGroupMembers(groupId: number, force = false): Promise<GroupMemberInfo[]> {
-    if (!force && memberCache.has(groupId)) return memberCache.get(groupId)!
+    if (!force && members.has(groupId)) {
+      if (!fetchedGroups.value.has(groupId)) refreshGroupMembers(groupId)
+      return members.get(groupId)!
+    }
+    const databaseMembers = await database.members.where('group_id').equals(groupId).toArray()
+    if (databaseMembers.length > 0) {
+      members.set(groupId, databaseMembers)
+      if (!fetchedGroups.value.has(groupId)) refreshGroupMembers(groupId)
+      return databaseMembers
+    }
+    return await refreshGroupMembers(groupId)
+  }
+
+  /**
+   * 从 API 刷新群成员并更新数据库
+   * @param groupId - 目标群组的 ID
+   */
+  async function refreshGroupMembers(groupId: number): Promise<GroupMemberInfo[]> {
     try {
       const list = await bot.getGroupMemberList(groupId)
-      memberCache.set(groupId, list)
-      return list
+      if (list && list.length > 0) {
+        const databaseItems = list.map(m => ({ ...m, group_id: groupId }))
+        await database.members.bulkPut(databaseItems)
+        members.set(groupId, list)
+        fetchedGroups.value.add(groupId)
+        return list
+      }
+      return []
     } catch (e) {
       console.error(`[Contact] 获取群 ${groupId} 成员列表失败:`, e)
       return []
@@ -103,19 +127,21 @@ export const useContactStore = defineStore('contact', () => {
    * @returns 用户的显示名称
    */
   function getFriendName(userId: string | number, fallbackNick?: string): string {
+    const msgStore = useMessageStore()
     const id = String(userId)
-    for (const category of friends.value) {
-      const friend = category.buddyList.find(f => String(f.user_id) === id)
-      if (friend) return friend.remark || friend.nickname
+    for (const cat of friends.value) {
+      const f = cat.buddyList.find(u => String(u.user_id) === id)
+      if (f) return f.remark || f.nickname
     }
-    if (nameCache.user[id]) return nameCache.user[id]
-    if (fallbackNick) {
-      nameCache.user[id] = fallbackNick
-      return fallbackNick
+    if (msgStore.activeId) {
+      const list = members.get(Number(msgStore.activeId))
+      if (list) {
+        const m = list.find(u => String(u.user_id) === id)
+        if (m) return m.card || m.nickname
+      }
     }
-    bot.getStrangerInfo(Number(id))
-      .then(res => { nameCache.user[id] = res.nickname })
-      .catch(() => { nameCache.user[id] = `用户 ${id}` })
+    if (fallbackNick) return fallbackNick
+    bot.getStrangerInfo(Number(id)).catch(() => {})
     return `用户 ${id}`
   }
 
@@ -129,14 +155,11 @@ export const useContactStore = defineStore('contact', () => {
     const id = String(groupId)
     const group = groups.value.find(g => String(g.group_id) === id)
     if (group) return group.group_name
-    if (nameCache.group[id]) return nameCache.group[id]
-    if (fallbackName) {
-      nameCache.group[id] = fallbackName
-      return fallbackName
-    }
+    if (fallbackName) return fallbackName
     bot.getGroupInfo(Number(id))
-      .then(res => { nameCache.group[id] = res.group_name })
-      .catch(() => { nameCache.group[id] = `群 ${id}` })
+      .then(res => {
+        if (!groups.value.some(g => String(g.group_id) === id)) groups.value.push(res)
+      }).catch(() => {})
     return `群 ${id}`
   }
 
@@ -149,5 +172,6 @@ export const useContactStore = defineStore('contact', () => {
     return groups.value.some(g => String(g.group_id) === targetId)
   }
 
-  return { friends, groups, notices, fetchContacts, fetchGroupMembers, addNotice, removeNotice, getFriendName, getGroupName, checkIsGroup }
+  return { friends, groups, notices, members,
+    fetchContacts, fetchGroupMembers, addNotice, removeNotice, getFriendName, getGroupName, checkIsGroup }
 })

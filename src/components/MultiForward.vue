@@ -120,7 +120,7 @@ const handleSend = async () => {
 
     toast.add({ severity: 'success', summary: '转发成功', life: 3000 })
     // 发送成功后关闭多选模式并返回
-    messageStore.setMultiSelect(false)
+    messageStore.setMultiSelect()
     router.back()
   } catch (e: any) {
     console.error(e)

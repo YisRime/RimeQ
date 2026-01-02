@@ -60,13 +60,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import InputText from 'primevue/inputtext'
-import { bot } from '@/api'
+import { useContactStore } from '@/stores'
 import type { GroupMemberInfo } from '@/types'
 
 defineOptions({ name: 'GroupMember' })
 
 const router = useRouter()
 const route = useRoute()
+const contactStore = useContactStore()
 const keyword = ref('')
 const members = ref<GroupMemberInfo[]>([])
 const loading = ref(false)
@@ -88,7 +89,7 @@ onMounted(async () => {
   if (!id.value) return
   loading.value = true
   try {
-    const list = await bot.getGroupMemberList(Number(id.value))
+    const list = await contactStore.fetchGroupMembers(Number(id.value))
     members.value = list
   } catch (e) {
     console.error('[GroupMember] 获取成员列表失败', e)

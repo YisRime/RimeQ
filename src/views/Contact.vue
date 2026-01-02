@@ -181,8 +181,8 @@ watch(
   () => contactStore.friends,
   (cats) => {
     if (cats.length > 0 && expandedCats.value.length === 0) {
-      // @ts-ignore: cats.length > 0
-      expandedCats.value.push(cats[0].categoryId);
+      const first = cats[0]
+      if (first) expandedCats.value.push(first.categoryId)
     }
   },
   { deep: true, immediate: true }
