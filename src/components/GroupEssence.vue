@@ -41,11 +41,7 @@ import { ref, onMounted, computed } from 'vue'
 import Avatar from 'primevue/avatar'
 import { useRoute, useRouter } from 'vue-router'
 import { bot } from '@/api'
-
-const formatTime = (timestamp?: number): string => {
-  if (!timestamp) return ''
-  return new Date(timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-}
+import { formatTime } from '@/utils/format'
 
 const props = defineProps<{ groupId?: string }>()
 

@@ -6,7 +6,7 @@ import mixPlugin from 'colord/plugins/mix'
 import a11yPlugin from 'colord/plugins/a11y'
 import { bot, socket } from '@/api'
 import { useContactStore } from './contact'
-import { handleMessage } from '@/utils/handler'
+import { dispatchEvent } from '@/utils/dispatch'
 import type { LoginInfo } from '@/types'
 
 extend([mixPlugin, a11yPlugin])
@@ -66,7 +66,7 @@ export const useSettingStore = defineStore('setting', () => {
       if (!info) throw new Error('Unable to Fetch Login Info')
       user.value = info
       isConnected.value = true
-      socket.onReceive(handleMessage)
+      socket.onReceive(dispatchEvent)
       const contactStore = useContactStore()
       contactStore.fetchContacts()
       config.value.connectAddress = addr

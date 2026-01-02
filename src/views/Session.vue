@@ -82,6 +82,7 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Avatar } from 'primevue'
 import { useSessionStore, useContactStore, type Session } from '@/stores'
+import { formatTime } from '@/utils/format'
 
 defineOptions({ name: 'SessionView' })
 
@@ -121,18 +122,5 @@ const getSessionName = (session: Session) => {
     name = contactStore.getFriendName(session.id)
   }
   return name === session.id ? session.name : name
-}
-
-// 格式化时间戳
-function formatTime(timestamp?: number): string {
-  if (!timestamp) return ''
-  const d = new Date(timestamp)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  const isSameYear = d.getFullYear() === now.getFullYear()
-
-  if (isToday) return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-  if (isSameYear) return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-  return d.toLocaleDateString('zh-CN', { year: '2-digit', month: 'numeric', day: 'numeric' })
 }
 </script>

@@ -203,7 +203,8 @@ import { useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import { useSettingStore } from '@/stores/setting'
 import { EmojiUtils } from '@/utils/emoji'
-import { processMessageChain, formatTextToHtml } from '@/utils/handler'
+import { parseMessage } from '@/utils/parser'
+import { formatTextToHtml } from '@/utils/format'
 import type { Message } from '@/types'
 
 const settingStore = useSettingStore()
@@ -228,7 +229,7 @@ const isSystem = computed(() => props.msg.sender.user_id === 10000)
 const isRecalled = computed(() => (props.msg as any).is_recalled)
 
 // 核心处理
-const processed = computed(() => processMessageChain(props.msg))
+const processed = computed(() => parseMessage(props.msg))
 
 // 气泡样式
 const bubbleClass = computed(() => {

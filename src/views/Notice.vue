@@ -76,6 +76,7 @@ import { useToast, Avatar, SplitButton } from 'primevue'
 import { bot } from '@/api'
 import { useContactStore } from '@/stores'
 import type { Request } from '@/types'
+import { formatTime } from '@/utils/format'
 
 defineOptions({ name: 'NoticeView' })
 
@@ -84,14 +85,6 @@ const contactStore = useContactStore()
 
 const processing = ref<Record<string, boolean>>({})
 const list = computed(() => contactStore.notices.filter(i => i.post_type === 'request'))
-
-// 格式化时间显示
-const formatTime = (ts: number) => {
-  const d = new Date(ts * 1000)
-  return d.toDateString() === new Date().toDateString()
-    ? d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-    : d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
-}
 
 // 动态获取头像 URL
 const getAvatar = (i: Request) =>

@@ -16,7 +16,7 @@
           <div class="ui-flex-truncate">
             <span class="text-foreground-sub">回复 </span>
             <span class="font-bold text-foreground-main">@{{ messageStore.replyTarget.sender.nickname }}</span>
-            <span class="opacity-60 ml-1 truncate">{{ processMessageChain(messageStore.replyTarget).previewText }}</span>
+            <span class="opacity-60 ml-1 truncate">{{ parseMessage(messageStore.replyTarget).previewText }}</span>
           </div>
         </div>
         <!-- 取消引用按钮 -->
@@ -197,7 +197,7 @@ import { bot } from '@/api'
 import { useMessageStore } from '@/stores'
 import { useChatEditor } from '@/utils/editor'
 import { EmojiUtils, emojiList, superList } from '@/utils/emoji'
-import { processMessageChain } from '@/utils/handler'
+import { parseMessage } from '@/utils/parser'
 import type { Segment } from '@/types'
 
 defineOptions({ name: 'ChatInput' })

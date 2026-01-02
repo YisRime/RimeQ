@@ -1,7 +1,6 @@
 import { useContactStore } from '@/stores/contact'
 import { useMessageStore } from '@/stores/message'
-import { useSessionStore } from '@/stores/session'
-import { useSettingStore } from '@/stores/setting'
+import { getPreviewText, formatFileSize } from './format'
 import type { Message, Segment } from '@/types'
 
 // === 类型定义 ===
@@ -41,43 +40,7 @@ export interface FormattedSegment {
   raw?: Segment
 }
 
-// === 辅助工具 ===
-
-/**
- * 格式化文件大小
- */
-export function formatFileSize(bytes: number) {
-  if (!bytes && bytes !== 0) return '未知大小'
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-/**
- * 文本转 HTML (处理链接和换行)
- */
-export function formatTextToHtml(text: string): string {
-  if (!text) return ''
-  let result = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-
-  // 处理换行
-  result = result.replace(/\r\n/g, '<br>').replace(/\n/g, '<br>').replace(/\r/g, '<br>')
-
-  // 识别 URL 并转为链接 (禁止事件冒泡防止触发气泡点击)
-  const urlRegex = /(https?:\/\/[^\s<]+)/g
-  result = result.replace(urlRegex, url => {
-    return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all cursor-pointer" onclick="event.stopPropagation()">${url}</a>`
-  })
-
-  return result
-}
+// === 辅助解析工具 ===
 
 /**
  * 解析 JSON 消息卡片
@@ -139,8 +102,6 @@ function parseXmlCard(dataStr: string): FormattedSegment | null {
   }
 }
 
-// === 核心解析逻辑 ===
-
 /**
  * 解析图片 URL
  * 增强对 NTQQ multimedia 链接的处理兼容
@@ -169,41 +130,13 @@ function resolveImageUrl(data: any): string {
   return url
 }
 
-/**
- * 辅助：获取预览文本 (用于 reply 或 会话列表)
- */
-export function getPreviewText(message: Segment[] | string): string {
-  if (typeof message === 'string') return message
-  if (!Array.isArray(message)) return ''
-
-  let text = ''
-  for (const seg of message) {
-    if (seg.type === 'text' && seg.data.text) text += seg.data.text
-    else if (seg.type === 'image') text += '[图片]'
-    else if (seg.type === 'face') text += '[表情]'
-    else if (seg.type === 'mface') text += '[表情]'
-    else if (seg.type === 'record') text += '[语音]'
-    else if (seg.type === 'video') text += '[视频]'
-    else if (seg.type === 'file') text += `[文件: ${seg.data.name}]`
-    else if (seg.type === 'at') text += `@${seg.data.name || seg.data.qq} `
-    else if ((seg.type === 'json' || seg.type === 'xml') && seg.data.data) {
-        try {
-            if (seg.type === 'json') text += JSON.parse(seg.data.data).prompt || '[卡片]'
-            else text += '[卡片]'
-        } catch { text += '[卡片]' }
-    }
-    else if (seg.type === 'forward') text += '[聊天记录]'
-    else if (seg.type === 'markdown') text += '[Markdown]'
-    else text += `[${seg.type}]`
-  }
-  return text
-}
+// === 核心解析逻辑 ===
 
 /**
  * 处理消息链 (Message -> UI Format)
  * @param msg 完整的消息对象 (Message)
  */
-export function processMessageChain(msg: Message): ProcessedMessage {
+export function parseMessage(msg: Message): ProcessedMessage {
   const contactStore = useContactStore()
   const messageStore = useMessageStore() // 仅用于同步查找，不进行 API 请求
 
@@ -420,65 +353,5 @@ export function processMessageChain(msg: Message): ProcessedMessage {
     segments,
     isPureImage,
     previewText: previewText || '[消息]'
-  }
-}
-
-/**
- * 全局 WebSocket 消息事件处理器
- * 负责将 OneBot 事件分发到各个 Store
- */
-export function handleMessage(data: any) {
-  const messageStore = useMessageStore()
-  const sessionStore = useSessionStore()
-  const contactStore = useContactStore()
-  const settingStore = useSettingStore()
-
-  // 1. 处理消息事件
-  if (data.post_type === 'message' || data.post_type === 'message_sent') {
-    const isGroupMsg = data.message_type === 'group'
-    const selfId = settingStore.user?.user_id
-
-    let sessionId: string
-    if (isGroupMsg) {
-      sessionId = String(data.group_id)
-    } else {
-      sessionId = String(data.user_id === selfId ? (data as any).target_id : data.user_id)
-    }
-
-    // 推送消息到 Message Store
-    messageStore.pushMessage(data)
-
-    // 更新会话列表
-    const preview = getPreviewText(data.message)
-    const isSelf = data.sender.user_id === selfId
-    // 如果是自己发送的，或者当前正好在这个会话中，则不增加未读数
-    const isActiveSession = messageStore.activeId === sessionId
-    const unreadCount = (isActiveSession || isSelf) ? 0 : 1
-
-    sessionStore.updateSession(sessionId, {
-      type: isGroupMsg ? 'group' : 'private',
-      preview: `${isSelf ? '我' : (data.sender.card || data.sender.nickname)}: ${preview}`,
-      time: data.time * 1000,
-      unread: unreadCount
-    })
-  }
-
-  // 2. 处理请求事件
-  if (data.post_type === 'request') {
-    contactStore.addNotice(data)
-  }
-
-  // 3. 处理通知事件
-  if (data.post_type === 'notice') {
-      // 消息撤回
-      if (data.notice_type === 'group_recall' || data.notice_type === 'friend_recall') {
-          messageStore.recallMessage(data.message_id)
-      }
-      // 好友添加/群成员变动等可在此扩展
-  }
-
-  // 4. 心跳事件
-  if (data.post_type === 'meta_event' && data.meta_event_type === 'heartbeat') {
-      // 可以在 settingStore 中更新心跳状态
   }
 }
