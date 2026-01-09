@@ -1,5 +1,4 @@
 <template>
-  <!-- 聊天视图根容器 -->
   <div class="ui-flex-col-full relative overflow-hidden bg-transparent">
     <!-- 主体区域 -->
     <main class="ui-flex-col-full min-w-0 relative">
@@ -17,15 +16,11 @@
         <div
           id="msgPan"
           ref="scrollRef"
-          class="flex-1 overflow-y-auto px-3 md:px-4 ui-scrollbar scroll-smooth relative"
+          class="flex-1 overflow-y-auto px-3 md:px-4 ui-scrollbar relative"
           @scroll="onScroll"
         >
-          <!-- 顶部加载指示器 -->
-          <div v-if="messageStore.isLoading" class="ui-flex-center py-6 ui-anim-fade-in h-10">
-            <div class="i-ri-loader-4-line animate-spin text-primary text-xl" />
-          </div>
           <!-- 消息流容器 -->
-          <div class="flex flex-col gap-3 pb-4 pt-4">
+          <div class="flex flex-col gap-3 pb-4 pt-4 relative" style="overflow-anchor: auto">
             <MsgBubble
               v-for="(msg, index) in list"
               :key="msg.message_id || index"
@@ -36,15 +31,29 @@
               @poke="onPoke"
               @select="(mid) => messageStore.setMultiSelect(mid)"
             />
+            <!-- 底部按钮检测 -->
+            <div
+              ref="bottomRef"
+              class="absolute bottom-0 left-0 w-full h-[256px] pointer-events-none opacity-0"
+            />
           </div>
         </div>
-        <!-- 底部输入区域容器 -->
+        <!-- 回到底部按钮 -->
+        <div
+          v-if="showScrollButton"
+          class="absolute bottom-20 right-6 z-20 cursor-pointer bg-primary text-primary-content text-xs px-3 py-2 rounded-full shadow-lg hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1 select-none"
+          @click="scrollToBottom(true)"
+        >
+          <div class="i-ri-arrow-down-double-line" />
+          <span v-if="newMsgCount > 0" class="font-bold">{{ newMsgCount }}</span>
+        </div>
+        <!-- 底部输入区域 -->
         <ChatInput
           :chat-id="id"
           :is-group="isGroup"
-          @send="scrollToBottom"
+          @send="scrollToBottom(true)"
         />
-        <!-- 右键菜单隐形容器 -->
+        <!-- 右键菜单容器 -->
         <div class="hidden">
           <div ref="menuDomRef">
             <ContextMenu
@@ -62,10 +71,11 @@
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue'
+import { useIntersectionObserver } from '@vueuse/core'
 import tippy, { type Instance, type Props } from 'tippy.js'
 
 import { bot } from '@/api'
-import { useMessageStore, useSessionStore, useContactStore } from '@/stores'
+import { useMessageStore, useSessionStore, useContactStore, useSettingStore } from '@/stores'
 import type { Message } from '@/types'
 import MsgBubble from '@/components/MsgBubble.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -80,16 +90,13 @@ const toast = useToast()
 const messageStore = useMessageStore()
 const sessionStore = useSessionStore()
 const contactStore = useContactStore()
+const settingStore = useSettingStore()
 
 // 会话上下文
-const id = computed(() => (route.params.id as string) || '') // 当前会话ID
+const id = computed(() => (route.params.id as string) || '') // 当前会话 ID
 const session = computed(() => sessionStore.getSession(id.value)) // 当前会话对象
-const list = computed(() => messageStore.messages) // 当前会话的消息列表
-const isGroup = computed(() => { // 判断当前会话是否为群聊
-  if (!id.value) return false
-  if (session.value) return session.value.type === 'group'
-  return contactStore.checkIsGroup(id.value)
-})
+const list = computed(() => messageStore.messages) // 当前会话消息列表
+const isGroup = computed(() => !!id.value && (session.value?.type === 'group' || contactStore.checkIsGroup(id.value))) // 当前会话是否为群聊
 
 // UI 状态管理
 const contextMsg = ref<Message | null>(null) // 右键菜单的目标消息
@@ -97,66 +104,71 @@ let menuInstance: Instance<Props> | undefined // Tippy.js 菜单实例
 
 // DOM 引用
 const scrollRef = ref<HTMLElement>() // 消息列表滚动容器
-const menuDomRef = ref<HTMLElement | null>(null) // 右键菜单 DOM 模板
+const bottomRef = ref<HTMLElement>() // 底部按钮检测容器
+const menuDomRef = ref<HTMLElement | null>(null) // 右键菜单 DOM 容器
 
-// 滚动冷却状态
-const loadingCoolDown = ref(false)
+// 滚动状态
+const showScrollButton = ref(false) // 显示回到底部按钮
+const newMsgCount = ref(0) // 新消息数量
+
+// 底部检测
+useIntersectionObserver(bottomRef, ([entry]) => {
+  if (!entry) return
+  const isNearBottom = entry.isIntersecting
+  showScrollButton.value = !isNearBottom
+  if (isNearBottom) newMsgCount.value = 0
+}, { root: scrollRef.value })
+
 // 滚动到底部
-const scrollToBottom = async (force = false) => {
+const scrollToBottom = async (smooth = true) => {
   await nextTick()
   if (scrollRef.value) {
-    const { scrollHeight, scrollTop, clientHeight } = scrollRef.value
-    if (force || (scrollHeight - scrollTop - clientHeight < 200)) {
-      scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-    }
+    const el = scrollRef.value
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: smooth ? 'smooth' : 'instant'
+    })
   }
 }
 
 // 滚动事件监听
 const onScroll = async (e: Event) => {
-  if (messageStore.isLoading || messageStore.messages.length === 0 || loadingCoolDown.value) {
-    return
-  }
   const el = e.target as HTMLElement
-  // 滚动到顶部时触发加载
-  if (el.scrollTop < 50 && id.value) {
-    loadingCoolDown.value = true
-    const oldScrollHeight = el.scrollHeight
-    const oldScrollTop = el.scrollTop
-    const hasNewData = await messageStore.fetchHistory(id.value)
-    await nextTick()
-    if (hasNewData) {
-      // 保持滚动位置
-      el.scrollTop = el.scrollHeight - oldScrollHeight + oldScrollTop
-      setTimeout(() => { loadingCoolDown.value = false }, 1000)
-    } else {
-      // 没有新数据，则延长冷却时间
-      setTimeout(() => { loadingCoolDown.value = false }, 3000)
-    }
-  }
+  if (messageStore.isLoading || list.value.length === 0) return
+  if (el.scrollTop < 512 && id.value) await messageStore.fetchHistory(id.value)
 }
 
 // 生命周期监听
-watch(() => id.value, async (v) => { // 侦听会话 ID 变化
-  if (v) {
-    await messageStore.openSession(v) // 打开新会话
-    await scrollToBottom(true) // 滚动到底部
-  }
+watch(() => id.value, (v) => {
+  if (v) messageStore.openSession(v)
 }, { immediate: true })
+
+// 消息列表监听
+watch(() => list.value, async (newVal, oldVal) => {
+  const newLen = newVal.length
+  const oldLen = oldVal?.length || 0
+  if (newLen <= oldLen) return
+  if (oldLen === 0) return
+  const newLastId = newVal[newLen - 1]?.message_id
+  const oldLastId = oldVal?.[oldLen - 1]?.message_id
+  if (newLastId === oldLastId) return
+  const lastMsg = newVal[newLen - 1]
+  const isMe = lastMsg?.sender.user_id === settingStore.user?.user_id
+  if (isMe || !showScrollButton.value) {
+    await scrollToBottom(true)
+  } else {
+    newMsgCount.value += (newLen - oldLen)
+  }
+})
 
 onBeforeUnmount(() => {
   menuInstance?.destroy()
 })
 
-// ============================================================================
-// 右键菜单
-// ============================================================================
-
 // 选项定义
 const menuOpts = computed<MenuItem[]>(() => [
   { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
   { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
-  { label: '戳一戳', key: 'poke', icon: 'i-ri-hand-coin-line' },
   { label: '多选', key: 'select', icon: 'i-ri-check-double-line' },
   { label: '撤回', key: 'recall', icon: 'i-ri-arrow-go-back-line', danger: true },
 ])
@@ -215,8 +227,6 @@ const onMenuSelect = async (k: string) => {
   } else if (k === 'forward') {
     messageStore.setMultiSelect(m.message_id)
     if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`)
-  } else if (k === 'poke') {
-    onPoke(m.sender.user_id)
   } else if (k === 'select') {
     messageStore.setMultiSelect(m.message_id)
   } else if (k === 'recall') {
