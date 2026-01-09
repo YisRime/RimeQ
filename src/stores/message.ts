@@ -70,20 +70,13 @@ export const useMessageStore = defineStore('message', () => {
    * @returns 标准化后的消息对象，包含 session_id 和 session_seq
    */
   const normalizeMessage = (msg: Message): DBMessage => {
-    const storedMsg = { ...msg } as DBMessage
-    let seq = 0
-    if (msg.real_seq) seq = Number(msg.real_seq)
-    else if (msg.message_seq) seq = msg.message_seq || 0
-    else seq = msg.time * 1000 + (msg.message_id % 1000)
-    storedMsg.session_seq = seq
-    if (msg.message_type === 'group') {
-      storedMsg.session_id = `g_${msg.group_id}`
-    } else {
-      const selfId = settingStore.user?.user_id || 0
-      const friendId = msg.user_id === selfId ? (msg as any).target_id : msg.user_id
-      storedMsg.session_id = `p_${friendId}`
-    }
-    return storedMsg
+    const seqSource = Number(msg.real_seq || msg.message_seq || msg.message_id || 0)
+    const session_seq = (msg.time * 1000) + (Math.abs(seqSource) % 1000)
+    const targetId = msg.message_type === 'group'
+      ? msg.group_id
+      : (msg.user_id === settingStore.user?.user_id ? msg.target_id : msg.user_id)
+    const prefix = msg.message_type === 'group' ? 'g_' : 'p_'
+    return { ...msg, session_seq, session_id: `${prefix}${targetId}`}
   }
 
   /**
@@ -98,6 +91,7 @@ export const useMessageStore = defineStore('message', () => {
       const merged = [...messages.value, ...toAdd]
       merged.sort((a, b) => a.session_seq - b.session_seq)
       messages.value = merged
+      if (settingStore.config.debugMode) console.log('[Message] 消息排序结果:', messages.value)
     }
   }
 
@@ -110,13 +104,15 @@ export const useMessageStore = defineStore('message', () => {
   const fetchFromLocal = async (id: string, beforeSeq: number, count = 50): Promise<DBMessage[]> => {
     const type = getSessionType(id)
     const sessionKey = getSessionKey(id, type)
-    return await database.messages
+    const result = await database.messages
       .where('[session_id+session_seq]')
       .below([sessionKey, beforeSeq])
       .and(item => item.session_id === sessionKey)
       .reverse()
       .limit(count)
       .toArray()
+    if (settingStore.config.debugMode) console.log('[Message] 读取本地历史:', result)
+    return result
   }
 
   /**
@@ -140,6 +136,7 @@ export const useMessageStore = defineStore('message', () => {
       return []
     }
     const fetchedList = res.messages || []
+    if (settingStore.config.debugMode) console.log('[Message] 请求消息历史:', fetchedList)
     if (fetchedList.length === 0) return []
     const normalized = fetchedList.map(m => normalizeMessage(m))
     await database.messages.bulkPut(normalized).catch(e => console.warn('[Message] 存储消息失败:', e))
@@ -362,6 +359,7 @@ export const useMessageStore = defineStore('message', () => {
       font: 0,
       sender: { user_id: 10000, nickname: '系统消息' }
     }
+    if (settingStore.config.debugMode) console.log('[Message] 将通知转换为消息:', systemMsg)
     // 推送消息并更新会话
     pushMessage(systemMsg)
     sessionStore.updateSession(String(targetId), {
@@ -383,7 +381,7 @@ export const useMessageStore = defineStore('message', () => {
     const updates: Partial<Pick<DBMessage, 'essence' | 'reactions'>> = {}
     if (notice.notice_type === 'essence') {
       updates.essence = notice.sub_type === 'add'
-    } else if (notice.notice_type === 'notify' && notice.sub_type === 'emoji_like') {
+    } else if ((notice.notice_type === 'notify' && notice.sub_type === 'emoji_like') || notice.notice_type === 'group_msg_emoji_like') {
       updates.reactions = notice.likes
     } else {
       return

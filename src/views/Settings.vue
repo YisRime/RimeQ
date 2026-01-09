@@ -200,6 +200,17 @@
                 </div>
                 <ToggleSwitch v-model="settingStore.config.enableAntiRecall" />
               </div>
+              <!-- 调试模式 -->
+              <div class="ui-flex-between p-4 min-h-[72px]">
+                <div class="ui-flex-x gap-4">
+                  <div class="i-ri-bug-line text-xl text-foreground-sub" />
+                  <div class="flex flex-col gap-0.5">
+                    <label class="text-sm font-medium text-foreground-main">调试模式</label>
+                    <span class="text-xs text-foreground-dim">显示调试日志与开发者选项</span>
+                  </div>
+                </div>
+                <ToggleSwitch v-model="settingStore.config.debugMode" />
+              </div>
             </div>
           </div>
           <div>

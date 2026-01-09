@@ -44,7 +44,9 @@ export const useSettingStore = defineStore('setting', () => {
     /** 是否启用防撤回功能 */
     enableAntiRecall: false,
     /** 自定义的 CSS 样式 */
-    customCSS: ''
+    customCSS: '',
+    /** 是否开启调试模式 */
+    debugMode: false,
   })
 
   /** (计算属性) 判断是否已成功登录 */
