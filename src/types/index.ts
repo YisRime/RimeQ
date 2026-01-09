@@ -74,7 +74,9 @@ export enum SegType {
   /** 按钮 (Lagrange) */
   Keyboard = 'keyboard',
   /** 闪照/闪传 (LLOneBot) */
-  Flash = 'flash_file'
+  Flash = 'flash_file',
+  /** 小程序 (NapCat) */
+  Miniapp = 'miniapp'
 }
 
 /**
@@ -148,15 +150,13 @@ export interface SegData {
   qq?: string | number | 'all'
   /** [At] 显示名称 */
   name?: string
-  /** [Face] 表情 ID */
+  /** [Face/Reply] ID */
   id?: string
-  /** [Reply] 回复消息 ID */
-  // id?: string
   /** [Music] 类型: qq, 163, xm, custom */
   type?: string
-  /** [Music] 标题 */
+  /** [Music/Share] 标题 */
   title?: string
-  /** [Music] 内容 */
+  /** [Music/Share] 内容 */
   content?: string
   /** [Music] 音频地址 */
   audio?: string
@@ -172,12 +172,18 @@ export interface SegData {
   emoji_id?: string
   /** [MFace] 摘要 */
   summary?: string
+  /** [MFace] 表情 Key */
+  key?: string
   /** [Node] 发送者 ID */
   user_id?: number | string
   /** [Node] 发送者昵称 */
   nickname?: string
   /** [Flash] 闪传文件集 ID */
   file_set_id?: string
+  /** [Dice/Rps] 结果 */
+  result?: number | string
+  /** [Contact] 联系人类型 */
+  contact_type?: 'qq' | 'group'
   /** 扩展字段 */
   [key: string]: any
 }
@@ -231,14 +237,18 @@ export interface Message extends Event {
   sender: SenderInfo
   /** 群号 */
   group_id?: number
+  /** 目标ID */
+  target_id?: number
   /** 匿名信息 */
   anonymous?: AnonymousInfo | null
   /** 消息序列号 */
   message_seq?: number
-  /** 真实消息 ID (Napcat) */
+  /** 真实消息 ID (NapCat) */
   real_id?: number
-  /** 真实消息序列号 (Napcat) */
+  /** 真实消息序列号 (NapCat) */
   real_seq?: string
+  /** 临时消息来源 */
+  temp_source?: number
 }
 
 /**
@@ -331,6 +341,12 @@ export interface UserInfo {
   qid?: string
   /** 连续登录天数 (LLOneBot) */
   login_days?: number
+  /** 生日年份 */
+  birthday_year?: number
+  /** 生日月份 */
+  birthday_month?: number
+  /** 生日日期 */
+  birthday_day?: number
 }
 
 /**
@@ -542,6 +558,8 @@ export interface FileInfo {
   uploader_name?: string
   /** 下载链接 */
   url?: string
+  /** 文件修改时间 */
+  modify_time?: number
 }
 
 /**
@@ -560,6 +578,8 @@ export interface FolderInfo {
   creator_name: string
   /** 文件总数 */
   total_file_count: number
+  /** 文件夹路径 (NapCat) */
+  folder?: string
 }
 
 /**

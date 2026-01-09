@@ -209,7 +209,7 @@ export function parseMessage(msg: Message): ProcessedMessage {
         if (seg.data.qq === 'all') {
           name = '全体成员'
         } else {
-          name = contactStore.getFriendName(uid)
+          name = contactStore.getUserName(uid)
         }
       }
 

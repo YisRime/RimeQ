@@ -226,7 +226,7 @@ const emit = defineEmits<{
 const isMe = computed(() => props.msg.sender.user_id === settingStore.user?.user_id)
 const isSystem = computed(() => props.msg.sender.user_id === 10000)
 // 获取撤回状态
-const isRecalled = computed(() => (props.msg as any).is_recalled)
+const isRecalled = computed(() => !!(props.msg as any).recalled)
 
 // 核心处理
 const processed = computed(() => parseMessage(props.msg))

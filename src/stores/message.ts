@@ -6,7 +6,7 @@ import { database, type DBMessage } from './database'
 import { useSessionStore } from './session'
 import { useSettingStore } from './setting'
 import { useContactStore } from './contact'
-import type { Message } from '@/types'
+import { type Message, type Notice, PostType } from '@/types'
 
 /**
  * 消息状态管理 Store
@@ -31,8 +31,6 @@ export const useMessageStore = defineStore('message', () => {
   const isMultiSelect = ref(false)
   /** 选中的消息 ID 集合 */
   const selectedIds = ref<number[]>([])
-  /** 已撤回消息的 ID 缓存 */
-  const recalledCache = ref(new Set<number>())
   /** 正在回复的目标消息 */
   const replyTarget = ref<Message | null>(null)
 
@@ -149,15 +147,6 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
-   * 判断消息是否已被撤回
-   * @param messageId - 消息 ID
-   * @returns 是否已撤回
-   */
-  function isRecalled(messageId: number): boolean {
-    return recalledCache.value.has(messageId)
-  }
-
-  /**
    * 切换并打开一个会话
    * @param id - 会话 ID
    */
@@ -262,19 +251,174 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
+   * 将通知事件转换为系统消息
+   * @param notice 通知事件
+   */
+  function convertToMessage(notice: Notice) {
+    const formatDuration = (seconds: number): string => {
+        const units: [string, number][] = [['天', 86400], ['小时', 3600], ['分钟', 60], ['秒', 1]];
+        const parts: string[] = [];
+        units.reduce((acc, [label, value]) => {
+            const count = Math.floor(acc / value);
+            if (count > 0) parts.push(`${count}${label}`);
+            return acc % value;
+        }, seconds);
+        return parts.join(' ');
+    }
+    // 定义生成器
+    const generators: Record<string, (n: Notice) => { text: string; targetId: string | number; targetType: 'group' | 'private' } | null> = {
+      'friend_add': n => ({
+        text: `你和 ${contactStore.getUserName(n.user_id!)} 已成功添加为好友`,
+        targetId: n.user_id!,
+        targetType: 'private'
+      }),
+      'group_name': n => ({
+        text: `${contactStore.getUserName(n.operator_id!)} 修改了群名称为 “${(n as any).group_name}”`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_notice': n => ({
+        text: `${contactStore.getUserName(n.user_id!)} 发布了新的群公告`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_increase': n => ({
+        text: n.user_id === n.operator_id
+          ? `${contactStore.getUserName(n.user_id!)} 加入了群聊`
+          : `${contactStore.getUserName(n.operator_id!)} 邀请 ${contactStore.getUserName(n.user_id!)} 加入了群聊`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_decrease': n => ({
+        text: n.sub_type === 'leave'
+          ? `${contactStore.getUserName(n.user_id!)} 退出了群聊`
+          : `${contactStore.getUserName(n.user_id!)} 已被 ${contactStore.getUserName(n.operator_id!)} 移出了群聊`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_admin': n => ({
+        text: n.sub_type === 'set'
+          ? `${contactStore.getUserName(n.operator_id!)} 将 ${contactStore.getUserName(n.user_id!)} 设置为管理员`
+          : `${contactStore.getUserName(n.operator_id!)} 取消了 ${contactStore.getUserName(n.user_id!)} 的管理员`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_ban': n => ({
+        text: n.duration! > 0
+          ? `${contactStore.getUserName(n.user_id!)} 被 ${contactStore.getUserName(n.operator_id!)} 禁言 ${formatDuration(n.duration!)}`
+          : `${contactStore.getUserName(n.user_id!)} 被 ${contactStore.getUserName(n.operator_id!)} 解除禁言`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'group_title': n => ({
+        text: `恭喜 ${contactStore.getUserName(n.user_id!)} 获得群主授予的 "${(n as any).title}" 头衔`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'notify_poke': n => {
+        const target = n.group_id ? contactStore.getUserName(n.target_id!) : '你';
+        return {
+            text: `${contactStore.getUserName(n.user_id!)} ${
+                ((n as any).raw_info as any[]).filter(item => item.type === 'nor' && item.txt).map(item => item.txt).join(` ${target} `)
+            }`,
+            targetId: n.group_id || (n.user_id === settingStore.user?.user_id ? n.target_id! : n.user_id!),
+            targetType: n.group_id ? 'group' : 'private',
+        };
+      },
+      'notify_lucky_king': n => ({
+        text: `${contactStore.getUserName(n.user_id!)} 的红包被抢完，${contactStore.getUserName(n.target_id!)} 是运气王`,
+        targetId: n.group_id!,
+        targetType: 'group'
+      }),
+      'notify_honor': n => {
+        const honorMap = { talkative: '龙王', performer: '群聊之火', legend: '群聊炽焰', strong_newbie: '冒尖小春笋', emotion: '快乐源泉' }
+        const honorText = honorMap[n.honor_type as keyof typeof honorMap] || '新的荣誉'
+        return {
+          text: `恭喜 ${contactStore.getUserName(n.user_id!)} 获得了 “${honorText}”`,
+          targetId: n.group_id!,
+          targetType: 'group'
+        }
+      }
+    }
+    // 查找生成器
+    const lookupKey = notice.sub_type ? `${notice.notice_type}_${notice.sub_type}` : notice.notice_type
+    const generator = generators[lookupKey] || generators[notice.notice_type]
+    if (!generator) return
+    const result = generator(notice)
+    if (!result) return
+    // 创建系统消息
+    const { text, targetId, targetType } = result
+    const systemMsg: Message = {
+      time: notice.time,
+      self_id: 0,
+      post_type: PostType.Message,
+      message_type: targetType,
+      sub_type: 'normal',
+      message_id: -Math.floor(Math.random() * 1000000),
+      user_id: 10000,
+      group_id: targetType === 'group' ? Number(targetId) : undefined,
+      message: [{ type: 'text', data: { text } }],
+      raw_message: text,
+      font: 0,
+      sender: { user_id: 10000, nickname: '系统消息' }
+    }
+    // 推送消息并更新会话
+    pushMessage(systemMsg)
+    sessionStore.updateSession(String(targetId), {
+      type: targetType,
+      preview: text,
+      time: notice.time * 1000,
+      unread: activeId.value === String(targetId) ? 0 : 1
+    })
+  }
+
+  /**
+   * 更新消息状态
+   * @param notice - 包含消息更新的通知事件
+   */
+  async function updateMessage(notice: Notice) {
+    const messageId = notice.message_id
+    if (!messageId) return
+    // 更新记录
+    const updates: Partial<Pick<DBMessage, 'essence' | 'reactions'>> = {}
+    if (notice.notice_type === 'essence') {
+      updates.essence = notice.sub_type === 'add'
+    } else if (notice.notice_type === 'notify' && notice.sub_type === 'emoji_like') {
+      updates.reactions = notice.likes
+    } else {
+      return
+    }
+    const updatedCount = await database.messages.where({ message_id: messageId }).modify(updates)
+    // 更新视图
+    if (updatedCount > 0) {
+      const indexInView = messages.value.findIndex(m => m.message_id === messageId)
+      if (indexInView !== -1) {
+        const newMessages = [...messages.value]
+        newMessages[indexInView] = Object.assign({}, newMessages[indexInView], updates)
+        messages.value = newMessages
+      }
+    }
+  }
+
+  /**
    * 处理消息撤回
    * @param msgId - 消息 ID
    */
   async function recallMessage(msgId: number): Promise<void> {
-    recalledCache.value.add(msgId)
-    if (!settingStore.config.enableAntiRecall) {
-      await database.messages.where('message_id').equals(msgId).delete()
-      const idx = messages.value.findIndex(m => m.message_id === msgId)
-      if (idx !== -1) {
+    const dbMsg = await database.messages.where('message_id').equals(msgId).first()
+    if (dbMsg) {
+        dbMsg.recalled = true
+        await database.messages.put(dbMsg)
+    }
+    const idx = messages.value.findIndex(m => m.message_id === msgId)
+    if (idx !== -1) {
         const copy = [...messages.value]
-        copy.splice(idx, 1)
-        messages.value = copy
-      }
+        const target = copy[idx]
+        if (target) {
+            const updated = { ...target, recalled: true }
+            copy[idx] = updated
+            messages.value = copy
+        }
     }
   }
 
@@ -305,6 +449,8 @@ export const useMessageStore = defineStore('message', () => {
     replyTarget.value = message
   }
 
-  return { activeId, messages, isLoading, isLoaded, isMultiSelect, selectedIds, selectedMessages, replyTarget,
-    isRecalled, openSession, fetchHistory, pushMessage, recallMessage, setMultiSelect, setReplyTarget }
+  return { activeId, messages, isLoading, isLoaded,
+    isMultiSelect, selectedIds, selectedMessages, replyTarget,
+    setMultiSelect, setReplyTarget, openSession, pushMessage,
+    fetchHistory, convertToMessage, updateMessage, recallMessage }
 })

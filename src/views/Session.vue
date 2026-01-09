@@ -119,7 +119,7 @@ const getSessionName = (session: Session) => {
   if (session.type === 'group' || contactStore.checkIsGroup(session.id)) {
     name = contactStore.getGroupName(session.id)
   } else {
-    name = contactStore.getFriendName(session.id)
+    name = contactStore.getUserName(session.id)
   }
   return name === session.id ? session.name : name
 }

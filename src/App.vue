@@ -204,7 +204,7 @@ const isGroup = computed(() => {
   return contactStore.checkIsGroup(chatId.value)
 })
 const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
-const showBackButton = computed(() => isMobile.value || route.name !== 'Chat')
+const showBackButton = computed(() => isMobile.value)
 
 // 数据计算：页面标题
 const pageTitle = computed(() => {
@@ -214,11 +214,11 @@ const pageTitle = computed(() => {
     if (isGroup.value) {
       name = contactStore.getGroupName(chatId.value)
     } else {
-      name = contactStore.getFriendName(chatId.value)
+      name = contactStore.getUserName(chatId.value)
     }
     return name !== chatId.value ? name : session.value?.name || chatId.value
   }
-  return (route.meta.title as string) || ''
+  return route.meta.title
 })
 
 // 静态配置：导航菜单

@@ -74,7 +74,7 @@ export const useSessionStore = defineStore('session', () => {
         name = contactStore.getGroupName(id)
         avatar = `https://p.qlogo.cn/gh/${id}/${id}/0`
       } else {
-        name = contactStore.getFriendName(id)
+        name = contactStore.getUserName(id)
         avatar = `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
       }
       const newSession: Session = {

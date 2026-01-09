@@ -7,7 +7,7 @@
         <!-- 平板模式 -->
         <div
           title="系统通知"
-          class="h-10 w-full ui-flex-center rounded-2xl cursor-pointer ui-ia group border hidden md:flex xl:hidden"
+          class="h-10 w-full ui-flex-center rounded-2xl cursor-pointer ui-ia group border hidden md:flex xl:hidden relative"
           :class="[
             route.path === '/notice'
               ? '!bg-primary !text-white shadow-md border-transparent'
@@ -24,7 +24,7 @@
           />
           <div
             v-if="noticeCount > 0"
-            class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold ui-flex-center border-2 leading-none z-10 border-background-sub"
+            class="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold ui-flex-center border-2 leading-none z-10 border-background-sub"
           >
             {{ noticeCount > 99 ? '99+' : noticeCount }}
           </div>
@@ -176,6 +176,9 @@ const tabs = [{ key: 'friend', label: '好友' }, { key: 'group', label: '群组
 const currentTab = ref<'friend' | 'group'>('friend')
 const expandedCats = ref<number[]>([])
 
+// 计算属性：通知数量
+const noticeCount = computed(() => contactStore.requests.length)
+
 // 默认展开
 watch(
   () => contactStore.friends,
@@ -188,8 +191,7 @@ watch(
   { deep: true, immediate: true }
 )
 
-const noticeCount = computed(() => contactStore.notices.length)
-
+// 列表过滤
 function filterList<T extends Record<string, any>>(list: T[], keyword: string | undefined, fields: (keyof T)[]): T[] {
   const k = (keyword || '').toLowerCase().trim()
   if (!k) return list

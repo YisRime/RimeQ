@@ -1,20 +1,26 @@
 import Dexie, { type Table } from 'dexie'
-import type { Message, GroupMemberInfo } from '@/types'
+import type { Message, GroupMemberInfo, Notice } from '@/types'
 
 /**
  * 本地数据库消息接口
- * @description 扩展原始消息类型，添加会话唯一标识和排序序号
+ * @description 扩展消息信息
  */
 export interface DBMessage extends Message {
   /** 会话唯一标识 */
   session_id: string
   /** 会话排序序号 */
   session_seq: number
+  /** 是否被撤回 */
+  recalled?: boolean
+  /** 是否为精华 */
+  essence?: boolean
+  /** 表情回应列表 */
+  reactions?: Notice['likes']
 }
 
 /**
  * 本地数据库群成员接口
- * @description 扩展群成员信息，添加所属群号字段
+ * @description 扩展群成员信息
  */
 export interface DBMember extends GroupMemberInfo {
   /** 群号 */
