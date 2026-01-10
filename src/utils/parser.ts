@@ -1,6 +1,6 @@
 import { useContactStore } from '@/stores/contact'
 import { useMessageStore } from '@/stores/message'
-import { getPreviewText, formatFileSize } from './format'
+import { getTextPreview, formatFileSize } from './format'
 import type { Message, Segment } from '@/types'
 
 // === 类型定义 ===
@@ -172,7 +172,7 @@ export function parseMessage(msg: Message): ProcessedMessage {
           if (found) {
             replyDetail = {
               id: replyId,
-              text: getPreviewText(found.message),
+              text: getTextPreview(found.message),
               sender: found.sender.card || found.sender.nickname
             }
           }
@@ -286,7 +286,7 @@ export function parseMessage(msg: Message): ProcessedMessage {
                     const sender = node.data.nickname || node.data.user_id || '未知'
                     let text = ''
                     if (Array.isArray(node.data.content)) {
-                        text = getPreviewText(node.data.content)
+                        text = getTextPreview(node.data.content)
                     } else if (typeof node.data.content === 'string') {
                         text = node.data.content
                     }
