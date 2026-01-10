@@ -69,11 +69,14 @@
           <template v-for="(seg, index) in processed.segments" :key="index">
 
             <!-- 文本 -->
-            <span
+            <!-- 如果开启强制 Markdown，则作为 markdown 渲染 -->
+            <!-- 否则作为普通文本渲染，并高亮链接 -->
+            <div
               v-if="seg.type === 'text'"
               class="whitespace-pre-wrap align-middle"
-              v-html="formatTextToHtml(seg.text || '')"
-            ></span>
+              :class="{ 'markdown-body w-full': forceMarkdown }"
+              v-html="forceMarkdown ? renderMarkdown(seg.text || '') : renderNormalText(seg.text || '')"
+            ></div>
 
             <!-- 表情 (Face) -->
             <span v-else-if="seg.type === 'face'" class="inline-block align-middle mx-0.5" :title="`表情 ${seg.faceId}`">
@@ -179,7 +182,12 @@
             </div>
 
             <!-- Markdown -->
-            <div v-else-if="seg.type === 'markdown'" class="w-full markdown-body text-sm" v-html="seg.text"></div>
+            <!-- 使用 renderMarkdown 结合 DOMPurify 防御 XSS -->
+            <div
+              v-else-if="seg.type === 'markdown'"
+              class="w-full markdown-body text-sm"
+              v-html="renderMarkdown(seg.text || '')"
+            ></div>
 
             <!-- 未知 -->
             <span v-else class="text-xs opacity-50 bg-red-500/10 text-red-500 px-1 rounded">[未知: {{ seg.type }}]</span>
@@ -201,10 +209,11 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
 import { useSettingStore } from '@/stores/setting'
 import { EmojiUtils } from '@/utils/emoji'
 import { parseMessage } from '@/utils/parser'
-import { formatTextToHtml } from '@/utils/format'
 import type { Message } from '@/types'
 
 const settingStore = useSettingStore()
@@ -214,6 +223,7 @@ const props = defineProps<{
   msg: Message
   selectionMode?: boolean
   isSelected?: boolean
+  forceMarkdown?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -221,6 +231,88 @@ const emit = defineEmits<{
   (e: 'poke', uid: number): void
   (e: 'select', msgId: number): void
 }>()
+
+// --- Markdown & Sanitization 初始化 ---
+const md = new MarkdownIt({
+  html: false, // 禁用 Markdown 中的 HTML 标签
+  breaks: true, // 转换 \n 为 <br>
+  linkify: true, // 自动识别链接
+})
+
+// DOMPurify Hook: 强制所有链接在新标签页打开，防止覆盖当前应用
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if ('target' in node) {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+
+// Markdown 渲染函数
+const renderMarkdown = (content: string) => {
+  const rawHtml = md.render(content)
+  return DOMPurify.sanitize(rawHtml)
+}
+
+// 普通文本渲染（带链接高亮）
+// 普通文本渲染（HTML转义 + 链接高亮）
+const renderNormalText = (content: string) => {
+  // 正则表达式用于匹配 URL
+  const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+  // 使用 matchAll 获取所有匹配项及其索引
+  const matches = [...content.matchAll(urlRegex)];
+
+  // 如果没有匹配到链接，直接转义整个文本并返回
+  if (matches.length === 0) {
+    return content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  let result = '';
+  let lastIndex = 0;
+
+  // 遍历所有匹配到的链接
+  for (const match of matches) {
+    const url = match[0];
+    const index = match.index!;
+
+    // 1. 转义并添加上一个匹配到当前匹配之间的文本
+    const textBefore = content.substring(lastIndex, index);
+    result += textBefore
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    // 2. 添加链接的 <a> 标签
+    // href 使用原始 URL，显示的文本需要转义以防破坏页面
+    const escapedUrlText = url
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    result += `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline break-all">${escapedUrlText}</a>`;
+
+    // 更新下一个文本片段的起始索引
+    lastIndex = index + url.length;
+  }
+
+  // 3. 转义并添加最后一个匹配项之后的剩余文本
+  const textAfter = content.substring(lastIndex);
+  result += textAfter
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  return result;
+};
 
 // 判断角色
 const isMe = computed(() => props.msg.sender.user_id === settingStore.user?.user_id)

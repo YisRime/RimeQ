@@ -1,11 +1,13 @@
+import { useContactStore } from '@/stores/contact'
+import { useMessageStore } from '@/stores/message'
 import type { Segment } from '@/types'
 
 /**
- * 格式化文件大小
+ * 字节大小转换为文件大小
+ * @param bytes - 文件大小（字节）
+ * @returns 格式化后的字符串
  */
 export function formatFileSize(bytes: number) {
-  if (!bytes && bytes !== 0) return '未知大小'
-  if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
@@ -13,74 +15,122 @@ export function formatFileSize(bytes: number) {
 }
 
 /**
- * 文本转 HTML (处理链接和换行)
+ * 根据时间戳生成时间显示
+ * @param timestamp - Unix 时间戳 (毫秒)
+ * @returns 格式化后的时间字符串
  */
-export function formatTextToHtml(text: string): string {
-  if (!text) return ''
-  let result = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-
-  // 处理换行
-  result = result.replace(/\r\n/g, '<br>').replace(/\n/g, '<br>').replace(/\r/g, '<br>')
-
-  // 识别 URL 并转为链接 (禁止事件冒泡防止触发气泡点击)
-  const urlRegex = /(https?:\/\/[^\s<]+)/g
-  result = result.replace(urlRegex, url => {
-    return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all cursor-pointer" onclick="event.stopPropagation()">${url}</a>`
-  })
-
-  return result
-}
-
-/**
- * 格式化时间显示
- * @description
- * - 当天: HH:mm
- * - 当年: M/D
- * - 其他: YY/M/D
- */
-export function formatTime(timestamp?: number): string {
-  if (!timestamp) return ''
+export function formatTime(timestamp: number): string {
   const d = new Date(timestamp)
   const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  const isSameYear = d.getFullYear() === now.getFullYear()
-
-  if (isToday) return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-  if (isSameYear) return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-  return d.toLocaleDateString('zh-CN', { year: '2-digit', month: 'numeric', day: 'numeric' })
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diffDays = Math.floor((today - target) / (1000 * 60 * 60 * 24))
+  // 当天
+  if (diffDays === 0) return d.toLocaleTimeString('zh-CN', { hour12: false }) // HH:mm:ss
+  // 一周内
+  if (diffDays > 0 && diffDays < 7) {
+    const hour = d.getHours()
+    if (diffDays === 1) return `昨天 ${hour}时`
+    if (diffDays === 2) return `前天 ${hour}时`
+    return `${diffDays}天前 ${hour}时`
+  }
+  // 同年
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) // M/D
+  // 跨年
+  return d.toLocaleDateString('zh-CN', { year: '2-digit', month: 'numeric', day: 'numeric' }) // YY/M/D
 }
 
 /**
- * 辅助：获取预览文本 (用于 reply 或 会话列表)
+ * 格式化秒数为时长
+ * @param seconds - 秒数
+ * @returns 格式化后的时长字符串
  */
-export function getPreviewText(message: Segment[] | string): string {
-  if (typeof message === 'string') return message
-  if (!Array.isArray(message)) return ''
+export function formatDuration(seconds: number | string): string {
+  const sec = parseInt(String(seconds))
+  if (isNaN(sec) || sec < 0) return ''
+  const units: [string, number][] = [['天', 86400], ['小时', 3600], ['分钟', 60], ['秒', 1]]
+  const parts: string[] = []
+  units.reduce((acc, [label, value]) => {
+    const count = Math.floor(acc / value)
+    if (count > 0) parts.push(`${count}${label}`)
+    return acc % value
+  }, sec)
+  return parts.join(' ')
+}
 
+/**
+ * 生成纯文本预览
+ * @param message - 消息内容 (字符串或消息段数组)
+ * @returns 预览文本
+ */
+export function getTextPreview(message: Segment[]): string {
+  const contactStore = useContactStore()
+  const messageStore = useMessageStore()
   let text = ''
   for (const seg of message) {
-    if (seg.type === 'text' && seg.data.text) text += seg.data.text
-    else if (seg.type === 'image') text += '[图片]'
-    else if (seg.type === 'face') text += '[表情]'
-    else if (seg.type === 'mface') text += '[表情]'
-    else if (seg.type === 'record') text += '[语音]'
-    else if (seg.type === 'video') text += '[视频]'
-    else if (seg.type === 'file') text += `[文件: ${seg.data.name}]`
-    else if (seg.type === 'at') text += `@${seg.data.name || seg.data.qq} `
-    else if ((seg.type === 'json' || seg.type === 'xml') && seg.data.data) {
-        try {
-            if (seg.type === 'json') text += JSON.parse(seg.data.data).prompt || '[卡片]'
-            else text += '[卡片]'
-        } catch { text += '[卡片]' }
+    switch (seg.type) {
+      case 'text':
+        text += seg.data.text
+        break
+      case 'at':
+        text += `@${seg.data.qq === 'all' ? '全体成员' : contactStore.getUserName(seg.data.qq || '')} `
+        break
+      case 'image':
+      case 'mface':
+        text += `[${seg.data.summary}]`
+        break
+      case 'record':
+        text += '[语音]'
+        break
+      case 'video':
+        text += '[视频]'
+        break
+      case 'file':
+        text += `[文件|${seg.data.file}]`
+        break
+      case 'dice':
+        text += `[骰子|${seg.data.result}]`
+        break
+      case 'rps':
+        text += `[猜拳|${seg.data.result}]`
+        break
+      case 'face':
+        text += `[表情|${seg.data.id}]`
+        break
+      case 'reply':
+        const rMsg = parseInt(String(seg.data.id)) > 0 && messageStore.messages.find(m => String(m.message_id) === String(seg.data.id))
+        const rTxt = rMsg ? `${rMsg.sender.card || rMsg.sender.nickname}: ${getTextPreview(rMsg.message)}` : ''
+        text += rTxt ? `[回复|${rTxt}]` : '[回复]'
+        break
+      case 'forward':
+        text += '[聊天记录]'
+        break
+      case 'xml':
+      case 'json':
+        let card = ''
+        if (seg.type === 'json') {
+          const o = JSON.parse(seg.data.data || '{}')
+          card = o.prompt || o.desc || (Object.values(o.meta || {})[0] as any)?.title
+        } else {
+          const match = seg.data.data?.match(/title="([^"]*)"|<title>([^<]*)<\/title>/)
+          card = (match?.[1] || match?.[2]) || ''
+        }
+        text += card ? `[卡片|${card}]` : '[卡片]'
+        break
+      case 'node':
+        if (Array.isArray(seg.data.content)) {
+          text += getTextPreview(seg.data.content)
+        } else {
+          text += '[聊天记录]'
+        }
+        break
+      case 'location':
+        text += `[位置|${seg.data.prompt}|${seg.data.lat},${seg.data.lng}]`
+        break
+      default:
+        text += `[${seg.type}]`
+        break
     }
-    else if (seg.type === 'forward') text += '[聊天记录]'
-    else if (seg.type === 'markdown') text += '[Markdown]'
-    else text += `[${seg.type}]`
   }
   return text
 }

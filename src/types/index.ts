@@ -45,8 +45,6 @@ export enum SegType {
   Dice = 'dice',
   /** 窗口抖动 */
   Shake = 'shake',
-  /** 戳一戳 */
-  Poke = 'poke',
   /** 链接分享 */
   Share = 'share',
   /** 推荐联系人 */

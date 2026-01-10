@@ -7,6 +7,7 @@ import { useSessionStore } from './session'
 import { useSettingStore } from './setting'
 import { useContactStore } from './contact'
 import { type Message, type Notice, PostType } from '@/types'
+import { formatDuration } from '@/utils/format'
 
 /**
  * 消息状态管理 Store
@@ -252,17 +253,6 @@ export const useMessageStore = defineStore('message', () => {
    * @param notice 通知事件
    */
   function convertToMessage(notice: Notice) {
-    const formatDuration = (seconds: number): string => {
-        const units: [string, number][] = [['天', 86400], ['小时', 3600], ['分钟', 60], ['秒', 1]];
-        const parts: string[] = [];
-        units.reduce((acc, [label, value]) => {
-            const count = Math.floor(acc / value);
-            if (count > 0) parts.push(`${count}${label}`);
-            return acc % value;
-        }, seconds);
-        return parts.join(' ');
-    }
-    // 定义生成器
     const generators: Record<string, (n: Notice) => { text: string; targetId: string | number; targetType: 'group' | 'private' } | null> = {
       'friend_add': n => ({
         text: `你和 ${contactStore.getUserName(n.user_id!)} 已成功添加为好友`,

@@ -27,6 +27,7 @@
               :msg="msg"
               :selection-mode="messageStore.isMultiSelect"
               :is-selected="messageStore.selectedIds.includes(msg.message_id)"
+              :force-markdown="markdownId.has(msg.message_id)"
               @contextmenu="onContextMenu"
               @poke="onPoke"
               @select="(mid) => messageStore.setMultiSelect(mid)"
@@ -40,7 +41,7 @@
         </div>
         <!-- 回到底部按钮 -->
         <div
-          v-if="showScrollButton"
+          v-if="showScroll"
           class="absolute bottom-20 right-6 z-20 cursor-pointer bg-primary text-primary-content text-xs px-3 py-2 rounded-full shadow-lg hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1 select-none"
           @click="scrollToBottom(true)"
         >
@@ -101,6 +102,7 @@ const isGroup = computed(() => !!id.value && (session.value?.type === 'group' ||
 // UI 状态管理
 const contextMsg = ref<Message | null>(null) // 右键菜单的目标消息
 let menuInstance: Instance<Props> | undefined // Tippy.js 菜单实例
+const markdownId = ref(new Set<number>()) // Markdown 渲染消息 ID
 
 // DOM 引用
 const scrollRef = ref<HTMLElement>() // 消息列表滚动容器
@@ -108,14 +110,14 @@ const bottomRef = ref<HTMLElement>() // 底部按钮检测容器
 const menuDomRef = ref<HTMLElement | null>(null) // 右键菜单 DOM 容器
 
 // 滚动状态
-const showScrollButton = ref(false) // 显示回到底部按钮
+const showScroll = ref(false) // 显示回到底部按钮
 const newMsgCount = ref(0) // 新消息数量
 
 // 底部检测
 useIntersectionObserver(bottomRef, ([entry]) => {
   if (!entry) return
   const isNearBottom = entry.isIntersecting
-  showScrollButton.value = !isNearBottom
+  showScroll.value = !isNearBottom
   if (isNearBottom) newMsgCount.value = 0
 }, { root: scrollRef.value })
 
@@ -141,6 +143,7 @@ const onScroll = async (e: Event) => {
 // 生命周期监听
 watch(() => id.value, (v) => {
   if (v) messageStore.openSession(v)
+  markdownId.value.clear()
 }, { immediate: true })
 
 // 消息列表监听
@@ -154,7 +157,7 @@ watch(() => list.value, async (newVal, oldVal) => {
   if (newLastId === oldLastId) return
   const lastMsg = newVal[newLen - 1]
   const isMe = lastMsg?.sender.user_id === settingStore.user?.user_id
-  if (isMe || !showScrollButton.value) {
+  if (isMe || !showScroll.value) {
     await scrollToBottom(true)
   } else {
     newMsgCount.value += (newLen - oldLen)
@@ -168,8 +171,9 @@ onBeforeUnmount(() => {
 // 选项定义
 const menuOpts = computed<MenuItem[]>(() => [
   { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
-  { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
   { label: '多选', key: 'select', icon: 'i-ri-check-double-line' },
+  { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
+  { label: 'Markdown', key: 'markdown', icon: 'i-ri-markdown-line' },
   { label: '撤回', key: 'recall', icon: 'i-ri-arrow-go-back-line', danger: true },
 ])
 
@@ -227,14 +231,16 @@ const onMenuSelect = async (k: string) => {
   } else if (k === 'forward') {
     messageStore.setMultiSelect(m.message_id)
     if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`)
+  } else if (k === 'markdown') {
+    if (markdownId.value.has(m.message_id)) {
+      markdownId.value.delete(m.message_id)
+    } else {
+      markdownId.value.add(m.message_id)
+    }
   } else if (k === 'select') {
     messageStore.setMultiSelect(m.message_id)
   } else if (k === 'recall') {
-    try {
-      await bot.deleteMsg(m.message_id)
-    } catch(e) {
-      toast.add({ severity: 'error', summary: '撤回失败', detail: String(e), life: 3000 })
-    }
+    await bot.deleteMsg(m.message_id).catch(e => toast.add({ severity: 'error', summary: '撤回失败', detail: String(e), life: 3000 }))
   }
 }
 </script>

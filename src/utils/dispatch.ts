@@ -1,5 +1,5 @@
 import { useContactStore, useMessageStore, useSessionStore, useSettingStore } from '@/stores'
-import { getPreviewText } from './format'
+import { getTextPreview } from './format'
 import type { Message, Notice, Request, OneBotEvent } from '@/types'
 
 /**
@@ -22,7 +22,7 @@ function messageEvent(data: Message) {
   // 推送消息
   messageStore.pushMessage(data)
   // 生成文本预览
-  const preview = getPreviewText(data.message)
+  const preview = getTextPreview(data.message)
   // 更新会话信息
   const isSelf = data.sender.user_id === selfId
   const isActiveSession = messageStore.activeId === sessionId

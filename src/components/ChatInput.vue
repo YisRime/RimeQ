@@ -417,6 +417,13 @@ const contentToSegments = (): Segment[] => {
               segments.push({ type: 'image', data: { file: child.attrs.src } })
             } else if (child.type === 'mention' && child.attrs.id) {
               segments.push({ type: 'at', data: { qq: child.attrs.id } })
+            } else if (child.type === 'hardBreak') {
+              const last = segments[segments.length - 1]
+              if (last && last.type === 'text') {
+                last.data.text += '\n'
+              } else {
+                segments.push({ type: 'text', data: { text: '\n' } })
+              }
             }
           })
         }
