@@ -349,7 +349,7 @@ export const useMessageStore = defineStore('message', () => {
       font: 0,
       sender: { user_id: 10000, nickname: '系统消息' }
     }
-    if (settingStore.config.debugMode) console.log('[Message] 将通知转换为消息:', systemMsg)
+    if (settingStore.config.debugMode) console.log('[Message] 消息事件转换:', systemMsg)
     // 推送消息并更新会话
     pushMessage(systemMsg)
     sessionStore.updateSession(String(targetId), {
@@ -415,6 +415,7 @@ export const useMessageStore = defineStore('message', () => {
    * @param id - 传入数字切换该消息选中状态；不传则关闭多选模式并清空
    */
   function setMultiSelect(id?: number): void {
+    if (settingStore.config.debugMode) console.log('[Message] 设置多选目标:', id)
     if (id === undefined) {
       isMultiSelect.value = false
       selectedIds.value = []
@@ -434,6 +435,7 @@ export const useMessageStore = defineStore('message', () => {
    * @param message - 目标消息对象
    */
   function setReplyTarget(message: Message | null): void {
+    if (settingStore.config.debugMode) console.log('[Message] 设置回复目标:', message?.message_id)
     replyTarget.value = message
   }
 

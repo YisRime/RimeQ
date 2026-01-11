@@ -1,5 +1,4 @@
 import { useContactStore } from '@/stores/contact'
-import { useMessageStore } from '@/stores/message'
 import type { Segment } from '@/types'
 
 /**
@@ -65,7 +64,6 @@ export function formatDuration(seconds: number | string): string {
  */
 export function getTextPreview(message: Segment[]): string {
   const contactStore = useContactStore()
-  const messageStore = useMessageStore()
   let text = ''
   for (const seg of message) {
     switch (seg.type) {
@@ -77,7 +75,7 @@ export function getTextPreview(message: Segment[]): string {
         break
       case 'image':
       case 'mface':
-        text += `[${seg.data.summary}]`
+        text += seg.data.summary || '[图片]'
         break
       case 'record':
         text += '[语音]'
@@ -97,11 +95,6 @@ export function getTextPreview(message: Segment[]): string {
       case 'face':
         text += `[表情|${seg.data.id}]`
         break
-      case 'reply':
-        const rMsg = parseInt(String(seg.data.id)) > 0 && messageStore.messages.find(m => String(m.message_id) === String(seg.data.id))
-        const rTxt = rMsg ? `${rMsg.sender.card || rMsg.sender.nickname}: ${getTextPreview(rMsg.message)}` : ''
-        text += rTxt ? `[回复|${rTxt}]` : '[回复]'
-        break
       case 'forward':
         text += '[聊天记录]'
         break
@@ -117,15 +110,10 @@ export function getTextPreview(message: Segment[]): string {
         }
         text += card ? `[卡片|${card}]` : '[卡片]'
         break
-      case 'node':
-        if (Array.isArray(seg.data.content)) {
-          text += getTextPreview(seg.data.content)
-        } else {
-          text += '[聊天记录]'
-        }
-        break
       case 'location':
         text += `[位置|${seg.data.prompt}|${seg.data.lat},${seg.data.lng}]`
+        break
+      case 'reply':
         break
       default:
         text += `[${seg.type}]`

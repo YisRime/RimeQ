@@ -223,8 +223,8 @@ const onContextMenu = (e: MouseEvent, msg: Message) => {
 
 // 处理选项点击
 const onMenuSelect = async (k: string) => {
-  menuInstance?.hide()
   const m = contextMsg.value
+  menuInstance?.hide()
   if (!m) return
   if (k === 'reply') {
     messageStore.setReplyTarget(m)
