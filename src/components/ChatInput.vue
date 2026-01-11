@@ -104,13 +104,13 @@
       <!-- Tiptap 编辑器容器 -->
       <div
         class="flex-1 min-w-0 bg-background-dim/30 border border-transparent rounded-[20px] px-4 flex flex-col justify-center ui-trans focus-within:bg-background-dim/20 focus-within:border-primary/30 focus-within:shadow-[0_0_0_2px_var(--primary-soft)]"
-        :class="isExpanded ? 'h-32' : 'min-h-[2.5rem]'"
+        :class="isExpanded ? 'h-auto min-h-[8rem]' : 'min-h-[2.5rem]'"
         @click="focus"
       >
         <editor-content
           :editor="editor"
           class="chat-editor w-full text-sm text-foreground-main leading-5 py-2 caret-primary ui-scrollbar transition-all duration-300 ease-in-out"
-          :class="isExpanded ? 'max-h-40' : 'max-h-24'"
+          :class="isExpanded ? 'max-h-60' : 'max-h-32'"
         />
       </div>
       <!-- 多选状态指示条 -->
@@ -237,6 +237,16 @@ const { editor, focus, insertText, insertImage, clear, getSegments } = useChatEd
 })
 const isEmpty = computed(() => !editor.value || editor.value.isEmpty)
 
+// 插入提及
+const insertMention = (id: string, label: string) => {
+  editor.value?.commands.insertContent({ type: 'mention', attrs: { id, label } })
+  editor.value?.commands.insertContent(' ')
+  focus()
+}
+
+// 方法暴露
+defineExpose({ insertText, insertMention, focus })
+
 // 生命周期监听
 watch(() => messageStore.replyTarget, t => t && focus())
 watch(isMultiSelect, v => v && (showInputMenu.value = isExpanded.value = false))
@@ -309,7 +319,10 @@ async function handleSend() {
     /* 图片样式 */
     img {
       max-width: 100%;
+      max-height: 100px;
+      width: auto;
       height: auto;
+      object-fit: contain;
       border-radius: 8px;
       margin: 4px 0;
       /* 选中样式 */

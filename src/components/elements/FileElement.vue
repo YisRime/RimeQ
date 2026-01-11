@@ -1,11 +1,13 @@
 <template>
-  <div class="w-full flex items-center gap-3 p-3 bg-background-sub rounded-xl border border-background-dim/50 my-1 cursor-pointer hover:bg-background-dim/20 transition-colors shadow-sm">
-    <div class="w-10 h-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center text-xl shrink-0">
+  <div class="w-full ui-flex-x gap-3 p-3 ui-bg-background-sub rounded-xl border ui-border-background-dim/50 my-1 ui-ia hover:ui-bg-background-dim/20 shadow-sm">
+    <!-- 文件图标 -->
+    <div class="w-10 h-10 ui-bg-primary/10 ui-text-primary rounded-lg ui-flex-center text-xl shrink-0">
       <div class="i-ri-file-line" />
     </div>
-    <div class="flex-1 min-w-0 flex flex-col">
-      <span class="text-sm font-bold truncate text-foreground-main">{{ fileName }}</span>
-      <span class="text-[10px] text-foreground-sub opacity-60">{{ fileSizeStr }}</span>
+    <!-- 文件信息 -->
+    <div class="ui-flex-truncate flex flex-col">
+      <span class="text-sm font-bold truncate ui-text-foreground-main">{{ fileName }}</span>
+      <span class="text-[10px] ui-text-foreground-sub opacity-60">{{ fileSizeStr }}</span>
     </div>
   </div>
 </template>

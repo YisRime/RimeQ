@@ -26,12 +26,12 @@ export function formatTime(timestamp: number): string {
   const diffDays = Math.floor((today - target) / (1000 * 60 * 60 * 24))
   // 当天
   if (diffDays === 0) return d.toLocaleTimeString('zh-CN', { hour12: false }) // HH:mm:ss
-  // 一周内
-  if (diffDays > 0 && diffDays < 7) {
-    const hour = d.getHours()
-    if (diffDays === 1) return `昨天 ${hour}时`
-    if (diffDays === 2) return `前天 ${hour}时`
-    return `${diffDays}天前 ${hour}时`
+  // 月内
+  if (diffDays > 0 && diffDays < 30) {
+    const date = d.getDate()
+    const hour = d.getHours().toString().padStart(2, '0')
+    const minute = d.getMinutes().toString().padStart(2, '0')
+    return `${date} ${hour}:${minute}`
   }
   // 同年
   if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) // M/D

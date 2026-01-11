@@ -32,6 +32,7 @@
               @contextmenu="(e) => onContextMenu(e, msg)"
               @poke="onPoke"
               @select="(mid) => messageStore.setMultiSelect(mid)"
+              @mention="onInsertMention"
             />
             <!-- 底部按钮检测 -->
             <div
@@ -51,6 +52,7 @@
         </div>
         <!-- 底部输入区域 -->
         <ChatInput
+          ref="chatInputRef"
           :chat-id="id"
           :is-group="isGroup"
           @send="scrollToBottom(true)"
@@ -119,6 +121,7 @@ const rawJsonId = ref(new Set<number>()) // 原始数据渲染消息 ID
 // DOM 引用
 const scrollRef = ref<HTMLElement>() // 消息列表滚动容器
 const bottomRef = ref<HTMLElement>() // 底部按钮检测容器
+const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 输入框组件引用
 
 // 滚动状态
 const showScroll = ref(false) // 显示回到底部按钮
@@ -179,6 +182,11 @@ watch(() => list.value, async (newVal, oldVal) => {
 // 发送戳一戳
 const onPoke = (uid: number) => {
   bot.sendPoke({ user_id: uid, group_id: isGroup.value ? Number(id.value) : undefined })
+}
+
+// 插入提及
+const onInsertMention = (item: { id: string, name: string }) => {
+  if (chatInputRef.value) chatInputRef.value.insertMention(item.id, item.name)
 }
 
 // 点击右键菜单

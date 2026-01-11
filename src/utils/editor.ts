@@ -35,7 +35,12 @@ export function useChatEditor(opts: {currentId: Ref<string>; isGroup: Ref<boolea
               const q = query.toLowerCase()
               return list
                 .filter(m => String(m.user_id).includes(q) || m.card?.toLowerCase().includes(q) || m.nickname?.toLowerCase().includes(q))
-                .map(m => ({ id: m.user_id, label: m.card || m.nickname, avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${m.user_id}` }))
+                .map(m => ({
+                  id: m.user_id,
+                  label: m.card || m.nickname,
+                  avatar: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${m.user_id}`,
+                  role: m.role
+                }))
             } catch { return [] }
           },
           // 执行渲染

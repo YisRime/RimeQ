@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full markdown-body text-sm" v-html="renderedMarkdown" />
+  <div class="w-full markdown-body text-sm ui-text-foreground-main" v-html="renderedMarkdown" />
 </template>
 
 <script setup lang="ts">

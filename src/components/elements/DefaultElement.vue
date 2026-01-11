@@ -1,11 +1,18 @@
 <template>
-  <div class="w-full my-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden group/code text-left">
-    <div class="px-2 py-1 bg-gray-100 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-[10px] text-foreground-dim flex justify-between">
+  <div class="w-full my-1 rounded-lg ui-bg-background-sub border ui-border-background-dim overflow-hidden group/code text-left">
+    <!-- 头部信息 -->
+    <div class="ui-flex-between px-2 py-1 ui-bg-background-dim/50 border-b ui-border-background-dim text-[10px] ui-text-foreground-dim">
       <span class="font-mono">{{ segment.type }}</span>
-      <span class="opacity-0 group-hover/code:opacity-100 transition-opacity cursor-pointer hover:text-primary" @click="copy">复制</span>
+      <span
+        class="opacity-0 group-hover/code:opacity-100 ui-trans cursor-pointer hover:ui-text-primary"
+        @click="copy"
+      >
+        复制
+      </span>
     </div>
+    <!-- JSON 内容 -->
     <div class="p-2 overflow-x-auto ui-scrollbar">
-      <pre class="text-[10px] font-mono leading-normal whitespace-pre-wrap break-all text-foreground-sub select-text">{{ jsonContent }}</pre>
+      <pre class="text-[10px] font-mono leading-normal whitespace-pre-wrap break-all ui-text-foreground-sub select-text">{{ jsonContent }}</pre>
     </div>
   </div>
 </template>

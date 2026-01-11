@@ -68,34 +68,15 @@
           <span class="truncate max-w-[180px] ui-text-foreground-sub">{{ replyDetail.text }}</span>
         </div>
         <!-- 消息内容 -->
-        <div class="flex flex-col items-start w-full">
-          <template v-for="(group, idx) in groupedSegments" :key="idx">
-            <!-- 内联元素 -->
-            <div
-              v-if="group.type === 'inline'"
-              class="px-3.5 py-2.5 break-words text-[15px] leading-relaxed ui-text-foreground-main flex flex-wrap items-end gap-1 w-full"
-            >
-              <component
-                :is="getElement(seg.type)"
-                v-for="(seg, sIdx) in group.segments"
-                :key="sIdx"
-                :segment="seg"
-                :group-id="msg.group_id"
-              />
-            </div>
-            <!-- 块级元素 -->
-            <div
-              v-else
-              class="w-full"
-              :class="['record', 'file'].includes(group.segments[0]?.type || '') ? 'p-2' : ''"
-            >
-              <component
-                :is="getElement(group.segments[0]?.type || 'unknown')"
-                :segment="group.segments[0]!"
-                :group-id="msg.group_id"
-                class="!my-0 block"
-              />
-            </div>
+        <div class="w-full px-3 py-2 text-[15px] leading-relaxed ui-text-foreground-main">
+          <template v-for="(seg, idx) in msg.message" :key="idx">
+            <component
+              :is="getElement(seg.type)"
+              v-if="seg.type !== 'reply'"
+              :segment="seg"
+              :group-id="msg.group_id"
+              @mention="(item: any) => emit('mention', item)"
+            />
           </template>
         </div>
         <!-- 多选遮罩 -->
@@ -144,7 +125,7 @@ import { Avatar } from 'primevue'
 import { useSettingStore, useMessageStore } from '@/stores'
 import { getTextPreview } from '@/utils/format'
 import { getElement } from './elements'
-import type { Message, Segment } from '@/types'
+import type { Message } from '@/types'
 
 const settingStore = useSettingStore()
 const messageStore = useMessageStore()
@@ -161,6 +142,7 @@ const emit = defineEmits<{
   (e: 'contextmenu', ev: MouseEvent, msg: Message): void
   (e: 'poke', uid: number): void
   (e: 'select', msgId: number): void
+  (e: 'mention', item: { id: string; name: string }): void
 }>()
 
 // UI 状态
@@ -195,30 +177,4 @@ const scrollToMsg = (id: string | null) => {
 const onBubbleClick = () => {
   if (props.selectionMode) emit('select', props.msg.message_id)
 }
-
-// 消息分段分组
-interface SegmentGroup { type: 'inline' | 'block'; segments: Segment[] }
-
-const groupedSegments = computed<SegmentGroup[]>(() => {
-  const groups: SegmentGroup[] = []
-  let currentInline: Segment[] = []
-  const inlineTypes = ['text', 'at', 'face', 'unknown']
-  const flush = () => {
-    if (currentInline.length) {
-      groups.push({ type: 'inline', segments: [...currentInline] })
-      currentInline = []
-    }
-  }
-  props.msg.message.forEach(seg => {
-    if (seg.type === 'reply') return
-    if (inlineTypes.includes(seg.type)) {
-      currentInline.push(seg)
-    } else {
-      flush()
-      groups.push({ type: 'block', segments: [seg] })
-    }
-  })
-  flush()
-  return groups
-})
 </script>
