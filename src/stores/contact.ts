@@ -215,22 +215,27 @@ export const useContactStore = defineStore('contact', () => {
   /**
    * 获取用户的显示名称
    * @param userId - 用户的 ID
+   * @param groupId - (可选) 当前群号，用于获取群名片
    * @param fallbackNick - 当本地无数据时，可提供的备用昵称
    * @returns 用户的显示名称
    */
-  function getUserName(userId: string | number, fallbackNick?: string): string {
-    const id = String(userId)
+  function getUserName(userId: string | number, groupId?: string | number, fallbackNick?: string): string {
+    const gid = groupId ? Number(groupId) : undefined
+    if (gid && members.has(gid)) {
+      const member = members.get(gid)?.find(u => String(u.user_id) === String(userId))
+      if (member) return member.card || member.nickname
+    }
     for (const cat of friends.value) {
-      const f = cat.buddyList.find(u => String(u.user_id) === id)
+      const f = cat.buddyList.find(u => String(u.user_id) === String(userId))
       if (f) return f.remark || f.nickname
     }
     for (const memberList of members.values()) {
-      const m = memberList.find(u => String(u.user_id) === id)
+      const m = memberList.find(u => String(u.user_id) === String(userId))
       if (m) return m.card || m.nickname
     }
     if (fallbackNick) return fallbackNick
-    bot.getStrangerInfo(Number(id)).catch(() => {})
-    return `用户 ${id}`
+    bot.getStrangerInfo(Number(userId)).catch(() => {})
+    return `用户 ${String(userId)}`
   }
 
   /**

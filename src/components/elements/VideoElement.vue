@@ -15,7 +15,6 @@ import type { Segment } from '@/types'
 
 const props = defineProps<{ segment: Segment }>()
 
-// 复用原本的 Url 解析逻辑，针对视频
 const videoUrl = computed(() => {
   const data = props.segment.data
   if (!data) return ''

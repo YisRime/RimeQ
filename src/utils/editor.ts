@@ -4,7 +4,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import Placeholder from '@tiptap/extension-placeholder'
-import tippy, { type Instance } from 'tippy.js'
 import { useContactStore } from '@/stores'
 import MentionList from '@/components/MentionList.vue'
 import type { Segment } from '@/types'
@@ -41,32 +40,39 @@ export function useChatEditor(opts: {currentId: Ref<string>; isGroup: Ref<boolea
           },
           // 执行渲染
           render: () => {
-            let component: VueRenderer, popup: Instance[]
+            let component: VueRenderer
+            const updatePos = (rect: DOMRect) => {
+              const el = component.element as HTMLElement
+              if (!el) return
+              el.style.position = 'fixed'
+              el.style.zIndex = '9999'
+              el.style.left = `${rect.left}px`
+              el.style.bottom = `${window.innerHeight - rect.top + 4}px`
+              el.style.top = 'auto'
+            }
             return {
               onStart: (props: any) => {
                 component = new VueRenderer(MentionList, { props, editor: props.editor })
-                if (!props.clientRect) return
-                popup = tippy([document.body], {
-                  getReferenceClientRect: props.clientRect,
-                  appendTo: () => document.body,
-                  content: component.element as HTMLElement,
-                  showOnCreate: true,
-                  interactive: true,
-                  trigger: 'manual',
-                  placement: 'top-start',
-                  zIndex: 9999,
-                })
+                document.body.appendChild(component.element as HTMLElement)
+                if (props.clientRect) {
+                  const rect = props.clientRect()
+                  if (rect) updatePos(rect)
+                }
               },
               onUpdate(props: any) {
                 component.updateProps(props)
-                if (props.clientRect) popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect })
+                if (props.clientRect) {
+                  const rect = props.clientRect()
+                  if (rect) updatePos(rect)
+                }
               },
               onKeyDown(props: any) {
-                if (props.event.key === 'Escape') { popup?.[0]?.hide(); return true }
+                if (props.event.key === 'Escape') return false
                 return component.ref?.onKeyDown(props)
               },
               onExit() {
-                popup?.[0]?.destroy()
+                const el = component.element as HTMLElement
+                if (el && el.parentNode) el.parentNode.removeChild(el)
                 component.destroy()
               },
             }

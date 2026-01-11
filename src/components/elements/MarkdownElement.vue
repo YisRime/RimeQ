@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="w-full markdown-body text-sm"
-    v-html="renderedMarkdown"
-  />
+  <div class="w-full markdown-body text-sm" v-html="renderedMarkdown" />
 </template>
 
 <script setup lang="ts">
@@ -11,13 +8,8 @@ import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import type { Segment } from '@/types'
 
-const props = defineProps<{ segment: Segment }>()
-
-const md = new MarkdownIt({
-  html: false,
-  breaks: true,
-  linkify: true,
-})
+// 将实例提升到模块作用域，避免重复创建
+const md = new MarkdownIt({ html: false, breaks: true, linkify: true })
 
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if ('target' in node) {
@@ -25,6 +17,8 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     node.setAttribute('rel', 'noopener noreferrer')
   }
 })
+
+const props = defineProps<{ segment: Segment }>()
 
 const renderedMarkdown = computed(() => {
   const content = (props.segment.data as any).content || ''

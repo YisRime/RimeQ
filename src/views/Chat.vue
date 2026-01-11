@@ -28,7 +28,8 @@
               :selection-mode="messageStore.isMultiSelect"
               :is-selected="messageStore.selectedIds.includes(msg.message_id)"
               :force-markdown="markdownId.has(msg.message_id)"
-              @contextmenu="onContextMenu"
+              :show-raw="rawJsonId.has(msg.message_id)"
+              @contextmenu="(e) => onContextMenu(e, msg)"
               @poke="onPoke"
               @select="(mid) => messageStore.setMultiSelect(mid)"
             />
@@ -54,40 +55,50 @@
           :is-group="isGroup"
           @send="scrollToBottom(true)"
         />
-        <!-- 右键菜单容器 -->
-        <div class="hidden">
-          <div ref="menuDomRef">
-            <ContextMenu
-              :options="menuOpts"
-              @select="onMenuSelect"
-            />
-          </div>
-        </div>
+        <!-- 右键菜单 -->
+        <ContextMenu
+          ref="contextMenu"
+          :model="menuItems"
+          :pt="{ root: { class: '!min-w-0 w-auto !rounded-lg bg-background-sub/95 backdrop-blur border border-background-dim/50 shadow-xl z-50' } }"
+        >
+          <template #item="{ item, props }">
+            <a
+              v-bind="props.action"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer select-none transition-colors"
+              :class="item.class || 'text-foreground-main hover:bg-background-dim/50'"
+            >
+              <span
+                v-if="item.icon"
+                :class="[item.icon, 'text-sm opacity-80 shrink-0']"
+              />
+              <span class="whitespace-nowrap text-sm font-medium">
+                {{ item.label }}
+              </span>
+            </a>
+          </template>
+        </ContextMenu>
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useToast } from 'primevue'
+import { ContextMenu } from 'primevue'
 import { useIntersectionObserver } from '@vueuse/core'
-import tippy, { type Instance, type Props } from 'tippy.js'
 
 import { bot } from '@/api'
 import { useMessageStore, useSessionStore, useContactStore, useSettingStore } from '@/stores'
 import type { Message } from '@/types'
 import MsgBubble from '@/components/MsgBubble.vue'
 import ChatInput from '@/components/ChatInput.vue'
-import ContextMenu, { type MenuItem } from '@/components/ContextMenu.vue'
 
 defineOptions({ name: 'ChatView' })
 
 // 全局实例
 const router = useRouter()
 const route = useRoute()
-const toast = useToast()
 const messageStore = useMessageStore()
 const sessionStore = useSessionStore()
 const contactStore = useContactStore()
@@ -99,15 +110,15 @@ const session = computed(() => sessionStore.getSession(id.value)) // 当前会�
 const list = computed(() => messageStore.messages) // 当前会话消息列表
 const isGroup = computed(() => !!id.value && (session.value?.type === 'group' || contactStore.checkIsGroup(id.value))) // 当前会话是否为群聊
 
-// UI 状态管理
-const contextMsg = ref<Message | null>(null) // 右键菜单的目标消息
-let menuInstance: Instance<Props> | undefined // Tippy.js 菜单实例
+// UI 状态
+const contextMenu = ref() // 右键菜单实例
+const contextMsg = ref<Message | null>(null) // 右键菜单目标消息
 const markdownId = ref(new Set<number>()) // Markdown 渲染消息 ID
+const rawJsonId = ref(new Set<number>()) // 原始数据渲染消息 ID
 
 // DOM 引用
 const scrollRef = ref<HTMLElement>() // 消息列表滚动容器
 const bottomRef = ref<HTMLElement>() // 底部按钮检测容器
-const menuDomRef = ref<HTMLElement | null>(null) // 右键菜单 DOM 容器
 
 // 滚动状态
 const showScroll = ref(false) // 显示回到底部按钮
@@ -121,7 +132,7 @@ useIntersectionObserver(bottomRef, ([entry]) => {
   if (isNearBottom) newMsgCount.value = 0
 }, { root: scrollRef.value })
 
-// 滚动到底部
+// 滚动触底
 const scrollToBottom = async (smooth = true) => {
   await nextTick()
   if (scrollRef.value) {
@@ -144,6 +155,7 @@ const onScroll = async (e: Event) => {
 watch(() => id.value, (v) => {
   if (v) messageStore.openSession(v)
   markdownId.value.clear()
+  rawJsonId.value.clear()
 }, { immediate: true })
 
 // 消息列表监听
@@ -164,83 +176,67 @@ watch(() => list.value, async (newVal, oldVal) => {
   }
 })
 
-onBeforeUnmount(() => {
-  menuInstance?.destroy()
-})
-
-// 选项定义
-const menuOpts = computed<MenuItem[]>(() => [
-  { label: '引用', key: 'reply', icon: 'i-ri-reply-line' },
-  { label: '多选', key: 'select', icon: 'i-ri-check-double-line' },
-  { label: '转发', key: 'forward', icon: 'i-ri-share-forward-line' },
-  { label: 'Markdown', key: 'markdown', icon: 'i-ri-markdown-line' },
-  { label: '撤回', key: 'recall', icon: 'i-ri-arrow-go-back-line', danger: true },
-])
-
 // 发送戳一戳
 const onPoke = (uid: number) => {
   bot.sendPoke({ user_id: uid, group_id: isGroup.value ? Number(id.value) : undefined })
 }
 
-// 处理气泡点击
+// 点击右键菜单
 const onContextMenu = (e: MouseEvent, msg: Message) => {
   if (messageStore.isMultiSelect) return
-  e.preventDefault()
   contextMsg.value = msg
-  if (!menuInstance && menuDomRef.value) {
-    menuInstance = tippy(document.body, {
-      content: menuDomRef.value,
-      trigger: 'manual',
-      placement: 'bottom-start',
-      interactive: true,
-      arrow: false,
-      offset: [0, 0],
-      appendTo: document.body,
-      zIndex: 9999,
-      onClickOutside(instance) {
-        instance.hide()
-      },
-      onHide() {
-        contextMsg.value = null
-      }
-    })
-  }
-  menuInstance?.setProps({
-    getReferenceClientRect: () => ({
-      width: 0,
-      height: 0,
-      top: e.clientY,
-      bottom: e.clientY,
-      left: e.clientX,
-      right: e.clientX,
-      x: e.clientX,
-      y: e.clientY,
-      toJSON() {}
-    } as any)
-  })
-  menuInstance?.show()
+  contextMenu.value.show(e)
 }
 
-// 处理选项点击
-const onMenuSelect = async (k: string) => {
+// 菜单选项
+const menuItems = computed(() => {
   const m = contextMsg.value
-  menuInstance?.hide()
-  if (!m) return
-  if (k === 'reply') {
-    messageStore.setReplyTarget(m)
-  } else if (k === 'forward') {
-    messageStore.setMultiSelect(m.message_id)
-    if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`)
-  } else if (k === 'markdown') {
-    if (markdownId.value.has(m.message_id)) {
-      markdownId.value.delete(m.message_id)
-    } else {
-      markdownId.value.add(m.message_id)
-    }
-  } else if (k === 'select') {
-    messageStore.setMultiSelect(m.message_id)
-  } else if (k === 'recall') {
-    await bot.deleteMsg(m.message_id).catch(e => toast.add({ severity: 'error', summary: '撤回失败', detail: String(e), life: 3000 }))
+  if (!m) return []
+  // 是否可撤回
+  const isMe = m.sender.user_id === settingStore.user?.user_id
+  let showRecall = isMe
+  if (isGroup.value && !showRecall) {
+    const members = contactStore.members.get(Number(id.value))
+    const myRole = members?.find(u => u.user_id === settingStore.user?.user_id)?.role || 'member'
+    if (myRole !== 'member') showRecall = true
+  } else if (!isGroup.value) {
+    showRecall = true
   }
-}
+  const items: any[] = [
+    { label: '引用', icon: 'i-ri-reply-line', command: () => messageStore.setReplyTarget(m) },
+    { label: '多选', icon: 'i-ri-check-double-line', command: () => messageStore.setMultiSelect(m.message_id) },
+    {
+      label: '转发',
+      icon: 'i-ri-share-forward-line',
+      command: () => {
+        messageStore.setMultiSelect(m.message_id)
+        if (messageStore.selectedIds.length) router.push(`/${id.value}/forward`)
+      }
+    }
+  ]
+  if (showRecall) {
+    items.push({
+      label: '撤回',
+      icon: 'i-ri-arrow-go-back-line',
+      class: 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20',
+      command: () => bot.deleteMsg(m.message_id)
+    })
+  }
+  items.push(
+    { separator: true },
+    {
+      label: 'Markdown',
+      icon: markdownId.value.has(m.message_id) ? 'i-ri-markdown-fill' : 'i-ri-markdown-line',
+      class: markdownId.value.has(m.message_id) ? 'text-primary bg-primary/10' : '',
+      command: () => markdownId.value.has(m.message_id) ? markdownId.value.delete(m.message_id) : markdownId.value.add(m.message_id)
+    },
+    {
+      label: 'Raw Json',
+      icon: rawJsonId.value.has(m.message_id) ? 'i-ri-code-s-slash-fill' : 'i-ri-code-s-slash-line',
+      class: rawJsonId.value.has(m.message_id) ? 'text-primary bg-primary/10' : '',
+      command: () => rawJsonId.value.has(m.message_id) ? rawJsonId.value.delete(m.message_id) : rawJsonId.value.add(m.message_id)
+    }
+  )
+  return items
+})
 </script>

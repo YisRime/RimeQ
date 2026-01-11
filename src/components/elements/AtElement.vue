@@ -12,13 +12,14 @@ import { computed } from 'vue'
 import { useContactStore } from '@/stores'
 import type { Segment } from '@/types'
 
-const props = defineProps<{ segment: Segment }>()
+const props = defineProps<{ segment: Segment; groupId?: number }>()
 const contactStore = useContactStore()
 
 const displayName = computed(() => {
   const { qq, name } = props.segment.data
   if (name) return name
   if (qq === 'all') return '全体成员'
-  return contactStore.getUserName(qq || '')
+  // 传入 groupId 以优先获取群名片
+  return contactStore.getUserName(qq || '', props.groupId)
 })
 </script>

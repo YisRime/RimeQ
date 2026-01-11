@@ -60,9 +60,10 @@ export function formatDuration(seconds: number | string): string {
 /**
  * 生成纯文本预览
  * @param message - 消息内容 (字符串或消息段数组)
+ * @param groupId - (可选) 所属群号，用于显示昵称
  * @returns 预览文本
  */
-export function getTextPreview(message: Segment[]): string {
+export function getTextPreview(message: Segment[], groupId?: number | string): string {
   const contactStore = useContactStore()
   let text = ''
   for (const seg of message) {
@@ -71,7 +72,7 @@ export function getTextPreview(message: Segment[]): string {
         text += seg.data.text
         break
       case 'at':
-        text += `@${seg.data.qq === 'all' ? '全体成员' : contactStore.getUserName(seg.data.qq || '')} `
+        text += `@${seg.data.qq === 'all' ? '全体成员' : contactStore.getUserName(seg.data.qq || '', groupId)} `
         break
       case 'image':
       case 'mface':

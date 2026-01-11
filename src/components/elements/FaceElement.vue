@@ -15,7 +15,6 @@ import { EmojiUtils } from '@/utils/emoji'
 import type { Segment } from '@/types'
 
 const props = defineProps<{ segment: Segment }>()
-
 const faceId = computed(() => Number(props.segment.data.id))
 const faceUrl = computed(() => EmojiUtils.getNormalUrl(faceId.value))
 </script>

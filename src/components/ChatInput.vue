@@ -16,8 +16,7 @@
           <div class="ui-flex-truncate">
             <span class="text-foreground-sub">回复 </span>
             <span class="font-bold text-foreground-main">@{{ messageStore.replyTarget.sender.nickname }}</span>
-            <!-- 修改处：使用 getTextPreview -->
-            <span class="opacity-60 ml-1 truncate">{{ getTextPreview(messageStore.replyTarget.message) }}</span>
+            <span class="opacity-60 ml-1 truncate">{{ getTextPreview(messageStore.replyTarget.message, messageStore.replyTarget.group_id) }}</span>
           </div>
         </div>
         <!-- 取消引用按钮 -->

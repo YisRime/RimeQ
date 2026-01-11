@@ -260,52 +260,52 @@ export const useMessageStore = defineStore('message', () => {
         targetType: 'private'
       }),
       'group_name': n => ({
-        text: `${contactStore.getUserName(n.operator_id!)} 修改了群名称为 “${(n as any).group_name}”`,
+        text: `${contactStore.getUserName(n.operator_id!, n.group_id)} 修改了群名称为 “${(n as any).group_name}”`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_notice': n => ({
-        text: `${contactStore.getUserName(n.user_id!)} 发布了新的群公告`,
+        text: `${contactStore.getUserName(n.user_id!, n.group_id)} 发布了新的群公告`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_increase': n => ({
         text: n.user_id === n.operator_id
-          ? `${contactStore.getUserName(n.user_id!)} 加入了群聊`
-          : `${contactStore.getUserName(n.operator_id!)} 邀请 ${contactStore.getUserName(n.user_id!)} 加入了群聊`,
+          ? `${contactStore.getUserName(n.user_id!, n.group_id)} 加入了群聊`
+          : `${contactStore.getUserName(n.operator_id!, n.group_id)} 邀请 ${contactStore.getUserName(n.user_id!, n.group_id)} 加入了群聊`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_decrease': n => ({
         text: n.sub_type === 'leave'
-          ? `${contactStore.getUserName(n.user_id!)} 退出了群聊`
-          : `${contactStore.getUserName(n.user_id!)} 已被 ${contactStore.getUserName(n.operator_id!)} 移出了群聊`,
+          ? `${contactStore.getUserName(n.user_id!, n.group_id)} 退出了群聊`
+          : `${contactStore.getUserName(n.user_id!, n.group_id)} 已被 ${contactStore.getUserName(n.operator_id!, n.group_id)} 移出了群聊`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_admin': n => ({
         text: n.sub_type === 'set'
-          ? `${contactStore.getUserName(n.operator_id!)} 将 ${contactStore.getUserName(n.user_id!)} 设置为管理员`
-          : `${contactStore.getUserName(n.operator_id!)} 取消了 ${contactStore.getUserName(n.user_id!)} 的管理员`,
+          ? `${contactStore.getUserName(n.operator_id!, n.group_id)} 将 ${contactStore.getUserName(n.user_id!, n.group_id)} 设置为管理员`
+          : `${contactStore.getUserName(n.operator_id!, n.group_id)} 取消了 ${contactStore.getUserName(n.user_id!, n.group_id)} 的管理员`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_ban': n => ({
         text: n.duration! > 0
-          ? `${contactStore.getUserName(n.user_id!)} 被 ${contactStore.getUserName(n.operator_id!)} 禁言 ${formatDuration(n.duration!)}`
-          : `${contactStore.getUserName(n.user_id!)} 被 ${contactStore.getUserName(n.operator_id!)} 解除禁言`,
+          ? `${contactStore.getUserName(n.user_id!, n.group_id)} 被 ${contactStore.getUserName(n.operator_id!, n.group_id)} 禁言 ${formatDuration(n.duration!)}`
+          : `${contactStore.getUserName(n.user_id!, n.group_id)} 被 ${contactStore.getUserName(n.operator_id!, n.group_id)} 解除禁言`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'group_title': n => ({
-        text: `恭喜 ${contactStore.getUserName(n.user_id!)} 获得群主授予的 "${(n as any).title}" 头衔`,
+        text: `恭喜 ${contactStore.getUserName(n.user_id!, n.group_id)} 获得群主授予的 "${(n as any).title}" 头衔`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
       'notify_poke': n => {
-        const target = n.group_id ? contactStore.getUserName(n.target_id!) : '你';
+        const target = n.group_id ? contactStore.getUserName(n.target_id!, n.group_id) : '你';
         return {
-            text: `${contactStore.getUserName(n.user_id!)} ${
+            text: `${contactStore.getUserName(n.user_id!, n.group_id)} ${
                 ((n as any).raw_info as any[]).filter(item => item.type === 'nor' && item.txt).map(item => item.txt).join(` ${target} `)
             }`,
             targetId: n.group_id || (n.user_id === settingStore.user?.user_id ? n.target_id! : n.user_id!),
@@ -313,7 +313,7 @@ export const useMessageStore = defineStore('message', () => {
         };
       },
       'notify_lucky_king': n => ({
-        text: `${contactStore.getUserName(n.user_id!)} 的红包被抢完，${contactStore.getUserName(n.target_id!)} 是运气王`,
+        text: `${contactStore.getUserName(n.user_id!, n.group_id)} 的红包被抢完，${contactStore.getUserName(n.target_id!, n.group_id)} 是运气王`,
         targetId: n.group_id!,
         targetType: 'group'
       }),
@@ -321,7 +321,7 @@ export const useMessageStore = defineStore('message', () => {
         const honorMap = { talkative: '龙王', performer: '群聊之火', legend: '群聊炽焰', strong_newbie: '冒尖小春笋', emotion: '快乐源泉' }
         const honorText = honorMap[n.honor_type as keyof typeof honorMap] || '新的荣誉'
         return {
-          text: `恭喜 ${contactStore.getUserName(n.user_id!)} 获得了 “${honorText}”`,
+          text: `恭喜 ${contactStore.getUserName(n.user_id!, n.group_id)} 获得了 “${honorText}”`,
           targetId: n.group_id!,
           targetType: 'group'
         }

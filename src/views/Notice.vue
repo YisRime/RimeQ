@@ -197,7 +197,7 @@ const getAvatar = (item: Request | Notice) => {
 
 // 生成请求
 const getRequest = (item: Request): string => {
-  const userName = contactStore.getUserName(item.user_id, String(item.user_id))
+  const userName = contactStore.getUserName(item.user_id, item.group_id, String(item.user_id))
   if (item.request_type === 'friend') return `${userName} 请求添加你为好友`
   const groupName = contactStore.getGroupName(String(item.group_id), String(item.group_id))
   return item.sub_type === 'invite'
@@ -207,8 +207,8 @@ const getRequest = (item: Request): string => {
 
 // 生成通知
 const getNotice = (n: Notice): string => {
-  const op = contactStore.getUserName(Number(n.operator_id), String(n.operator_id))
-  const user = contactStore.getUserName(Number(n.user_id), String(n.user_id))
+  const op = contactStore.getUserName(Number(n.operator_id), n.group_id, String(n.operator_id))
+  const user = contactStore.getUserName(Number(n.user_id), n.group_id, String(n.user_id))
   const group = contactStore.getGroupName(String(n.group_id), String(n.group_id))
   const templates: Record<string, string> = {
     group_increase: n.sub_type === 'invite' ? `${op} 邀请 ${user} 加入了 ${group}` : `${user} 加入了 ${group}`,
