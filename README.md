@@ -6,6 +6,12 @@
   本网页应用仅供学习交流使用，请勿用于其他用途
 </p>
 
+<div align="center">
+如果这个项目对您有帮助，请给我一个 ⭐️ Star！
+
+**QQ 群**: [855571375](https://qm.qq.com/q/PdLMx9Jowq) - 用户交流、问题反馈
+</div>
+
 <p align="center">
   <a href="https://github.com/YisRime/RimeQ/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/YisRime/RimeQ?style=flat-square&color=42b883" alt="License">
