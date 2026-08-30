@@ -9,9 +9,12 @@
     "preview": "vite preview",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "pack": "vite build && docker build -t rimeq .",
+    "deploy": "vite build && docker build -t rimeq . && docker run -d -p 8008:80 --name rimeq rimeq"
   },
   "dependencies": {
+    "@tiptap/suggestion": "^3.23.6",
     "@formkit/auto-animate": "^0.9.0",
     "@primeuix/themes": "^2.0.3",
     "@tanstack/vue-virtual": "^3.13.18",

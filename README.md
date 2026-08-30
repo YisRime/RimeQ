@@ -57,6 +57,16 @@
   - 响应式设计，适配不同宽度设备，并支持 PWA。
   - 可选防撤回，本地缓存历史消息，支持搜索消息历史。
   - 支持使用 HTTP SSE 与 Websocket 进行连接。
+ 
+## 使用方法:
+1.前往[Github Pages上的RimeQ](yisrime.github.io/RimeQ/)直接使用(加载时延迟可能较大，但加载完成后不再连接Github服务器)
+
+2.在本地运行服务器(见下文)
+
+## 本地部署:
+1.配置好项目依赖后直接用`npm run preview`启动一次，打开页面后即可关闭Vite服务器
+
+2.配置好项目依赖后，使用`npm run deploy`构建并启动Nginx容器，访问localhost:8008(可在package.json中更改)即可使用
 
 ## Star History
 
