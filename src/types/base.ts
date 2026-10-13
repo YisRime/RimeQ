@@ -82,6 +82,6 @@ export enum SegType {
   Keyboard = 'keyboard',
   /** 闪传 (LLOneBot) */
   Flash = 'flash_file',
-  /** 定位 (Lagrange) */
+  /** 定位 (SnowLuma) */
   Location = 'location'
 }

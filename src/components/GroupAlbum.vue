@@ -571,7 +571,7 @@ const handleLike = async () => {
   media.like.liked = set
   media.like.count = (media.like.count || 0) + (set ? 1 : -1)
   try {
-    await bot.setGroupAlbumLike(groupId.value, data.current.album_id, media.lloc, (media as any).id || media.lloc, set);
+    await bot.setGroupAlbumLike(groupId.value, data.current.album_id, media.batch_id || '', media.lloc, set);
   } catch (e) {
     if (media.like) {
       media.like.liked = !set

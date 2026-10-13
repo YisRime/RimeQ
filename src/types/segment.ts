@@ -43,7 +43,7 @@ export type MFaceSegment = SegmentBase<SegType.MFace, {
   key: string;
   /** 摘要/名称 */
   summary: string;
-  /** 图片 URL (LLOneBot/Lagrange) */
+  /** 图片 URL (LLOneBot/SnowLuma) */
   url?: string;
 }>;
 
@@ -155,7 +155,7 @@ export type PokeSegment = SegmentBase<SegType.Poke, {
   qq?: number;
   /** 类型 / ID */
   id?: number;
-  /** 类型名称 (NapCat/Lagrange) */
+  /** 类型名称 (NapCat/SnowLuma) */
   type?: string;
 }>;
 
@@ -261,7 +261,7 @@ export type ContactSegment = SegmentBase<SegType.Contact, {
 export type ShakeSegment = SegmentBase<SegType.Shake, Record<string, never>>;
 
 /**
- * 地理位置消息段 (Lagrange)
+ * 地理位置消息段 (SnowLuma)
  */
 export type LocationSegment = SegmentBase<SegType.Location, {
   /** 纬度 */
@@ -275,7 +275,7 @@ export type LocationSegment = SegmentBase<SegType.Location, {
 }>;
 
 /**
- * 按钮消息段 (LLOneBot/Lagrange)
+ * 按钮消息段 (LLOneBot/SnowLuma)
  */
 export type KeyboardSegment = SegmentBase<SegType.Keyboard, {
   /** 行数据列表 */

@@ -426,7 +426,7 @@ const menuItems = computed((): MenuItem[] => {
     }
   })
   if (t.type !== 'folder') {
-    if (backendType.value === 'Lagrange') {
+    if (backendType.value === 'SnowLuma') {
       menuCommands.push({
         label: '转存微云',
         icon: 'i-ri-save-line',

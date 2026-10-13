@@ -2,18 +2,26 @@ import { socket } from './socket'
 import { httpsse } from './httpsse'
 import type * as T from '@/types'
 
-/** 后端类型 */
-export type BackendType = 'NapCat' | 'Lagrange' | 'LLOneBot'
+/**
+ * 后端类型
+ * @description 当前支持的三款 OneBot v11 实现
+ * - NapCat: https://napcat.apifox.cn/
+ * - SnowLuma: https://snowluma.github.io/zh/docs/api
+ * - LLOneBot: https://api.luckylillia.com/
+ */
+export type BackendType = 'NapCat' | 'SnowLuma' | 'LLOneBot'
 
 /** 通信模式 */
 export type TransportMode = 'ws' | 'http'
 
 /**
  * OneBot v11 标准 API 客户端
- * @description 标准协议定义的基础方法
+ * @description 三款后端共同支持的标准协议方法，扩展方法见 {@link ExtendedClient}
  */
 export class BaseClient {
+  /** 当前后端类型 */
   public backend: BackendType = 'NapCat'
+  /** 当前通信模式 */
   public mode: TransportMode = 'ws'
 
   /**
@@ -44,19 +52,42 @@ export class BaseClient {
 
   /**
    * 发送消息
+   * @description 按 `message_type` 自动路由到私聊或群聊
    * @param message_type - 消息类型
    * @param id - 对方 QQ 号或群号
    * @param message - 消息内容
    */
   sendMsg(message_type: 'private' | 'group', id: number, message: string | T.Segment[]) {
     if (this.backend === 'LLOneBot') {
-      if (message_type === 'private') {
-        return this.request<{ message_id: number }>('send_private_msg', { user_id: id, message: message });
-      } else {
-        return this.request<{ message_id: number }>('send_group_msg', { group_id: id, message: message });
-      }
+      return message_type === 'private'
+        ? this.sendPrivateMsg(id, message)
+        : this.sendGroupMsg(id, message)
     }
-    return this.request<{ message_id: number }>('send_msg', { message, ...(message_type === 'private' ? { user_id: id } : { group_id: id }) });
+    return this.request<{ message_id: number }>('send_msg', {
+      message,
+      message_type,
+      ...(message_type === 'private' ? { user_id: id } : { group_id: id })
+    })
+  }
+
+  /**
+   * 发送私聊消息
+   * @param user_id - 对方 QQ 号
+   * @param message - 消息内容
+   * @param auto_escape - 是否作为纯文本发送
+   */
+  sendPrivateMsg(user_id: number, message: string | T.Segment[], auto_escape = false) {
+    return this.request<{ message_id: number }>('send_private_msg', { user_id, message, auto_escape })
+  }
+
+  /**
+   * 发送群聊消息
+   * @param group_id - 群号
+   * @param message - 消息内容
+   * @param auto_escape - 是否作为纯文本发送
+   */
+  sendGroupMsg(group_id: number, message: string | T.Segment[], auto_escape = false) {
+    return this.request<{ message_id: number }>('send_group_msg', { group_id, message, auto_escape })
   }
 
   /**
@@ -77,10 +108,10 @@ export class BaseClient {
 
   /**
    * 获取合并转发消息
-   * @param id - 合并转发 ID (NapCat/LLOneBot:"message_id" 或 Lagrange:"id")
+   * @param id - 合并转发 ID (message_id 或 id)
    */
   getForwardMsg(id: string) {
-    return this.request<{ message: T.Segment[] }>('get_forward_msg', this.backend === 'Lagrange' ? { id } : { message_id: id });
+    return this.request<{ message: T.Segment[] }>('get_forward_msg', { message_id: id })
   }
 
   // ============================================================================
@@ -97,19 +128,19 @@ export class BaseClient {
   }
 
   /**
-   * 处理好友请求
+   * 处理好友添加请求
    * @param flag - 加好友请求的 flag
    * @param approve - 是否同意请求
-   * @param reason - 好友备注 (NapCat/LLOneBot) 或 拒绝理由 (Lagrange)
+   * @param remark - 添加后的好友备注
    */
-  setFriendAddRequest(flag: string, approve: boolean, reason = '') {
-    return this.request<void>('set_friend_add_request', { flag, approve, ...(this.backend === 'Lagrange' ? { reason: reason } : { remark: reason }) });
+  setFriendAddRequest(flag: string, approve: boolean, remark = '') {
+    return this.request<void>('set_friend_add_request', { flag, approve, remark })
   }
 
   /**
    * 获取陌生人信息
    * @param user_id - QQ 号
-   * @param no_cache - 是否不使用缓存 (Lagrange)
+   * @param no_cache - 是否不使用缓存
    */
   getStrangerInfo(user_id: number, no_cache = false) {
     return this.request<T.StrangerInfo>('get_stranger_info', { user_id, no_cache })
@@ -117,10 +148,11 @@ export class BaseClient {
 
   /**
    * 获取好友列表
+   * @param no_cache - 是否不使用缓存
    * @returns 好友列表数组
    */
-  getFriendList() {
-    return this.request<T.FriendInfo[]>('get_friend_list')
+  getFriendList(no_cache = false) {
+    return this.request<T.FriendInfo[]>('get_friend_list', { no_cache })
   }
 
   // ============================================================================
@@ -130,7 +162,7 @@ export class BaseClient {
   /**
    * 获取群信息
    * @param group_id - 群号
-   * @param no_cache - 是否不使用缓存 (Lagrange)
+   * @param no_cache - 是否不使用缓存
    */
   getGroupInfo(group_id: number, no_cache = false) {
     return this.request<T.GroupInfo>('get_group_info', { group_id, no_cache })
@@ -138,10 +170,11 @@ export class BaseClient {
 
   /**
    * 获取群列表
+   * @param no_cache - 是否不使用缓存
    * @returns 群列表数组
    */
-  getGroupList() {
-    return this.request<T.GroupInfo[]>('get_group_list')
+  getGroupList(no_cache = false) {
+    return this.request<T.GroupInfo[]>('get_group_list', { no_cache })
   }
 
   /**
@@ -157,9 +190,10 @@ export class BaseClient {
   /**
    * 获取群成员列表
    * @param group_id - 群号
+   * @param no_cache - 是否不使用缓存
    */
-  getGroupMemberList(group_id: number) {
-    return this.request<T.GroupMemberInfo[]>('get_group_member_list', { group_id })
+  getGroupMemberList(group_id: number, no_cache = false) {
+    return this.request<T.GroupMemberInfo[]>('get_group_member_list', { group_id, no_cache })
   }
 
   /**
@@ -185,7 +219,7 @@ export class BaseClient {
    * 群组单人禁言
    * @param group_id - 群号
    * @param user_id - 要禁言的 QQ 号
-   * @param duration - 禁言时长，单位秒
+   * @param duration - 禁言时长，单位秒 (0 为解除禁言)
    */
   setGroupBan(group_id: number, user_id: number, duration = 1800) {
     return this.request<void>('set_group_ban', { group_id, user_id, duration })
@@ -232,7 +266,7 @@ export class BaseClient {
   /**
    * 退出群组
    * @param group_id - 群号
-   * @param is_dismiss - 是否解散（仅群主） (NapCat/Lagrange)
+   * @param is_dismiss - 是否解散（仅群主）
    */
   setGroupLeave(group_id: number, is_dismiss = false) {
     return this.request<void>('set_group_leave', { group_id, is_dismiss })
@@ -243,10 +277,9 @@ export class BaseClient {
    * @param group_id - 群号
    * @param user_id - 要设置的 QQ 号
    * @param special_title - 专属头衔，为空表示取消
-   * @param duration - 有效期，单位秒 (Lagrange)
    */
-  setGroupSpecialTitle(group_id: number, user_id: number, special_title: string, duration = -1) {
-    return this.request<void>('set_group_special_title', { group_id, user_id, special_title, duration })
+  setGroupSpecialTitle(group_id: number, user_id: number, special_title: string) {
+    return this.request<void>('set_group_special_title', { group_id, user_id, special_title })
   }
 
   /**
@@ -254,9 +287,10 @@ export class BaseClient {
    * @param flag - 请求 flag
    * @param approve - 是否同意请求
    * @param reason - 拒绝理由
+   * @param sub_type - 请求子类型 (add / invite)
    */
-  setGroupAddRequest(flag: string, approve: boolean, reason = '') {
-    return this.request<void>('set_group_add_request', { flag, approve, reason })
+  setGroupAddRequest(flag: string, approve: boolean, reason = '', sub_type: 'add' | 'invite' = 'add') {
+    return this.request<void>('set_group_add_request', { flag, sub_type, type: sub_type, approve, reason })
   }
 
   // ============================================================================
@@ -279,14 +313,14 @@ export class BaseClient {
   }
 
   /**
-   * 获取 CSRF Token (NapCat/Lagrange)
+   * 获取 CSRF Token
    */
   getCsrfToken() {
     return this.request<{ token: number }>('get_csrf_token')
   }
 
   /**
-   * 获取 QQ 相关接口凭证 (NapCat/Lagrange)
+   * 获取 QQ 相关接口凭证
    * @param domain - 需要获取 cookies 的域名
    */
   getCredentials(domain = '') {
@@ -299,7 +333,7 @@ export class BaseClient {
    * @param out_format - 要转换到的格式 (mp3/amr/wma/m4a/spx/ogg/wav/flac)
    */
   getRecord(file: string, out_format = 'mp3') {
-    return this.request<{ file: string; url: string; file_size: string; file_name: string; base64: string }>('get_record', { file, out_format });
+    return this.request<{ file: string; url: string; file_size: string; file_name: string; base64: string }>('get_record', { file, out_format })
   }
 
   /**
@@ -311,14 +345,14 @@ export class BaseClient {
   }
 
   /**
-   * 检查是否可以发送图片 (NapCat/Lagrange)
+   * 检查是否可以发送图片
    */
   canSendImage() {
     return this.request<{ yes: boolean }>('can_send_image')
   }
 
   /**
-   * 检查是否可以发送语音 (NapCat/Lagrange)
+   * 检查是否可以发送语音
    */
   canSendRecord() {
     return this.request<{ yes: boolean }>('can_send_record')
@@ -339,14 +373,14 @@ export class BaseClient {
   }
 
   /**
-   * 重启 OneBot 实现 (Lagrange)
+   * 重启 OneBot 实现
    */
   setRestart() {
     return this.request<void>('set_restart')
   }
 
   /**
-   * 清理缓存 (NapCat/Lagrange)
+   * 清理缓存
    */
   cleanCache() {
     return this.request<void>('clean_cache')

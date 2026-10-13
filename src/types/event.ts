@@ -68,7 +68,7 @@ export interface Meta extends Event {
     good: boolean;
     /** 统计信息 */
     stat?: any;
-    /** 插件状态 (Lagrange) */
+    /** 插件状态 (SnowLuma) */
     plugins_good?: boolean;
   }
   /** 心跳间隔 (毫秒) (心跳) */
