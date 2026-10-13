@@ -1,7 +1,7 @@
-import { ref, shallowRef, computed } from 'vue'
+import { ref, shallowRef, computed, triggerRef } from 'vue'
 import { defineStore } from 'pinia'
 import { bot } from '@/api'
-import { database, type DBMessage } from './database'
+import { database, encodeMessageMedia, type DBMessage, type DBMedia } from './database'
 import { useSessionStore } from './session'
 import { useSettingStore } from './setting'
 import { useContactStore } from './contact'
@@ -40,6 +40,15 @@ export const useMessageStore = defineStore('message', () => {
     if (!selectedIds.value.length) return []
     const set = new Set(selectedIds.value)
     return messages.value.filter(m => set.has(m.message_id))
+  })
+
+  /**
+   * 获取消息 ID 到消息对象的映射
+   */
+  const messagesById = computed((): Map<number, DBMessage> => {
+    const map = new Map<number, DBMessage>()
+    for (const m of messages.value) map.set(m.message_id, m)
+    return map
   })
 
   /**
@@ -95,8 +104,14 @@ export const useMessageStore = defineStore('message', () => {
       const res = await bot.getMsgHistory(type, id, startMsgId, count, true)
       const list = res.messages || []
       if (list.length > 0) {
-        const normalized = list.map(normalizeMessage)
-        await database.messages.bulkPut(normalized)
+        const media: DBMedia[] = []
+        const encoded = list.map(m => {
+          const item = encodeMessageMedia(normalizeMessage(m))
+          if (item.media.length) media.push(...item.media)
+          return item.message
+        })
+        if (media.length) await database.media.bulkPut(media)
+        await database.messages.bulkPut(encoded)
         return list.length
       }
     } catch (e) {
@@ -155,7 +170,10 @@ export const useMessageStore = defineStore('message', () => {
     if (localMessage.length > 0) {
       const existingIds = new Set(messages.value.map(m => m.message_id))
       const uniqueNew = localMessage.filter(m => !existingIds.has(m.message_id))
-      if (uniqueNew.length > 0) messages.value = [...uniqueNew, ...messages.value]
+      if (uniqueNew.length > 0) {
+        messages.value.unshift(...uniqueNew)
+        triggerRef(messages)
+      }
     }
     // 拉取云端
     fetchMessage(numId, type, 100, topMsgId).then(count => {
@@ -169,21 +187,16 @@ export const useMessageStore = defineStore('message', () => {
    * @param rawEvent - 原始消息事件
    */
   function pushMessage(rawEvent: Message): void {
-    const processed = normalizeMessage(rawEvent)
-    database.messages.put(processed).catch(e => console.warn('[Message] 存储消息失败:', e))
+    const { message: stored, media } = encodeMessageMedia(normalizeMessage(rawEvent))
+    if (media.length) database.media.bulkPut(media).catch(e => console.warn('[Message] 存储媒体失败:', e))
+    database.messages.put(stored).catch(e => console.warn('[Message] 存储消息失败:', e))
     if (activeId.value) {
       const activeSession = sessionStore.getSession(activeId.value)
-      let activeKey = ''
-      if (activeSession) {
-        activeKey = activeSession.type === 'group' ? `g_${activeId.value}` : `p_${activeId.value}`
-      } else {
-        const type = rawEvent.message_type === 'group' ? 'group' : 'private'
-        activeKey = type === 'group' ? `g_${activeId.value}` : `p_${activeId.value}`
-      }
-      if (activeKey === processed.session_id) {
-        if (!messages.value.some(m => m.message_id === processed.message_id)) {
-          messages.value = [...messages.value, processed]
-        }
+      const type = activeSession?.type ?? (rawEvent.message_type === 'group' ? 'group' : 'private')
+      const activeKey = type === 'group' ? `g_${activeId.value}` : `p_${activeId.value}`
+      if (activeKey === stored.session_id && !messages.value.some(m => m.message_id === stored.message_id)) {
+        messages.value.push(stored)
+        triggerRef(messages)
       }
     }
   }
@@ -324,9 +337,8 @@ export const useMessageStore = defineStore('message', () => {
     if (updatedCount > 0) {
       const indexInView = messages.value.findIndex(m => m.message_id === messageId)
       if (indexInView !== -1) {
-        const newMessages = [...messages.value]
-        newMessages[indexInView] = Object.assign({}, newMessages[indexInView], updates)
-        messages.value = newMessages
+        messages.value[indexInView] = Object.assign({}, messages.value[indexInView], updates)
+        triggerRef(messages)
       }
     }
   }
@@ -343,12 +355,10 @@ export const useMessageStore = defineStore('message', () => {
     }
     const idx = messages.value.findIndex(m => m.message_id === msgId)
     if (idx !== -1) {
-      const copy = [...messages.value]
-      const target = copy[idx]
+      const target = messages.value[idx]
       if (target) {
-        const updated = { ...target, recalled: true }
-        copy[idx] = updated
-        messages.value = copy
+        messages.value[idx] = { ...target, recalled: true }
+        triggerRef(messages)
       }
     }
   }
@@ -385,7 +395,7 @@ export const useMessageStore = defineStore('message', () => {
 
   return {
     activeId, messages, forwardTargets, hasMore,
-    isMultiSelect, selectedIds, selectedMessages, replyTarget,
+    isMultiSelect, selectedIds, selectedMessages, messagesById, replyTarget,
     setMultiSelect, setReplyTarget, openSession, pushMessage,
     fetchHistory, convertToMessage, updateMessage, recallMessage
   }

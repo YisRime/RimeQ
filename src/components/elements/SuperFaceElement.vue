@@ -12,9 +12,24 @@ import lottie, { type AnimationItem } from 'lottie-web'
 import { QFace } from '@/utils/qface'
 import type { Segment, FaceSegment, DiceSegment, RpsSegment } from '@/types'
 
+// 共享动画数据缓存
+const animationDataCache = new Map<string, unknown>()
+async function fetchAnimationData(url: string): Promise<unknown> {
+  const cached = animationDataCache.get(url)
+  if (cached) return cached
+  const data = await fetch(url).then(r => r.json())
+  animationDataCache.set(url, data)
+  if (animationDataCache.size > 64) {
+    const oldest = animationDataCache.keys().next().value
+    if (oldest !== undefined) animationDataCache.delete(oldest)
+  }
+  return data
+}
+
 const props = defineProps<{ segment: Segment }>()
 const container = ref<HTMLElement>()
 let anim: AnimationItem | null = null
+let observer: IntersectionObserver | null = null
 
 // 计算元数据
 const meta = computed(() => {
@@ -41,21 +56,31 @@ const meta = computed(() => {
 
 // 初始化 Lottie 动画
 const initAnimation = async () => {
+  observer?.disconnect()
+  observer = null
   if (anim) {
     anim.destroy()
     anim = null
   }
   if (!container.value || !meta.value.url) return
+  const el = container.value
+  const url = meta.value.url
   try {
-    const animationData = await fetch(meta.value.url).then(r => r.json())
-    if (!container.value) return
+    const animationData = await fetchAnimationData(url)
+    if (!container.value || container.value !== el || meta.value.url !== url) return
     anim = lottie.loadAnimation({
-      container: container.value,
+      container: el,
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      animationData
+      animationData: animationData as Record<string, unknown>
     })
+    observer = new IntersectionObserver(([entry]) => {
+      if (!anim) return
+      if (entry?.isIntersecting) anim.play()
+      else anim.pause()
+    })
+    observer.observe(el)
   } catch (e) {
     console.warn('[SuperFace] 动画加载失败:', e)
   }
@@ -64,6 +89,8 @@ const initAnimation = async () => {
 onMounted(initAnimation)
 
 onUnmounted(() => {
+  observer?.disconnect()
+  observer = null
   if (anim) {
     anim.destroy()
     anim = null

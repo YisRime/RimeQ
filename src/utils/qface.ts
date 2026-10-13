@@ -107,11 +107,27 @@ const EMOJI_DB: Record<string, string> = {
 }
 
 export class QFace {
+  /** 表情缓存 */
+  private static itemCache = new Map<string, QFaceItem | null>()
+  /** 列表缓存 */
+  private static lists = new Map<string, QFaceItem[]>()
+
   /**
    * 获取表情信息
    * @param id 表情 ID 或 Emoji 字符
    */
   static get(id: string): QFaceItem | null {
+    if (QFace.itemCache.has(id)) return QFace.itemCache.get(id)!
+    const item = QFace.buildItem(id)
+    QFace.itemCache.set(id, item)
+    return item
+  }
+
+  /**
+   * 构建表情信息
+   * @param id 表情 ID 或 Emoji 字符
+   */
+  private static buildItem(id: string): QFaceItem | null {
     // 处理 Emoji
     if (EMOJI_DB[id]) return { id, name: EMOJI_DB[id], type: 'emoji', packId: 0, assets: { static: `https://koishi.js.org/QFace/assets/qq_emoji/${id}/png/${id}.png` } }
     // 处理普通表情
@@ -146,22 +162,30 @@ export class QFace {
    * @param type 表情类型
    */
   static getList(type: 'face' | 'super' | 'emoji' = 'face'): QFaceItem[] {
-    if (type === 'emoji') return Object.keys(EMOJI_DB).map(id => this.get(id)!)
-    const faces = Object.keys(FACE_DB).map(id => this.get(id)!).filter(Boolean) as QFaceItem[]
-    if (type === 'face') return faces.filter(item => item.type === 'face')
-    if (type === 'super') {
-      const allSupers = faces.filter(item => item.type === 'super' || item.type === 'other')
-      return allSupers.sort((a, b) => {
-        if (a.packId === 0 && b.packId !== 0) return -1
-        if (a.packId !== 0 && b.packId === 0) return 1
-        if (a.packId === 0 && b.packId === 0) {
-          if (a.type === 'super' && b.type === 'other') return -1
-          if (a.type === 'other' && b.type === 'super') return 1
-          return 0
-        }
-        return a.packId - b.packId
-      })
+    const cached = QFace.lists.get(type)
+    if (cached) return cached
+
+    let result: QFaceItem[]
+    if (type === 'emoji') {
+      result = Object.keys(EMOJI_DB).map(id => QFace.get(id)!)
+    } else {
+      const faces = Object.keys(FACE_DB).map(id => QFace.get(id)!).filter(Boolean) as QFaceItem[]
+      if (type === 'face') {
+        result = faces.filter(item => item.type === 'face')
+      } else {
+        result = faces.filter(item => item.type === 'super' || item.type === 'other').sort((a, b) => {
+          if (a.packId === 0 && b.packId !== 0) return -1
+          if (a.packId !== 0 && b.packId === 0) return 1
+          if (a.packId === 0 && b.packId === 0) {
+            if (a.type === 'super' && b.type === 'other') return -1
+            if (a.type === 'other' && b.type === 'super') return 1
+            return 0
+          }
+          return a.packId - b.packId
+        })
+      }
     }
-    return []
+    QFace.lists.set(type, result)
+    return result
   }
 }

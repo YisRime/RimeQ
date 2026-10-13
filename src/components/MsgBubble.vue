@@ -143,7 +143,7 @@ const systemPreview = computed(() => isSystem.value ? getTextPreview(props.msg.m
 // 计算属性：群成员信息
 const groupMember = computed(() => {
   if (props.msg.message_type === 'group' && props.msg.group_id) {
-    const member = contactStore.members.get(props.msg.group_id)?.find(m => m.user_id === props.msg.sender.user_id)
+    const member = contactStore.getMember(props.msg.group_id, props.msg.sender.user_id)
     if (member) return member
   }
   return props.msg.sender
@@ -161,7 +161,7 @@ const textContent = computed(() => {
 const replyDetail = computed(() => {
   const replySeg = props.msg.message.find(s => s.type === 'reply')
   if (!replySeg?.data?.id) return null
-  const found = messageStore.messages.find(m => m.message_id === Number(replySeg.data.id))
+  const found = messageStore.messagesById.get(Number(replySeg.data.id))
 
   return {
     id: Number(replySeg.data.id),

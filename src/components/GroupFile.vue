@@ -230,7 +230,7 @@ const menu = ref()
 const menuTarget = ref<any>(null)
 
 // 数据缓存
-const fileCache = reactive(new Map<string, any[]>())
+const fileCache = new Map<string, any[]>()
 
 // 计算属性
 const currentFolderId = computed(() => pathStack.value[pathStack.value.length - 1]?.id || '/')

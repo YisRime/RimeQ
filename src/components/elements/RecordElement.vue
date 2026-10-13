@@ -149,5 +149,12 @@ watch(() => props.segment.data.file, () => {
 onUnmounted(() => {
   document.onmousemove = null
   document.onmouseup = null
+  const audio = audioRef.value
+  if (audio) {
+    audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
+  }
+  audioSrc.value = ''
 })
 </script>

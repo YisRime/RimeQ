@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, watch, computed } from 'vue'
-import { useStorage, usePreferredDark } from '@vueuse/core'
+import { usePreferredDark } from '@vueuse/core'
 import { bot } from '@/api'
 import { useContactStore } from './contact'
 import { dispatchEvent } from '@/utils/dispatch'
+import { useIdbStorage, purgeOrphanMedia } from './database'
 
 /**
  * 全局应用设置与状态管理
@@ -16,7 +17,7 @@ export const useSettingStore = defineStore('setting', () => {
   const user = ref<{ user_id: number; nickname: string } | null>(null)
 
   /** 持久化存储的应用配置 */
-  const config = useStorage('rimeq-config', {
+  const config = useIdbStorage('rimeq-config', {
     /** WebSocket 连接地址 */
     connectAddress: '',
     /** 连接鉴权令牌 */
@@ -69,6 +70,7 @@ export const useSettingStore = defineStore('setting', () => {
       bot.onReceive(dispatchEvent)
       const contactStore = useContactStore()
       contactStore.fetchContacts()
+      window.setTimeout(() => { purgeOrphanMedia().catch(() => {}) }, 5000)
       config.value.connectAddress = addr
       config.value.accessToken = config.value.rememberToken ? tk : ''
     } catch (e) {

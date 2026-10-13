@@ -45,8 +45,8 @@
             </template>
             <!-- 超级表情 -->
             <template v-else-if="activeTab === 'super'">
-              <template v-for="group in superFaceGroups" :key="group.id">
-                <div v-if="QFace.getList('super').some(i => i.packId === group.id)" class="flex flex-col gap-1">
+              <template v-for="group in superGroups" :key="group.id">
+                <div class="flex flex-col gap-1">
                   <div class="ui-flex-x gap-1 px-1 py-1 opacity-60">
                     <div class="h-px bg-background-dim flex-1" />
                     <span class="text-[10px] text-foreground-dim font-bold uppercase tracking-wider">{{ group.name }}</span>
@@ -54,7 +54,7 @@
                   </div>
                   <div class="grid grid-cols-5 gap-1">
                     <div
-                      v-for="item in QFace.getList('super').filter(i => i.packId === group.id)"
+                      v-for="item in group.items"
                       :key="item.id"
                       class="relative aspect-square p-1.5 rounded-xl cursor-pointer ui-trans hover:bg-background-sub/50"
                       :title="item.name"
@@ -272,7 +272,7 @@ const lottieRefs = new Map<string, HTMLElement>()
 const lottieCache = new Map<string, any>()
 const loadingSet = new Set<string>()
 
-  // 点击外部关闭
+// 点击外部关闭
 onClickOutside(panelRef, () => activeTab.value = null, { ignore: [toolbarRef] })
 
 // 计算属性
@@ -283,6 +283,13 @@ const superFaceGroups = [
   { id: 0, name: '特殊' }, { id: 1, name: '黄脸' }, { id: 2, name: '旺旺' },
   { id: 3, name: '喜花妮' }, { id: 4, name: '黄脸' }, { id: 5, name: '企鹅' }, { id: 6, name: '噗噗星人' }
 ]
+
+// 预计算超级表情
+const superGroups = computed(() =>
+  superFaceGroups
+    .map(g => ({ ...g, items: QFace.getList('super').filter(i => i.packId === g.id) }))
+    .filter(g => g.items.length > 0)
+)
 
 const leftButtons = [
   { id: 'face', icon: 'i-ri-emotion-line text-lg', tip: '普通表情' },
@@ -499,6 +506,10 @@ onBeforeUnmount(() => {
   lottieMap.forEach(anim => anim.destroy())
   lottieMap.clear()
   lottieRefs.clear()
+  lottieCache.clear()
+  loadingSet.clear()
+  localFiles.value.forEach(i => URL.revokeObjectURL(i.url))
+  localFiles.value = []
   editor.value?.destroy()
 })
 </script>

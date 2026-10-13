@@ -270,7 +270,8 @@ interface CacheData {
   next: string
   hasMore: boolean
 }
-const photoCache = reactive(new Map<string, CacheData>())
+// 相册缓存
+const photoCache = new Map<string, CacheData>()
 
 // 响应式状态
 const data = reactive({

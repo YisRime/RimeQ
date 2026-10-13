@@ -333,7 +333,7 @@ const sortedMembers = computed(() => {
 onMounted(async () => {
   if (!groupId.value) return
   const gid = Number(groupId.value)
-  members.value = contactStore.members.get(gid) || []
+  members.value = await contactStore.fetchGroupMembers(gid)
   const info = bot.backend === 'NapCat'
     ? await bot.getGroupInfoEx(gid)
     : await bot.getGroupInfo(gid, true)
