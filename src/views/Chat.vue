@@ -59,7 +59,7 @@
                 v-if="list[virtualRow.index]"
                 :msg="list[virtualRow.index]!"
                 :selection-mode="messageStore.isMultiSelect"
-                :is-selected="messageStore.selectedIds.includes(list[virtualRow.index]!.message_id)"
+                :is-selected="messageStore.selectedIdSet.has(list[virtualRow.index]!.message_id)"
                 :force-markdown="markdownId.has(list[virtualRow.index]!.message_id)"
                 :show-raw="rawJsonId.has(list[virtualRow.index]!.message_id)"
                 :on-context-menu="onContextMenu"
@@ -327,7 +327,9 @@ const executeBan = async (duration?: number) => {
 const menuItems = computed(() => {
   const m = contextMsg.value
   if (!m) return []
-  const myRole = m.message_type === 'group' ? contactStore.members.get(Number(id.value))?.find(u => u.user_id === settingStore.user?.user_id)?.role || 'member' : 'owner'
+  const myRole = m.message_type === 'group'
+    ? contactStore.getMember(Number(id.value), settingStore.user?.user_id ?? 0)?.role || 'member'
+    : 'owner'
   // 基础菜单
   const items: any[] = [
     { label: '+1', icon: 'i-ri-add-circle-line', command: () => bot.sendMsg(m.message_type, m.message_type === 'group' ? m.group_id! : m.user_id, m.message)},

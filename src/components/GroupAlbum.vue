@@ -300,7 +300,7 @@ const activeMedia = computed(() => ui.activeIndex >= 0 ? data.photos[ui.activeIn
 const canDeleteMedia = computed(() => {
   if (!activeMedia.value) return false
   const uid = settingStore.user?.user_id
-  const myInfo = contactStore.members.get(groupId.value)?.find(m => m.user_id === uid)
+  const myInfo = uid ? contactStore.getMember(groupId.value, uid) : undefined
   return activeMedia.value.uploader === uid || myInfo?.role === 'owner' || myInfo?.role === 'admin'
 })
 

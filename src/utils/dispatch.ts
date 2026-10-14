@@ -23,7 +23,7 @@ function messageEvent(data: Message) {
   // 推送消息
   void messageStore.pushMessage(data)
   // 生成文本预览
-  const preview = getTextPreview(data.message)
+  const preview = getTextPreview(data.message, isGroupMsg ? data.group_id : undefined)
   // 更新会话信息
   const isSelf = data.sender.user_id === selfId
   const isActiveSession = messageStore.activeId === sessionId

@@ -91,7 +91,7 @@
         <div class="ui-flex-col-full relative overflow-hidden ui-flex-truncate">
           <router-view v-slot="{ Component }">
             <keep-alive :include="['ChatView', 'SettingsView', 'ContactView']">
-              <component :is="Component" :key="route.path" class="size-full" />
+              <component :is="Component" :key="viewKey" class="size-full" />
             </keep-alive>
           </router-view>
         </div>
@@ -150,6 +150,8 @@ const userAvatar = computed(() => {
 
 // 数据计算：当前上下文
 const isContentMode = computed(() => route.path !== '/' && route.path !== '/contact')
+
+const viewKey = computed(() => route.params.id ? `chat-${route.params.id}` : route.path)
 
 // 侧边栏动画配置
 const sidebarMotion = computed(() => {

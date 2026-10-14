@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { shallowReactive, shallowRef, computed } from 'vue'
+import { shallowReactive, computed } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
 import { database } from './database'
@@ -21,13 +21,27 @@ export const useContactStore = defineStore('contact', () => {
   /** 群成员内存缓存 */
   const members = shallowReactive(new Map<number, GroupMemberInfo[]>())
   /** 已加载成员列表的群组 ID */
-  const fetchedGroups = shallowRef(new Set<number>())
+  const fetchedGroups = new Set<number>()
 
   /** 好友 ID 到名称的映射 */
   const friendNameMap = computed(() => {
     const map = new Map<number, string>()
     for (const cat of friends.value) {
       for (const f of cat.buddyList) map.set(f.user_id, f.remark || f.nickname)
+    }
+    return map
+  })
+
+  /** 群号到群信息的映射 */
+  const groupMap = computed(() => new Map(groups.value.map(g => [g.group_id, g] as const)))
+
+  /** 群号 → (用户 ID → 成员) 的映射 */
+  const memberIndex = computed(() => {
+    const map = new Map<number, Map<number, GroupMemberInfo>>()
+    for (const [groupId, list] of members) {
+      const inner = new Map<number, GroupMemberInfo>()
+      for (const m of list) inner.set(m.user_id, m)
+      map.set(groupId, inner)
     }
     return map
   })
@@ -71,13 +85,13 @@ export const useContactStore = defineStore('contact', () => {
    */
   async function fetchGroupMembers(groupId: number, force = false): Promise<GroupMemberInfo[]> {
     if (!force && members.has(groupId)) {
-      if (!fetchedGroups.value.has(groupId)) refreshGroupMembers(groupId)
+      if (!fetchedGroups.has(groupId)) refreshGroupMembers(groupId)
       return members.get(groupId)!
     }
     const cached = await database.members.where('group_id').equals(groupId).toArray()
     if (cached.length > 0) {
       members.set(groupId, cached)
-      if (!fetchedGroups.value.has(groupId)) refreshGroupMembers(groupId)
+      if (!fetchedGroups.has(groupId)) refreshGroupMembers(groupId)
       return cached
     }
     return refreshGroupMembers(groupId)
@@ -93,13 +107,33 @@ export const useContactStore = defineStore('contact', () => {
       if (list && list.length > 0) {
         await database.members.bulkPut(list.map(m => ({ ...m, group_id: groupId })))
         members.set(groupId, list)
-        fetchedGroups.value.add(groupId)
+        fetchedGroups.add(groupId)
         return list
       }
     } catch (e) {
       console.error(`[Contact] 获取群 ${groupId} 成员列表失败:`, e)
     }
     return []
+  }
+
+  /**
+   * 写入或更新群信息
+   * @param group - 群信息
+   */
+  function upsertGroup(group: GroupInfo) {
+    const existing = groupMap.value.get(group.group_id)
+    if (existing) Object.assign(existing, group)
+    else groups.value.push(group)
+  }
+
+  /**
+   * 确保群信息已加载
+   * @param groupId - 群号
+   */
+  async function ensureGroupInfo(groupId: number) {
+    if (groupMap.value.has(groupId)) return
+    const info = await bot.getGroupInfo(groupId).catch(() => null)
+    if (info) upsertGroup(info)
   }
 
   /**
@@ -210,7 +244,7 @@ export const useContactStore = defineStore('contact', () => {
    * @returns 群成员信息，未找到返回 undefined
    */
   function getMember(groupId: number, userId: number): GroupMemberInfo | undefined {
-    return members.get(groupId)?.find(m => m.user_id === userId)
+    return memberIndex.value.get(groupId)?.get(userId)
   }
 
   /**
@@ -227,11 +261,10 @@ export const useContactStore = defineStore('contact', () => {
     }
     const friendName = friendNameMap.value.get(userId)
     if (friendName) return friendName
-    for (const memberList of members.values()) {
-      const m = memberList.find(u => u.user_id === userId)
+    for (const inner of memberIndex.value.values()) {
+      const m = inner.get(userId)
       if (m) return m.card || m.nickname
     }
-    if (groupId && !members.has(groupId)) fetchGroupMembers(groupId)
     if (fallbackNick) return fallbackNick
     return `用户(${userId})`
   }
@@ -243,12 +276,8 @@ export const useContactStore = defineStore('contact', () => {
    * @returns 群组的显示名称
    */
   function getGroupName(groupId: number, fallbackName?: string): string {
-    const group = groups.value.find(g => g.group_id === groupId)
+    const group = groupMap.value.get(groupId)
     if (group) return group.group_name
-    bot.getGroupInfo(groupId)
-      .then(res => {
-        if (!groups.value.some(g => g.group_id === groupId)) groups.value.push(res)
-      }).catch(() => {})
     if (fallbackName) return fallbackName
     return `群(${groupId})`
   }
@@ -258,12 +287,14 @@ export const useContactStore = defineStore('contact', () => {
    * @description 基于本地群组列表进行精确匹配
    */
   function checkIsGroup(id: number): boolean {
-    return groups.value.some(g => g.group_id === id)
+    return groupMap.value.has(id)
   }
 
-  return { friends, groups, requests, notices, members,
+  return {
+    friends, groups, requests, notices, members,
     removeRequest, removeNotice, addRequest, addNotice,
     fetchGroupMembers, fetchContacts, updateGroupMember,
-    getUserName, getGroupName, checkIsGroup, getMember,
+    ensureGroupInfo, upsertGroup,
+    getUserName, getGroupName, checkIsGroup, getMember
   }
 })

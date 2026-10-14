@@ -81,7 +81,7 @@ const togglePlay = async () => {
   isLoading.value = true
   try {
     const res = await bot.getRecord(props.segment.data.file, 'mp3')
-    audioSrc.value = `data:audio/mp3;base64,${res.base64}`
+    audioSrc.value = res.url || `data:audio/mp3;base64,${res.base64}`
     await nextTick()
     await audioRef.value?.play()
   } catch (e) {

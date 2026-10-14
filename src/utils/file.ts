@@ -106,7 +106,7 @@ export async function downloadFile(fileId: string, fileName?: string, type: 'fil
  * @returns {Promise<string>} - 文件路径
  */
 async function uploadStream(file: File): Promise<string> {
-  const CHUNK_SIZE = 65536
+  const CHUNK_SIZE = 512 * 1024
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
   const streamId = uuidv4()
   let filePath = ''

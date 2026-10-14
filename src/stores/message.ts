@@ -1,4 +1,4 @@
-import { ref, shallowRef, computed, triggerRef } from 'vue'
+import { ref, shallowRef, computed, triggerRef, reactive } from 'vue'
 import { defineStore } from 'pinia'
 import { bot } from '@/api'
 import { database, type DBMessage } from './database'
@@ -33,6 +33,16 @@ export const useMessageStore = defineStore('message', () => {
   const forwardTargets = ref<number[]>([])
   /** 正在回复的目标消息 */
   const replyTarget = ref<Message | null>(null)
+  /** 消息 ID → 消息对象 */
+  const messagesById = reactive(new Map<number, DBMessage>())
+  /** 选中消息 ID 的集合 */
+  const selectedIdSet = computed(() => new Set(selectedIds.value))
+
+  /** 全量重建索引 */
+  function reindexAll() {
+    messagesById.clear()
+    for (const m of messages.value) messagesById.set(m.message_id, m)
+  }
 
   /**
    * 获取当前多选选中的消息对象列表
@@ -41,15 +51,6 @@ export const useMessageStore = defineStore('message', () => {
     if (!selectedIds.value.length) return []
     const set = new Set(selectedIds.value)
     return messages.value.filter(m => set.has(m.message_id))
-  })
-
-  /**
-   * 获取消息 ID 到消息对象的映射
-   */
-  const messagesById = computed((): Map<number, DBMessage> => {
-    const map = new Map<number, DBMessage>()
-    for (const m of messages.value) map.set(m.message_id, m)
-    return map
   })
 
   /**
@@ -116,6 +117,17 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
+   * 消息并入视图
+   * @param list - 待合并的消息
+   */
+  function mergeIntoView(list: DBMessage[]) {
+    const fresh = list.filter(m => !messagesById.has(m.message_id))
+    if (!fresh.length) return
+    messages.value = [...messages.value, ...fresh].sort((a, b) => a.session_index - b.session_index)
+    reindexAll()
+  }
+
+  /**
    * 打开新会话
    * @param id - 会话 ID
    */
@@ -127,54 +139,56 @@ export const useMessageStore = defineStore('message', () => {
     setReplyTarget(null)
     sessionStore.clearUnread(id)
     messages.value = []
+    reindexAll()
 
     const type = sessionStore.getSessionType(id)
     const sessionKey = type === 'group' ? `g_${id}` : `p_${id}`
     const numId = Number(id)
-    const localMsgs = await loadMessage(sessionKey, 100)
     // 加载消息
-    if (localMsgs.length > 0) {
-      messages.value = localMsgs
-      fetchMessage(numId, type, 100)
-    } else {
-      await fetchMessage(numId, type, 100)
-      const freshMsgs = await loadMessage(sessionKey, 100)
-      messages.value = freshMsgs
-    }
+    const localMsgs = await loadMessage(sessionKey, 100)
+    messages.value = localMsgs
+    reindexAll()
+
+    // 拉取云端
+    void fetchMessage(numId, type, 100).then(async () => {
+      if (activeId.value !== id) return
+      mergeIntoView(await loadMessage(sessionKey, 100))
+    })
   }
 
   /**
-   * 拉取消息历史
+   * 拉取更早的消息历史
    * @param id - 会话 ID
+   * @returns 实际并入视图的消息条数
    */
   async function fetchHistory(id: number = activeId.value): Promise<number> {
     if (id !== activeId.value || !hasMore.value) return 0
     if (messages.value.length === 0) return 0
 
-    const topMsg = messages.value[0]!
-    const topIndex = topMsg.session_index
+    const topIndex = messages.value[0]!.session_index
     const anchorMsg = messages.value.find(m => m.message_id > 0)
-    const topMsgId = anchorMsg ? anchorMsg.message_id : undefined
-    if (!topMsgId && messages.value.length > 0) return 0
+    if (!anchorMsg) return 0
 
     const type = sessionStore.getSessionType(id)
     const sessionKey = type === 'group' ? `g_${id}` : `p_${id}`
     const numId = Number(id)
-    const localMessage = await loadMessage(sessionKey, 100, topIndex)
-    // 更新视图
-    if (localMessage.length > 0) {
-      const existingIds = new Set(messages.value.map(m => m.message_id))
-      const uniqueNew = localMessage.filter(m => !existingIds.has(m.message_id))
-      if (uniqueNew.length > 0) {
-        messages.value.unshift(...uniqueNew)
-        triggerRef(messages)
+
+    let fresh = await loadMessage(sessionKey, 100, topIndex)
+    fresh = fresh.filter(m => !messagesById.has(m.message_id))
+    if (fresh.length === 0) {
+      // 拉取云端
+      await fetchMessage(numId, type, 100, anchorMsg.message_id)
+      fresh = (await loadMessage(sessionKey, 100, topIndex)).filter(m => !messagesById.has(m.message_id))
+      if (fresh.length === 0) {
+        hasMore.value = false
+        return 0
       }
     }
-    // 拉取云端
-    fetchMessage(numId, type, 100, topMsgId).then(count => {
-        if (count === 0 && localMessage.length === 0) hasMore.value = false
-    })
-    return localMessage.length
+
+    // 更新视图
+    messages.value = [...fresh, ...messages.value]
+    reindexAll()
+    return fresh.length
   }
 
   /**
@@ -188,12 +202,16 @@ export const useMessageStore = defineStore('message', () => {
       const activeSession = sessionStore.getSession(activeId.value)
       const type = activeSession?.type ?? (rawEvent.message_type === 'group' ? 'group' : 'private')
       const activeKey = type === 'group' ? `g_${activeId.value}` : `p_${activeId.value}`
-      if (activeKey === stored.session_id && !messages.value.some(m => m.message_id === stored.message_id)) {
+      if (activeKey === stored.session_id && !messagesById.has(stored.message_id)) {
         messages.value.push(stored)
+        messagesById.set(stored.message_id, stored)
         triggerRef(messages)
       }
     }
   }
+
+  /** 系统消息序号 */
+  let systemMsgSeq = 0
 
   /**
    * 将通知事件转换为系统消息
@@ -288,7 +306,7 @@ export const useMessageStore = defineStore('message', () => {
       post_type: PostType.Message,
       message_type: targetType,
       sub_type: 'normal',
-      message_id: -Math.floor(Date.now() / 1000 + Math.random() * 100000),
+      message_id: -(Date.now() * 1000 + (++systemMsgSeq % 1000)),
       user_id: 10000,
       group_id: targetType === 'group' ? Number(targetId) : undefined,
       message: [{ type: SegType.Text, data: { text } }],
@@ -331,7 +349,9 @@ export const useMessageStore = defineStore('message', () => {
     if (updatedCount > 0) {
       const indexInView = messages.value.findIndex(m => m.message_id === messageId)
       if (indexInView !== -1) {
-        messages.value[indexInView] = Object.assign({}, messages.value[indexInView], updates)
+        const next = Object.assign({}, messages.value[indexInView], updates)
+        messages.value[indexInView] = next
+        messagesById.set(messageId, next)
         triggerRef(messages)
       }
     }
@@ -351,7 +371,9 @@ export const useMessageStore = defineStore('message', () => {
     if (idx !== -1) {
       const target = messages.value[idx]
       if (target) {
-        messages.value[idx] = { ...target, recalled: true }
+        const next = { ...target, recalled: true }
+        messages.value[idx] = next
+        messagesById.set(msgId, next)
         triggerRef(messages)
       }
     }
@@ -389,7 +411,7 @@ export const useMessageStore = defineStore('message', () => {
 
   return {
     activeId, messages, forwardTargets, hasMore,
-    isMultiSelect, selectedIds, selectedMessages, messagesById, replyTarget,
+    isMultiSelect, selectedIds, selectedIdSet, selectedMessages, messagesById, replyTarget,
     setMultiSelect, setReplyTarget, openSession, pushMessage,
     fetchHistory, convertToMessage, updateMessage, recallMessage
   }

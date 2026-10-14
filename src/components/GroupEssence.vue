@@ -90,7 +90,10 @@ const items = ref<any[]>([])
 const loading = ref(false)
 
 // 计算属性：当前用户信息
-const myInfo = computed(() => contactStore.members.get(groupId.value)?.find(m => m.user_id === settingStore.user?.user_id))
+const myInfo = computed(() => {
+  const uid = settingStore.user?.user_id
+  return uid ? contactStore.getMember(groupId.value, uid) : undefined
+})
 // 计算属性：是否管理权限
 const canManage = computed(() => ['owner', 'admin'].includes(myInfo.value?.role || ''))
 

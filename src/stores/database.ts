@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Message, GroupMemberInfo, GroupMsgEmojiLikeNotice } from '@/types'
+import type { Session } from './session'
 
 /**
  * 本地数据库消息接口
@@ -34,12 +35,14 @@ export interface DBMember extends GroupMemberInfo {
 export class Database extends Dexie {
   public messages!: Table<DBMessage, number>
   public members!: Table<DBMember, [number, number]>
+  public sessions!: Table<Session, number>
 
   constructor() {
     super('rimeq-databases')
     this.version(1).stores({
       messages: 'message_id, [session_id+session_index]',
-      members: '[group_id+user_id], group_id'
+      members: '[group_id+user_id], group_id',
+      sessions: 'id'
     })
   }
 }

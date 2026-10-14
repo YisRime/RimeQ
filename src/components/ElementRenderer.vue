@@ -33,8 +33,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 import { getElement } from './elements/index'
+import SuperFaceElement from './elements/SuperFaceElement.vue'
 import { QFace } from '@/utils/qface'
 import { useSettingStore } from '@/stores'
 import type { Segment, FaceSegment } from '@/types'
@@ -48,26 +49,29 @@ const settingStore = useSettingStore()
 
 // 决定组件类型
 const resolveComponent = (seg: Segment) => {
-  if (seg.type === 'face') return defineAsyncComponent(() => import('./elements/SuperFaceElement.vue'))
+  if (seg.type === 'face') return SuperFaceElement
   return getElement(seg.type)
 }
 
 // 判断行内元素
-const isInlineSegment = (seg: Segment) => {
+const isInlineSegment = (seg: Segment, singleFace: boolean) => {
   if (seg.type === 'text' || seg.type === 'at') return true
   // 表情类判断
   if (seg.type === 'face') {
     if (!settingStore.config.renderSuperFace) return true
-    if (props.segments.filter(s => s.type !== 'reply').length > 1) return true
+    if (!singleFace) return true
     const face = QFace.get((seg as FaceSegment).data.id)
-    return face && (face.type === 'face' || face.type === 'emoji')
+    return !!(face && (face.type === 'face' || face.type === 'emoji'))
   }
   return false
 }
 
 // 计算分组结构
 const renderGroups = computed(() => {
-  if (!props.segments?.length) return []
+  const segments = props.segments
+  if (!segments?.length) return []
+  const singleFace = segments.filter(s => s.type !== 'reply').length <= 1
+
   const groups: Array<{ type: 'inline'; segments: Segment[] } | { type: 'block'; segment: Segment }> = []
   let buffer: Segment[] = []
   const flush = () => {
@@ -76,9 +80,9 @@ const renderGroups = computed(() => {
       buffer = []
     }
   }
-  for (const seg of props.segments) {
+  for (const seg of segments) {
     if (seg.type === 'reply') continue
-    if (isInlineSegment(seg)) {
+    if (isInlineSegment(seg, singleFace)) {
       buffer.push(seg)
     } else {
       flush()

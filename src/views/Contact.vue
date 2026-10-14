@@ -192,7 +192,7 @@ watch(
       if (firstCat) expandedCats.value = [firstCat.categoryId]
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 )
 
 // 列表过滤

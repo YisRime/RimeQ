@@ -63,7 +63,7 @@
                       @click="handleFace(item)"
                     >
                       <img v-show="hoveringId !== item.id" :src="item.assets.static" class="size-full object-contain pointer-events-none" loading="lazy" />
-                      <div v-show="hoveringId === item.id" :ref="el => lottieRefs.set(item.id, el as HTMLElement)" class="size-full pointer-events-none" />
+                      <div v-show="hoveringId === item.id" :ref="el => el ? lottieRefs.set(item.id, el as HTMLElement) : lottieRefs.delete(item.id)" class="size-full pointer-events-none" />
                     </div>
                   </div>
                 </div>

@@ -157,7 +157,10 @@ const ui = reactive({ dialog: false, loading: false })
 const form = reactive({ content: '', imgPreview: '', pinned: false, confirm: false, popup: false })
 
 // 权限计算
-const myInfo = computed(() => contactStore.members.get(groupId.value)?.find(m => m.user_id === settingStore.user?.user_id))
+const myInfo = computed(() => {
+  const uid = settingStore.user?.user_id
+  return uid ? contactStore.getMember(groupId.value, uid) : undefined
+})
 const canPublish = computed(() => ['owner', 'admin'].includes(myInfo.value?.role || ''))
 const canOperate = (item: any) => canPublish.value || item.sender_id === settingStore.user?.user_id
 

@@ -1,3 +1,6 @@
+/** 连接超时时间（毫秒） */
+const CONNECT_TIMEOUT = 5000
+
 /**
  * WebSocket 通信服务核心
  * @description
@@ -55,6 +58,7 @@ export class Socket {
 
     if (this.ws) {
       this.ws.onclose = null
+      this.ws.onerror = null
       this.ws.close()
       this.cleanup()
     }
@@ -64,18 +68,33 @@ export class Socket {
     this.token = token
 
     return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (err?: Error) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        if (err) reject(err)
+        else resolve()
+      }
+      const timer = window.setTimeout(() => {
+        if (settled) return
+        this.ws?.close()
+        finish(new Error('Connection Timeout'))
+      }, CONNECT_TIMEOUT)
+
       const ws = new WebSocket(`${url}?access_token=${encodeURIComponent(token)}`)
       this.ws = ws
 
       ws.onopen = () => {
         this.resetWatchdog()
-        resolve()
+        finish()
       }
 
       ws.onmessage = (e) => this.handlePacket(e.data)
 
       ws.onclose = (e) => {
         console.warn(`[API] WebSocket 连接关闭 (Code: ${e.code}, Reason: "${e.reason}", Close Event: ${e.wasClean})`);
+        finish(new Error('Connection Closed'))
         this.cleanup()
         if (!this.isManualClose && this.url) {
           clearTimeout(this.reconnectTimer)
@@ -84,8 +103,8 @@ export class Socket {
       }
 
       ws.onerror = (e) => {
-        if (ws.readyState !== WebSocket.OPEN) reject(new Error('Connection Error'))
         console.error('[API] Websocket 连接出错:', e)
+        finish(new Error('Connection Error'))
       }
     })
   }
@@ -128,7 +147,13 @@ export class Socket {
       }, 60000)
 
       this.pending.set(echo, { resolve, reject, timer })
-      this.ws!.send(payload)
+      try {
+        this.ws!.send(payload)
+      } catch (e) {
+        clearTimeout(timer)
+        this.pending.delete(echo)
+        reject(e instanceof Error ? e : new Error(String(e)))
+      }
     })
   }
 

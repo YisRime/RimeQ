@@ -208,7 +208,8 @@ const settingStore = useSettingStore()
 // 核心数据
 const groupId = computed(() => Number(route.params.id))
 const canManage = computed(() => {
-  const me = contactStore.members.get(groupId.value)?.find(m => m.user_id === settingStore.user?.user_id)
+  const uid = settingStore.user?.user_id
+  const me = uid ? contactStore.getMember(groupId.value, uid) : undefined
   return me?.role === 'owner' || me?.role === 'admin'
 })
 

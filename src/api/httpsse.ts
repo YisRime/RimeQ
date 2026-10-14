@@ -1,5 +1,8 @@
 import type { Response } from '@/types'
 
+/** 连接超时时间（毫秒） */
+const CONNECT_TIMEOUT = 5000
+
 /**
  * HTTP & SSE 通信服务核心
  * @description
@@ -37,17 +40,33 @@ export class HttpSse {
     this.url = url
     this.token = token
 
-    return new Promise((resolve) => {
-      this.source = new EventSource(`${this.url}/events?access_token=${encodeURIComponent(token)}`)
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (err?: Error) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        if (err) reject(err)
+        else resolve()
+      }
+      const timer = window.setTimeout(() => {
+        if (settled) return
+        this.source?.close()
+        finish(new Error('SSE Connection Timeout'))
+      }, CONNECT_TIMEOUT)
 
-      this.source.onopen = () => resolve()
+      const source = new EventSource(`${this.url}/events?access_token=${encodeURIComponent(token)}`)
+      this.source = source
 
-      this.source.onerror = (e) => {
+      source.onopen = () => finish()
+
+      source.onerror = (e) => {
         console.error('[API] SSE 连接出错:', e)
-        if (this.source?.readyState === EventSource.CLOSED) this.reconnect()
+        finish(new Error('SSE Connection Error'))
+        if (source.readyState === EventSource.CLOSED) this.reconnect()
       }
 
-      this.source.onmessage = (event) => {
+      source.onmessage = (event) => {
         const data = JSON.parse(event.data)
         this.listener?.(data)
       }
@@ -61,12 +80,26 @@ export class HttpSse {
     const headers: HeadersInit = { 'Content-Type': 'application/json' }
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`
 
-    const res = await fetch(`${this.url}/${action}`, { method: 'POST', headers, body: JSON.stringify(params) })
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status} ${res.statusText}`)
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), 60000)
+    try {
+      const res = await fetch(`${this.url}/${action}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(params),
+        signal: controller.signal
+      })
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status} ${res.statusText}`)
 
-    const data: Response<T> = await res.json()
-    if (data.status === 'ok' || data.retcode === 0) return data.data
-    throw new Error(data.message || data.wording || `Error Code ${data.retcode}`)
+      const data: Response<T> = await res.json()
+      if (data.status === 'ok' || data.retcode === 0) return data.data
+      throw new Error(data.message || data.wording || `Error Code ${data.retcode}`)
+    } catch (e) {
+      if (controller.signal.aborted) throw new Error(`${action} Timeout`)
+      throw e
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   /**

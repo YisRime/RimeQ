@@ -297,7 +297,10 @@ const currentGroup = computed(() => contactStore.groups.find(g => String(g.group
 // 权限等级
 const roleLevel = { owner: 3, admin: 2, member: 1 }
 const getLevel = (role: string = 'member') => roleLevel[role as keyof typeof roleLevel] || 1
-const myLevel = computed(() => getLevel(members.value.find(m => m.user_id === myUserId.value)?.role))
+const myLevel = computed(() => {
+  const uid = myUserId.value
+  return getLevel(uid ? contactStore.getMember(Number(groupId.value), uid)?.role : undefined)
+})
 
 // 判断是否有权管理目标
 const canManage = (target: GroupMemberInfo) => {
@@ -335,9 +338,7 @@ onMounted(async () => {
   members.value = await contactStore.fetchGroupMembers(gid)
   const info = await bot.getGroupInfo(gid, true)
   if (info) {
-    const group = contactStore.groups.find(g => g.group_id === gid)
-    if (group) Object.assign(group, info)
-    else contactStore.groups.push(info)
+    contactStore.upsertGroup(info)
     groupConfig.wholeBan = !!info.group_all_shut
   }
 })

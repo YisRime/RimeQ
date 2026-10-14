@@ -127,16 +127,17 @@ const displaySource = computed(() => {
 // 移动单项
 const moveItem = (item: ForwardItem, toTarget: boolean) => {
   if (toTarget) {
-    selectedItems.value.push(item)
+    if (selectedItems.value.some(i => i.id === item.id)) return
+    selectedItems.value = [...selectedItems.value, item]
   } else {
     selectedItems.value = selectedItems.value.filter(i => i.id !== item.id)
   }
 }
 
 // 监听列表变化
-watch(selectedItems, (newVal) => {
-  messageStore.forwardTargets = newVal.map(i => i.id)
-}, { deep: true })
+watch(selectedItems, () => {
+  messageStore.forwardTargets = selectedItems.value.map(i => i.id)
+})
 
 // 初始化数据
 onMounted(() => {
