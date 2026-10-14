@@ -183,8 +183,8 @@ const parseNotice = (n: any) => {
     publish_time: Number(n.publish_time || n.t || n.time || 0),
     text,
     image: imgUrl ? { id: imgId, url: imgUrl } : null,
-    is_top: !!(n.is_sticky || n.is_top || n.is_pinned),
-    confirm_required: !!n.is_confirm
+    is_top: !!(n.pinned || n.is_sticky || n.is_top || n.is_pinned),
+    confirm_required: !!(n.settings?.confirm_required || n.is_confirm)
   }
 }
 
@@ -223,7 +223,14 @@ const submit = async () => {
   try {
     if (editingId.value) await bot.delGroupNotice(groupId.value, editingId.value)
     await new Promise(r => setTimeout(r, 500))
-    await bot.sendGroupNotice(groupId.value, form.content, form.imgPreview || undefined)
+    await bot.sendGroupNotice(
+      groupId.value,
+      form.content,
+      form.imgPreview || undefined,
+      form.pinned ? 1 : 0,
+      form.confirm ? 1 : 0,
+      form.popup ? 1 : 0
+    )
     ui.dialog = false
     loadNotices()
   } catch (e) {

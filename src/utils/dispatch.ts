@@ -21,7 +21,7 @@ function messageEvent(data: Message) {
     sessionId = data.user_id === selfId ? data.target_id! : data.user_id
   }
   // 推送消息
-  messageStore.pushMessage(data)
+  void messageStore.pushMessage(data)
   // 生成文本预览
   const preview = getTextPreview(data.message)
   // 更新会话信息

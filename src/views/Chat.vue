@@ -342,7 +342,9 @@ const menuItems = computed(() => {
       label: '转文字', icon: 'i-ri-voice-recognition-line',
       command: async () => {
         try {
-          const res = await bot.voiceMsgToText(m.message_id)
+          const res = bot.backend === 'NapCat'
+            ? await bot.fetchPttText(m.message_id)
+            : await bot.voiceMsgToText(m.message_id)
           if (res.text) toast.add({ severity: 'info', summary: '转文字结果', detail: res.text, life: 5000 })
         } catch (e) {
           toast.add({ severity: 'error', summary: '转文字失败', detail: String(e), life: 3000 })

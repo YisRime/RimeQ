@@ -142,7 +142,7 @@ export const useContactStore = defineStore('contact', () => {
         if (member) patch({ card: notice.card_new })
         break
       case 'group_ban':
-        patch({ shut_up_end_time: notice.duration > 0 ? Date.now() / 1000 + notice.duration : 0 })
+        patch({ shut_up_timestamp: notice.duration > 0 ? Date.now() / 1000 + notice.duration : 0 })
         break
       case 'notify':
         if (member && notice.sub_type === 'title') patch({ title: notice.title })

@@ -15,7 +15,7 @@ const components: Record<string, Component> = {
   video: defineAsyncComponent(() => import('./VideoElement.vue')),
   record: defineAsyncComponent(() => import('./RecordElement.vue')),
   file: defineAsyncComponent(() => import('./FileElement.vue')),
-  flash: defineAsyncComponent(() => import('./FileElement.vue')),
+  flash_file: defineAsyncComponent(() => import('./FileElement.vue')),
   // 结构类
   forward: defineAsyncComponent(() => import('./ForwardElement.vue')),
   node: defineAsyncComponent(() => import('./ForwardElement.vue')),

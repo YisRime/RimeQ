@@ -127,7 +127,7 @@ const handleRequest = async (item: Request, approve: boolean) => {
     if (item.request_type === 'friend') {
       await bot.setFriendAddRequest(item.flag, approve)
     } else {
-      await bot.setGroupAddRequest(item.flag, approve)
+      await bot.setGroupAddRequest(item.flag, approve, '', item.sub_type || 'add')
     }
     toast.add({ severity: approve ? 'success' : 'info', summary: approve ? '已通过' : '已拒绝', life: 3000 })
     contactStore.removeRequest(item)

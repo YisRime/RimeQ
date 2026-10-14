@@ -11,7 +11,7 @@ import type * as T from '@/types'
  * 文档来源：
  * - NapCat: https://napcat.apifox.cn/
  * - SnowLuma: https://snowluma.github.io/zh/docs/api
- * - LLOneBot: https://api.luckylillia.com/doc-7202281
+ * - LLOneBot: https://api.luckylillia.com/
  */
 export class ExtendedClient extends BaseClient {
   // ============================================================================
@@ -904,7 +904,7 @@ export class ExtendedClient extends BaseClient {
    * @param group_id - 群号
    */
   getGroupAtAllRemain(group_id: number) {
-    return this.request<{ can_at_all: boolean; remain_at_all_count_for_uin: number }>('get_group_at_all_remain', { group_id })
+    return this.request<{ can_at_all: boolean; remain_at_all_count_for_group: number; remain_at_all_count_for_uin: number }>('get_group_at_all_remain', { group_id })
   }
 
   /**
@@ -1038,9 +1038,12 @@ export class ExtendedClient extends BaseClient {
    * @param group_id - 群号
    * @param content - 公告正文
    * @param image - 公告图片 (可选)
+   * @param pinned - 是否置顶 (0/1)
+   * @param confirm_required - 是否需要成员确认 (0/1)
+   * @param tip_window_type - 弹窗展示类型 (0 不弹窗 / 1 弹窗)
    */
-  sendGroupNotice(group_id: number, content: string, image?: string) {
-    return this.request<void>('_send_group_notice', { group_id, content, image })
+  sendGroupNotice(group_id: number, content: string, image?: string, pinned: number | string = 0, confirm_required: number | string = 1, tip_window_type: number | string = 0) {
+    return this.request<void>('_send_group_notice', { group_id, content, image, pinned, confirm_required, tip_window_type })
   }
 
   /**
@@ -1094,9 +1097,10 @@ export class ExtendedClient extends BaseClient {
   /**
    * 获取群相册列表 (NapCat/SnowLuma)
    * @param group_id - 群号
+   * @param attach_info - [可选] 分页定位，取自上次返回的 attach_info
    */
-  getQunAlbumList(group_id: number) {
-    return this.request<any[]>('get_qun_album_list', { group_id })
+  getQunAlbumList(group_id: number, attach_info = '') {
+    return this.request<{ album_list: any[]; attach_info: string; has_more: boolean }>('get_qun_album_list', { group_id, attach_info })
   }
 
   /**
@@ -1106,7 +1110,7 @@ export class ExtendedClient extends BaseClient {
    * @param attach_info - [可选] 分页定位
    */
   getGroupAlbumMediaList(group_id: number, album_id: string, attach_info?: string) {
-    return this.request<any>('get_group_album_media_list', { group_id, album_id, attach_info })
+    return this.request<{ media_list?: any[]; attach_info?: string; has_more?: boolean; next_attach_info?: string; next_has_more?: boolean }>('get_group_album_media_list', { group_id, album_id, attach_info })
   }
 
   /**
@@ -1143,9 +1147,9 @@ export class ExtendedClient extends BaseClient {
    * @param group_id - 群号
    * @param album_id - 相册 ID
    * @param file - 图片路径 / URL / Base64
-   * @param album_name - 相册名称
+   * @param album_name - 相册名称 (NapCat 必填)
    */
-  uploadImageToQunAlbum(group_id: number, album_id: string, file: string, album_name?: string) {
+  uploadImageToQunAlbum(group_id: number, album_id: string, file: string, album_name: string) {
     return this.request<void>('upload_image_to_qun_album', { group_id, album_id, album_name, file })
   }
 
@@ -1154,9 +1158,9 @@ export class ExtendedClient extends BaseClient {
    * @param group_id - 群号
    * @param album_id - 相册 ID
    * @param files - 图片路径 / URL / Base64 数组
-   * @param album_name - 相册名称
+   * @param album_name - 相册名称 (NapCat 必填)
    */
-  uploadImagesToQunAlbum(group_id: number | string, album_id: string, files: string[], album_name?: string) {
+  uploadImagesToQunAlbum(group_id: number | string, album_id: string, files: string[], album_name: string) {
     return this.request<void>('upload_images_to_qun_album', { group_id, album_id, album_name, files })
   }
 
@@ -1165,9 +1169,9 @@ export class ExtendedClient extends BaseClient {
    * @param group_id - 群号
    * @param album_id - 相册 ID
    * @param file - 视频文件
-   * @param album_name - 相册名称
+   * @param album_name - 相册名称 (NapCat 必填)
    */
-  uploadVideoToQunAlbum(group_id: number, album_id: string, file: string, album_name?: string) {
+  uploadVideoToQunAlbum(group_id: number, album_id: string, file: string, album_name: string) {
     return this.request<void>('upload_video_to_qun_album', { group_id, album_id, album_name, file })
   }
 
@@ -1182,15 +1186,17 @@ export class ExtendedClient extends BaseClient {
   }
 
   /**
-   * 点赞群相册媒体
+   * 点赞 / 取消点赞群相册媒体
    * @param group_id - 群号
    * @param album_id - 相册 ID
    * @param batch_id - 上传批次标识
    * @param lloc - 照片 LLOC 标识
-   * @param set - 是否点赞
+   * @param set - true 点赞，false 取消点赞
    */
   setGroupAlbumLike(group_id: number | string, album_id: string, batch_id: string, lloc: string, set = true) {
-    return this.request<void>('set_group_album_media_like', { group_id, album_id, batch_id, lloc, set })
+    return set
+      ? this.request<void>('set_group_album_media_like', { group_id, album_id, batch_id, lloc })
+      : this.cancelGroupAlbumLike(group_id, album_id, batch_id, lloc)
   }
 
   /**

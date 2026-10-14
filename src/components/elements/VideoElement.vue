@@ -35,7 +35,7 @@ const props = defineProps<{
 const retried = ref(false)
 const videoFailed = ref(false)
 
-// 解析媒体地址（base64:// 解码为 data URL，media:// 转为同源路径）
+// 解析媒体地址
 const resolveSource = (raw: string, decodeBase64: string): string => {
   if (raw.startsWith('base64://')) return `data:${decodeBase64};base64,${raw.slice(9)}`
   return resolveMediaUrl(raw)

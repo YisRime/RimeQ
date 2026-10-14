@@ -111,7 +111,7 @@ export class BaseClient {
    * @param id - 合并转发 ID (message_id 或 id)
    */
   getForwardMsg(id: string) {
-    return this.request<{ message: T.Segment[] }>('get_forward_msg', { message_id: id })
+    return this.request<{ messages: T.Segment[] }>('get_forward_msg', { message_id: id })
   }
 
   // ============================================================================

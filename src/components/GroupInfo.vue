@@ -148,9 +148,9 @@
                 <!-- 账号与状态 -->
                 <div class="text-[10px] ui-flex-x gap-2 leading-none">
                   <span class="text-foreground-dim font-mono opacity-60">{{ item.user_id }}</span>
-                  <div v-if="(item as any).shut_up_timestamp > Date.now() / 1000" class="text-red-500 ui-flex-x gap-0.5">
+                  <div v-if="item.shut_up_timestamp > Date.now() / 1000" class="text-red-500 ui-flex-x gap-0.5">
                     <div class="i-ri-mic-off-line text-[9px]" />
-                    <span>{{ formatDuration((item as any).shut_up_timestamp - Date.now() / 1000) }}</span>
+                    <span>{{ formatDuration(item.shut_up_timestamp - Date.now() / 1000) }}</span>
                   </div>
                 </div>
               </div>
@@ -282,7 +282,6 @@ const keyword = ref('')
 const members = ref<GroupMemberInfo[]>([])
 const groupId = computed(() => route.params.id as string)
 const myUserId = computed(() => settingStore.user?.user_id)
-const extendedInfo = ref<any>(null)
 
 // 批量管理状态
 const isBatchMode = ref(false)
@@ -334,19 +333,12 @@ onMounted(async () => {
   if (!groupId.value) return
   const gid = Number(groupId.value)
   members.value = await contactStore.fetchGroupMembers(gid)
-  const info = bot.backend === 'NapCat'
-    ? await bot.getGroupInfoEx(gid)
-    : await bot.getGroupInfo(gid, true)
+  const info = await bot.getGroupInfo(gid, true)
   if (info) {
     const group = contactStore.groups.find(g => g.group_id === gid)
     if (group) Object.assign(group, info)
     else contactStore.groups.push(info)
-    groupConfig.wholeBan = !!info.group_all_shut_up
-    if (bot.backend === 'NapCat' && info.extInfo) {
-      extendedInfo.value = info.extInfo
-    } else if (bot.backend === 'LLOneBot' && info.groupAll) {
-      extendedInfo.value = info.groupAll
-    }
+    groupConfig.wholeBan = !!info.group_all_shut
   }
 })
 
@@ -381,7 +373,7 @@ const memberActions = computed(() => {
   if (canManage(target)) {
     items.push({ separator: true })
     items.push({ label: '修改名片', icon: 'i-ri-id-card-line', command: () => openEditDialog('card', target) })
-    const isBanned = (target as any).shut_up_timestamp > Date.now() / 1000
+    const isBanned = (target.shut_up_timestamp ?? 0) > Date.now() / 1000
     items.push({
       label: isBanned ? '解禁成员' : '禁言成员', icon: isBanned ? 'i-ri-mic-off-fill text-red-500' : 'i-ri-mic-off-line',
       command: () => {
@@ -513,7 +505,7 @@ const executeBan = async (duration?: number) => {
   for (const target of targets) {
     try {
       await bot.setGroupBan(Number(groupId.value), target.user_id, finalDuration)
-      ;(target as any).shut_up_timestamp = finalDuration === 0 ? 0 : Date.now() / 1000 + finalDuration
+      ;target.shut_up_timestamp = finalDuration === 0 ? 0 : Date.now() / 1000 + finalDuration
       successCount++
       if (targets.length > 1) await new Promise(r => setTimeout(r, 100))
     } catch (e) { console.error(e) }

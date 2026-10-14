@@ -344,19 +344,19 @@ const loadAlbums = async (force = false) => {
   if (data.albums.length > 0 && !force) return
   ui.loading = true
   try {
-    const res = bot.backend === 'NapCat'
+    const res: any = bot.backend === 'NapCat'
       ? await bot.getQunAlbumList(groupId.value)
       : await bot.getGroupAlbumList(groupId.value)
-    const list = Array.isArray(res) ? res : (res as any).data || []
+    const list: any[] = Array.isArray(res) ? res : (res.album_list || res.data || [])
     data.albums = list.map((item: any) => ({
       ...item,
       album_id: String(item.album_id),
-      name: item.name,
+      name: item.album_name || item.name,
       owner: Number(item.owner),
       create_time: Number(item.create_time),
-      last_upload_time: Number(item.last_upload_time || item.create_time || 0),
+      last_upload_time: Number(item.last_upload_time || item.modify_time || item.create_time || 0),
       modify_time: item.modify_time ? Number(item.modify_time) : undefined,
-      upload_number: Number(item.upload_number || 0),
+      upload_number: Number(item.upload_number || item.photo_num || 0),
       creator: item.creator ? { ...item.creator, uin: Number(item.creator.uin) } : undefined,
     })).sort((a: GroupAlbum, b: GroupAlbum) => b.last_upload_time - a.last_upload_time)
   } catch (e) {
@@ -383,8 +383,8 @@ const loadPhotos = async (append = false) => {
   try {
     const res: any = await bot.getGroupAlbumMediaList(groupId.value, currentAlbumId, data.nextAttachInfo)
     const rawList = Array.isArray(res) ? res : (res.media_list || [])
-    const nextInfo = !Array.isArray(res) ? (res.next_attach_info || '') : ''
-    const hasMore = !Array.isArray(res) ? (!!res.next_has_more) : false
+    const nextInfo = !Array.isArray(res) ? (res.next_attach_info ?? res.attach_info ?? '') : ''
+    const hasMore = !Array.isArray(res) ? !!(res.next_has_more ?? res.has_more) : false
     const parsedPhotos: GroupAlbumMedia[] = rawList.map((item: any) => ({
       ...item,
       type: item.type ?? 0,
@@ -524,13 +524,14 @@ const handleUpload = async (e: Event) => {
   if (!files?.length || !currentAlbumId) return
   toast.add({ severity: 'info', summary: '开始上传...', detail: `正在上传 ${files.length} 个文件`, life: 3000 })
   try {
+    const albumName = data.current?.name || ''
     if (bot.backend === 'NapCat') {
       const uploadPromises = Array.from(files).map(file =>
         new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = async (event) => {
             try {
-              const res = await bot.uploadImageToQunAlbum(groupId.value, currentAlbumId, event.target?.result as string);
+              const res = await bot.uploadImageToQunAlbum(groupId.value, currentAlbumId, event.target?.result as string, albumName);
               resolve(res);
             } catch (err) { reject(err) }
           };

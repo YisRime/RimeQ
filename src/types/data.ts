@@ -10,8 +10,6 @@ export interface UserInfo {
   sex?: 'male' | 'female' | 'unknown'
   /** 年龄 */
   age?: number
-  /** 等级 */
-  level?: number
   /** QID */
   qid?: string
   /** 连续登录天数 (LLOneBot/NapCat) */
@@ -122,6 +120,8 @@ export interface GroupMemberInfo extends SenderInfo {
   join_time: number
   /** 最后发言时间 */
   last_sent_time: number
+  /** 群等级 (NapCat) */
+  level?: string;
   /** QQ 等级 (LLOneBot) */
   qq_level?: number;
   /** 是否不良记录 (LLOneBot) */
@@ -130,14 +130,14 @@ export interface GroupMemberInfo extends SenderInfo {
   title_expire_time?: number
   /** 允许修改名片 (LLOneBot) */
   card_changeable?: boolean
-  /** 禁言截止时间戳 */
-  shut_up_end_time?: number
+  /** 禁言截止时间戳 (秒)，0 表示未禁言 */
+  shut_up_timestamp?: number
   /** 是否机器人 (LLOneBot) */
   is_robot?: boolean
   /** 地区 */
   area?: string
   /** Q龄 (NapCat) */
-  qage?: string
+  qage?: number
 }
 
 /**
