@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed } from 'vue'
-import { useIdbStorage } from './database'
+import { useStorage } from '@vueuse/core'
 import { useContactStore } from './contact'
 import { useSettingStore } from './setting'
 
@@ -32,7 +32,7 @@ export const useSessionStore = defineStore('session', () => {
   const contactStore = useContactStore()
   const settingStore = useSettingStore()
   /** 持久化存储的会话列表 */
-  const sessions = useIdbStorage<Session[]>('rimeq-sessions', [])
+  const sessions = useStorage<Session[]>('rimeq-sessions', [])
   /** (计算属性) 按最新消息时间排序的会话列表 */
   const sortedSessions = computed(() => {
     if (!settingStore.isLogged) return []

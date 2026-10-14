@@ -127,33 +127,33 @@ export class QFace {
    */
   static get(id: string): QFaceItem | null {
     if (QFace.itemCache.has(id)) return QFace.itemCache.get(id)!
-    const item = QFace.buildItem(id)
+
+    let item: QFaceItem | null = null
+    const emojiName = EMOJI_DB[id]
+    if (emojiName) {
+      // 处理 Emoji
+      item = { id, name: emojiName, type: 'emoji', packId: 0, assets: { static: `https://koishi.js.org/QFace/assets/qq_emoji/${id}/png/${id}.png` } }
+    } else {
+      // 处理普通表情
+      const data = FACE_DB[id]
+      if (data) {
+        const [name, emojiType, rawPackId] = data
+        let type: QFaceType = 'face'
+        if (emojiType === 1 || emojiType === 3 || emojiType === 5) type = 'super'
+        else if (emojiType === 2) type = 'other'
+        // 构建资源
+        const assets: QFaceAsset = { static: `https://koishi.js.org/QFace/assets/qq_emoji/${id}/png/${id}.png` }
+        // 获取 APNG
+        assets.dynamic = `https://koishi.js.org/QFace/assets/qq_emoji/${id}/apng/${id}.png`
+        // 获取 Lottie
+        if (emojiType === 1 || emojiType === 2 || emojiType === 3) assets.lottie = `https://koishi.js.org/QFace/assets/qq_emoji/${id}/lottie/${id}.json`
+        const packId = (emojiType === 2 || emojiType === 3) ? 0 : rawPackId
+        item = { id, name, type, packId, assets }
+      }
+    }
+
     QFace.itemCache.set(id, item)
     return item
-  }
-
-  /**
-   * 构建表情信息
-   * @param id 表情 ID 或 Emoji 字符
-   */
-  private static buildItem(id: string): QFaceItem | null {
-    // 处理 Emoji
-    if (EMOJI_DB[id]) return { id, name: EMOJI_DB[id], type: 'emoji', packId: 0, assets: { static: `https://koishi.js.org/QFace/assets/qq_emoji/${id}/png/${id}.png` } }
-    // 处理普通表情
-    const data = FACE_DB[id]
-    if (!data) return null
-    const [name, emojiType, rawPackId] = data
-    let type: QFaceType = 'face'
-    if (emojiType === 1 || emojiType === 3 || emojiType === 5) type = 'super'
-    else if (emojiType === 2) type = 'other'
-    // 构建资源
-    const assets: QFaceAsset = { static: `https://koishi.js.org/QFace/assets/qq_emoji/${id}/png/${id}.png` }
-    // 获取 APNG
-    assets.dynamic = `https://koishi.js.org/QFace/assets/qq_emoji/${id}/apng/${id}.png`
-    // 获取 Lottie
-    if (emojiType === 1 || emojiType === 2 || emojiType === 3) assets.lottie = `https://koishi.js.org/QFace/assets/qq_emoji/${id}/lottie/${id}.json`
-    const packId = (emojiType === 2 || emojiType === 3) ? 0 : rawPackId
-    return { id, name, type, packId, assets }
   }
 
   /**

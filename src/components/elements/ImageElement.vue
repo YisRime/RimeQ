@@ -18,10 +18,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Image } from 'primevue'
 import { refreshUrl } from '@/utils/rkey'
-import { resolveMediaUrl } from '@/stores/database'
+import { resolveMediaUrl } from '@/stores/storage'
 import { type ImageSegment, type MFaceSegment } from '@/types'
 
 // 定义组件属性
@@ -39,14 +39,13 @@ const initialUrl = computed(() => {
   if ('file' in d) {
     if (d.file.startsWith('http')) return d.file
     if (d.file.startsWith('base64://')) return `data:image/png;base64,${d.file.slice(9)}`
-    return d.file
+    return resolveMediaUrl(d.file)
   }
   return ''
 })
 
 // 绑定响应式 URL
 const currentUrl = ref('')
-let objectUrl = ''
 
 // 加载失败处理
 const onError = async () => {
@@ -68,18 +67,9 @@ const onError = async () => {
 }
 
 // 监听初始 URL 变化
-watch(initialUrl, async (raw) => {
+watch(initialUrl, (raw) => {
   imageFailed.value = false
   retried.value = false
-  if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = '' }
-  if (raw.startsWith('media://')) {
-    objectUrl = await resolveMediaUrl(raw)
-    currentUrl.value = objectUrl
-    if (!objectUrl) imageFailed.value = true
-  } else {
-    currentUrl.value = raw
-  }
+  currentUrl.value = raw
 }, { immediate: true })
-
-onUnmounted(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
 </script>

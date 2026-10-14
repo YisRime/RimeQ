@@ -1,7 +1,8 @@
 import { ref, shallowRef, computed, triggerRef } from 'vue'
 import { defineStore } from 'pinia'
 import { bot } from '@/api'
-import { database, encodeMessageMedia, type DBMessage, type DBMedia } from './database'
+import { database, type DBMessage } from './database'
+import { encodeMessageMedia } from './storage'
 import { useSessionStore } from './session'
 import { useSettingStore } from './setting'
 import { useContactStore } from './contact'
@@ -104,13 +105,7 @@ export const useMessageStore = defineStore('message', () => {
       const res = await bot.getMsgHistory(type, id, startMsgId, count, true)
       const list = res.messages || []
       if (list.length > 0) {
-        const media: DBMedia[] = []
-        const encoded = list.map(m => {
-          const item = encodeMessageMedia(normalizeMessage(m))
-          if (item.media.length) media.push(...item.media)
-          return item.message
-        })
-        if (media.length) await database.media.bulkPut(media)
+        const encoded = await Promise.all(list.map(m => encodeMessageMedia(normalizeMessage(m))))
         await database.messages.bulkPut(encoded)
         return list.length
       }
@@ -186,9 +181,8 @@ export const useMessageStore = defineStore('message', () => {
    * 接收实时消息推送
    * @param rawEvent - 原始消息事件
    */
-  function pushMessage(rawEvent: Message): void {
-    const { message: stored, media } = encodeMessageMedia(normalizeMessage(rawEvent))
-    if (media.length) database.media.bulkPut(media).catch(e => console.warn('[Message] 存储媒体失败:', e))
+  async function pushMessage(rawEvent: Message): Promise<void> {
+    const stored = await encodeMessageMedia(normalizeMessage(rawEvent))
     database.messages.put(stored).catch(e => console.warn('[Message] 存储消息失败:', e))
     if (activeId.value) {
       const activeSession = sessionStore.getSession(activeId.value)
@@ -304,7 +298,7 @@ export const useMessageStore = defineStore('message', () => {
     }
     if (settingStore.config.debugMode) console.log('[Message] 消息事件转换:', systemMsg)
     // 推送消息并更新会话
-    pushMessage(systemMsg)
+    void pushMessage(systemMsg)
     sessionStore.updateSession(targetId, {
       type: targetType,
       preview: text,

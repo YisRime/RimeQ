@@ -14,7 +14,6 @@ import { MotionPlugin } from '@vueuse/motion'
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 
 import App from './App.vue'
-import { initKv } from './stores/database'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -35,5 +34,4 @@ app.use(PrimeVue, {
   }
 })
 
-// 预载键值缓存
-initKv().finally(() => app.mount('#app'))
+app.mount('#app')

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { shallowReactive, shallowRef, computed } from 'vue'
+import { useStorage } from '@vueuse/core'
 import { bot } from '@/api'
-import { database, useIdbStorage } from './database'
+import { database } from './database'
 import type { GroupInfo, Request, Notice, FriendCategory, GroupMemberInfo } from '@/types'
 
 /**
@@ -10,36 +11,26 @@ import type { GroupInfo, Request, Notice, FriendCategory, GroupMemberInfo } from
  */
 export const useContactStore = defineStore('contact', () => {
   /** 持久化的好友列表 */
-  const friends = useIdbStorage<FriendCategory[]>('rimeq-friends', [])
+  const friends = useStorage<FriendCategory[]>('rimeq-friends', [])
   /** 持久化的群组列表 */
-  const groups = useIdbStorage<GroupInfo[]>('rimeq-groups', [])
+  const groups = useStorage<GroupInfo[]>('rimeq-groups', [])
   /** 持久化的系统请求 */
-  const requests = useIdbStorage<Request[]>('rimeq-requests', [])
+  const requests = useStorage<Request[]>('rimeq-requests', [])
   /** 持久化的系统通知 */
-  const notices = useIdbStorage<Notice[]>('rimeq-notices', [])
+  const notices = useStorage<Notice[]>('rimeq-notices', [])
   /** 群成员内存缓存 */
   const members = shallowReactive(new Map<number, GroupMemberInfo[]>())
   /** 已加载成员列表的群组 ID */
   const fetchedGroups = shallowRef(new Set<number>())
 
-  /** 好友名称与 ID 的索引 */
-  const friendIndex = computed(() => {
+  /** 好友 ID 到名称的映射 */
+  const friendNameMap = computed(() => {
     const map = new Map<number, string>()
     for (const cat of friends.value) {
       for (const f of cat.buddyList) map.set(f.user_id, f.remark || f.nickname)
     }
     return map
   })
-
-  /**
-   * 获取群成员
-   * @param groupId - 目标群号
-   * @param userId - 用户的 ID
-   * @returns 群成员信息，未找到返回 undefined
-   */
-  function getMember(groupId: number, userId: number): GroupMemberInfo | undefined {
-    return members.get(groupId)?.find(m => m.user_id === userId)
-  }
 
   /**
    * 从 API 拉取所有联系人信息，包括好友和群组列表
@@ -213,6 +204,16 @@ export const useContactStore = defineStore('contact', () => {
   }
 
   /**
+   * 获取群成员
+   * @param groupId - 目标群号
+   * @param userId - 用户的 ID
+   * @returns 群成员信息，未找到返回 undefined
+   */
+  function getMember(groupId: number, userId: number): GroupMemberInfo | undefined {
+    return members.get(groupId)?.find(m => m.user_id === userId)
+  }
+
+  /**
    * 获取用户的显示名称
    * @param userId - 用户的 ID
    * @param groupId - (可选) 当前群号，用于获取群名片
@@ -224,7 +225,7 @@ export const useContactStore = defineStore('contact', () => {
       const member = getMember(groupId, userId)
       if (member) return member.card || member.nickname
     }
-    const friendName = friendIndex.value.get(userId)
+    const friendName = friendNameMap.value.get(userId)
     if (friendName) return friendName
     for (const memberList of members.values()) {
       const m = memberList.find(u => u.user_id === userId)
